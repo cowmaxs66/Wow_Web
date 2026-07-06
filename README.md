@@ -4,18 +4,19 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P5 脚本管理与安全机制
-- 当前版本：v0.8.0
-- 当前目标：完成脚本 manifest、签名、hash 和权限白名单安全门
+- 当前阶段：P6 发布归档与交接
+- 当前版本：v1.0.0
+- 当前目标：完成发布资料、交接清单、部署运行指南、安全边界说明和最终验证
 
 ## 第一里程碑
-已完成 P0-P4 技术闭环。当前 P5 已建立脚本执行前安全门：
+已完成 P0-P6 第一轮源码与文档可交接闭环：
 
 1. Client Agent 能执行 Lua bootstrap。
 2. DmBridge 能通过 Rust/Lua 调用大漠最小链路。
 3. Management Server 能接收和查询 Client 状态。
 4. Web Admin 能在浏览器查看 Server 健康和 Client 最新状态。
 5. Client Agent 执行 Lua 前会校验 manifest、Ed25519 签名、SHA-256 和权限白名单。
+6. 发布归档已补齐交接、部署、安全边界和最终验证资料。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -29,6 +30,10 @@
 ## 验证命令
 ```powershell
 cargo test --workspace
+cargo clippy --workspace -- -D warnings
 cd 实现模块/web-admin
 npm run build
 ```
+
+## 发布归档
+v1.0.0 发布资料见：`发布归档/README.md`。

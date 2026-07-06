@@ -19,6 +19,7 @@
 | Web Admin 生产构建 | `npm run build` | 已通过 |
 | P4 Web Admin 浏览器烟测 | Playwright fallback 桌面/移动视口 | 已通过 |
 | P5 脚本安全测试 | hash、签名、权限、Lua API 拒绝测试 | 已通过 |
+| P6 最终发布验证 | 前后端构建、DmBridge 编译、Server/Client 烟测 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -74,3 +75,14 @@
 - 签名拒绝测试：通过，manifest 签名错误时拒绝加载。
 - 权限拒绝测试：通过，manifest 请求 `dm.access` 但配置未授权时拒绝加载。
 - Lua API 拒绝测试：通过，缺少 `config.read` 时 `get_config` 不注册。
+
+## P6 验证记录
+- `npm run build`：通过，`vue-tsc --noEmit` 与 `vite build` 成功。
+- `cargo fmt --all --check`：通过，无格式化差异。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 20 项测试、management-server 6 项测试、shared-types 2 项测试通过。
+- `cargo run -p client-agent`：通过，默认启用脚本安全门后仍输出 `current_script = bootstrap`。
+- P6 Server 上报烟测：通过，`GET /health` 返回 `ok`，`GET /api/client/status/local-dev-client` 返回 `online = true`、`current_script = bootstrap`。
+- DmBridge Win32 编译：通过，`.\实现模块\dm-bridge\build.ps1` 生成 `target/dm-bridge/Win32/DmBridge.dll`。
+- DmBridge 导出符号检查：通过，`tdump -ee target\dm-bridge\Win32\DmBridge.dll` 可看到 `dm_bridge_*` 导出函数。
+- 文档烟测修正：部署指南已改用 `CLIENT_AGENT_SERVER_HOST` 和 `CLIENT_AGENT_SERVER_PORT`，避免错误使用不存在的 `CLIENT_AGENT_SERVER_ADDR`。

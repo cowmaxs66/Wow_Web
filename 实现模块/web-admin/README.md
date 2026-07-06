@@ -8,7 +8,7 @@ Web 管理端，后续负责：
 - 脚本库、版本和指派管理。
 
 ## 当前状态
-P4 阶段已完成 Web 管理端 MVP，可读取 Management Server 健康状态和 Client 最新状态。
+P6 阶段已完成 Web 管理端 MVP 的发布交接文档。当前页面可读取 Management Server 健康状态和 Client 最新状态。
 
 ## 当前目录
 | 路径 | 职责 |

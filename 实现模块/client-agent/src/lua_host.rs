@@ -1,6 +1,9 @@
 use crate::config::AgentConfig;
 use crate::lua_dm;
-use crate::script::ScriptSource;
+use crate::script::{
+    PERMISSION_CONFIG_READ, PERMISSION_DM_ACCESS, PERMISSION_HOST_LOG, ScriptPermissions,
+    ScriptSource,
+};
 use mlua::{Error as LuaError, HookTriggers, Lua, VmState};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicI64, Ordering};
@@ -26,7 +29,7 @@ impl LuaHost {
     pub fn run_script(&self, script: &ScriptSource) -> mlua::Result<ScriptRunReport> {
         let lua = Lua::new();
         self.install_instruction_limit(&lua)?;
-        self.install_host_api(&lua)?;
+        self.install_host_api(&lua, &script.permissions)?;
 
         // Lua 文件由 script 模块读取，宿主只执行已确认的脚本文本。
         // 输入：ScriptSource 中的脚本名称、路径和内容。
@@ -42,23 +45,32 @@ impl LuaHost {
         })
     }
 
-    fn install_host_api(&self, lua: &Lua) -> mlua::Result<()> {
+    fn install_host_api(&self, lua: &Lua, permissions: &ScriptPermissions) -> mlua::Result<()> {
         let globals = lua.globals();
 
-        // 注册日志函数，让 Lua 可以输出可追踪日志，但不能直接操作文件或系统命令。
-        let client_id_for_log = self.config.client.id.clone();
-        let log = lua.create_function(move |_, message: String| {
-            tracing::info!(target: "lua", client_id = %client_id_for_log, message = %message);
-            Ok(())
-        })?;
-        globals.set("log", log)?;
+        // P5 只按 manifest 权限注册 Lua API，未授权能力在脚本内不可见。
+        // 输入：ScriptSource.permissions。
+        // 输出：Lua globals 中被允许的 API。
+        // 边界：这里不做“运行时弹性授权”，权限不满足就不注册函数。
+        if permissions.allows(PERMISSION_HOST_LOG) {
+            let client_id_for_log = self.config.client.id.clone();
+            let log = lua.create_function(move |_, message: String| {
+                tracing::info!(target: "lua", client_id = %client_id_for_log, message = %message);
+                Ok(())
+            })?;
+            globals.set("log", log)?;
+        }
 
-        // 注册只读配置函数，只允许读取明确白名单内的键，避免脚本窥探完整配置。
-        let config_for_lua = self.config.clone();
-        let get_config =
-            lua.create_function(move |_, key: String| Ok(config_for_lua.get_value(&key)))?;
-        globals.set("get_config", get_config)?;
-        globals.set("dm", lua_dm::create_table(lua, &self.config)?)?;
+        if permissions.allows(PERMISSION_CONFIG_READ) {
+            let config_for_lua = self.config.clone();
+            let get_config =
+                lua.create_function(move |_, key: String| Ok(config_for_lua.get_value(&key)))?;
+            globals.set("get_config", get_config)?;
+        }
+
+        if permissions.allows(PERMISSION_DM_ACCESS) {
+            globals.set("dm", lua_dm::create_table(lua, &self.config)?)?;
+        }
 
         Ok(())
     }
@@ -90,7 +102,9 @@ impl LuaHost {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AgentConfig, ClientConfig, DmConfig, LuaConfig, ServerConfig};
+    use crate::config::{
+        AgentConfig, ClientConfig, DmConfig, LuaConfig, ScriptSecurityConfig, ServerConfig,
+    };
     use std::path::PathBuf;
 
     fn test_config(instruction_limit: u32) -> AgentConfig {
@@ -102,6 +116,13 @@ mod tests {
                 bootstrap_name: "test-bootstrap".to_string(),
                 bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
                 instruction_limit,
+            },
+            script_security: ScriptSecurityConfig {
+                enabled: false,
+                manifest_path: PathBuf::from("scripts/bootstrap.manifest.json"),
+                trusted_signer_public_key:
+                    "1111111111111111111111111111111111111111111111111111111111111111".to_string(),
+                allowed_permissions: Vec::new(),
             },
             dm: DmConfig {
                 bridge_path: PathBuf::from("missing/DmBridge.dll"),
@@ -121,6 +142,21 @@ mod tests {
             name: "test-bootstrap".to_string(),
             path: PathBuf::from("scripts/bootstrap.lua"),
             content: content.to_string(),
+            permissions: ScriptPermissions::allow_all(),
+        }
+    }
+
+    fn restricted_test_script(content: &str, permissions: &[&str]) -> ScriptSource {
+        ScriptSource {
+            name: "test-bootstrap".to_string(),
+            path: PathBuf::from("scripts/bootstrap.lua"),
+            content: content.to_string(),
+            permissions: ScriptPermissions::from_list(
+                permissions
+                    .iter()
+                    .map(|permission| permission.to_string())
+                    .collect::<Vec<_>>(),
+            ),
         }
     }
 
@@ -146,6 +182,18 @@ mod tests {
             .expect_err("infinite loop must hit instruction limit");
 
         assert!(error.to_string().contains("Lua 脚本超过指令上限"));
+    }
+
+    #[test]
+    fn lua_bootstrap_denies_unlisted_config_api() {
+        let error = LuaHost::new(test_config(10_000))
+            .run_script(&restricted_test_script(
+                r#"return get_config("client.id")"#,
+                &[PERMISSION_HOST_LOG],
+            ))
+            .expect_err("missing config.read must fail");
+
+        assert!(error.to_string().contains("get_config"));
     }
 
     #[test]

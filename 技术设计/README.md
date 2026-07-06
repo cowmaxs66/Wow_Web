@@ -11,3 +11,4 @@
 | `DmBridge_C_ABI契约设计.md` | 记录 DmBridge DLL 导出函数、字符串、错误码和线程模型 |
 | `Server通讯闭环设计.md` | 记录 P3 Client/Server 本地通讯闭环 |
 | `Web管理端MVP设计.md` | 记录 P4 Web 管理端 MVP 边界 |
+| `脚本管理与安全机制设计.md` | 记录 P5 manifest、签名、hash 和权限边界 |

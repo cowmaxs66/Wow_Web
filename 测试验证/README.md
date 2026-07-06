@@ -18,6 +18,7 @@
 | P3 本地通讯烟测 | 启动 Server、Client 上报、GET 查询状态 | 已通过 |
 | Web Admin 生产构建 | `npm run build` | 已通过 |
 | P4 Web Admin 浏览器烟测 | Playwright fallback 桌面/移动视口 | 已通过 |
+| P5 脚本安全测试 | hash、签名、权限、Lua API 拒绝测试 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -61,3 +62,15 @@
 - Playwright 桌面视口：1440x920，通过，页面显示 `Server 正常`、`local-dev-client`、`bootstrap`，无横向溢出。
 - Playwright 移动视口：390x844，通过，客户端表格改为字段卡片，无文字截断和页面横向溢出。
 - 概念图对照：已用生成概念图和最终实现截图做 `view_image` 检查。
+
+## P5 验证记录
+- `cargo fmt --all`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 20 项测试、management-server 6 项测试、shared-types 2 项测试通过。
+- `cargo run -p client-agent`：通过，默认启用 manifest、签名、hash、权限校验后仍输出 `current_script = bootstrap`。
+- P5 Server 上报烟测：通过，安全门启用后 Client 仍可上报到 Management Server。
+- Web Admin 构建回归：通过，`npm run build` 成功。
+- hash 拒绝测试：通过，manifest hash 与 Lua 文件不匹配时拒绝加载。
+- 签名拒绝测试：通过，manifest 签名错误时拒绝加载。
+- 权限拒绝测试：通过，manifest 请求 `dm.access` 但配置未授权时拒绝加载。
+- Lua API 拒绝测试：通过，缺少 `config.read` 时 `get_config` 不注册。

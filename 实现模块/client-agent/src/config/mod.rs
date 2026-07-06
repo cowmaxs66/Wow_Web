@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 pub struct AgentConfig {
     pub client: ClientConfig,
     pub lua: LuaConfig,
+    pub script_security: ScriptSecurityConfig,
     pub dm: DmConfig,
     pub server: ServerConfig,
 }
@@ -26,6 +27,14 @@ pub struct LuaConfig {
     pub bootstrap_name: String,
     pub bootstrap_path: PathBuf,
     pub instruction_limit: u32,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct ScriptSecurityConfig {
+    pub enabled: bool,
+    pub manifest_path: PathBuf,
+    pub trusted_signer_public_key: String,
+    pub allowed_permissions: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -63,6 +72,7 @@ impl AgentConfig {
             "client.id" => Some(self.client.id.clone()),
             "lua.bootstrap_name" => Some(self.lua.bootstrap_name.clone()),
             "lua.bootstrap_path" => Some(self.lua.bootstrap_path.display().to_string()),
+            "script_security.enabled" => Some(self.script_security.enabled.to_string()),
             "dm.bridge_path" => Some(self.dm.bridge_path.display().to_string()),
             "server.enabled" => Some(self.server.enabled.to_string()),
             "server.host" => Some(self.server.host.clone()),
@@ -89,6 +99,11 @@ impl AgentConfig {
 
         if let Ok(value) = std::env::var("CLIENT_AGENT_SERVER_STATUS_PATH") {
             self.server.status_path = value;
+        }
+
+        if let Ok(value) = std::env::var("CLIENT_AGENT_SCRIPT_SECURITY_ENABLED") {
+            self.script_security.enabled =
+                parse_bool(path, "CLIENT_AGENT_SCRIPT_SECURITY_ENABLED", &value)?;
         }
 
         Ok(())
@@ -122,6 +137,34 @@ impl AgentConfig {
             return Err(ConfigError::validate(path, "dm.bridge_path 不能为空"));
         }
 
+        if self.script_security.enabled {
+            if self.script_security.manifest_path.as_os_str().is_empty() {
+                return Err(ConfigError::validate(
+                    path,
+                    "script_security.manifest_path 不能为空",
+                ));
+            }
+
+            if !is_hex_with_len(&self.script_security.trusted_signer_public_key, 64) {
+                return Err(ConfigError::validate(
+                    path,
+                    "script_security.trusted_signer_public_key 必须是 64 位十六进制 Ed25519 公钥",
+                ));
+            }
+
+            if self
+                .script_security
+                .allowed_permissions
+                .iter()
+                .any(|permission| permission.trim().is_empty())
+            {
+                return Err(ConfigError::validate(
+                    path,
+                    "script_security.allowed_permissions 不能包含空权限",
+                ));
+            }
+        }
+
         if self.server.host.trim().is_empty() {
             return Err(ConfigError::validate(path, "server.host 不能为空"));
         }
@@ -146,6 +189,10 @@ impl AgentConfig {
 
         Ok(())
     }
+}
+
+fn is_hex_with_len(value: &str, expected_len: usize) -> bool {
+    value.len() == expected_len && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn parse_bool(path: &Path, key: &str, value: &str) -> Result<bool, ConfigError> {
@@ -174,6 +221,13 @@ mod tests {
                 bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
                 instruction_limit: 1000,
             },
+            script_security: ScriptSecurityConfig {
+                enabled: true,
+                manifest_path: PathBuf::from("scripts/bootstrap.manifest.json"),
+                trusted_signer_public_key:
+                    "1111111111111111111111111111111111111111111111111111111111111111".to_string(),
+                allowed_permissions: vec!["host.log".to_string(), "config.read".to_string()],
+            },
             dm: DmConfig {
                 bridge_path: PathBuf::from("../../target/dm-bridge/Win32/DmBridge.dll"),
             },
@@ -201,6 +255,10 @@ mod tests {
         assert_eq!(
             config.get_value("server.status_path"),
             Some("/api/client/status".to_string())
+        );
+        assert_eq!(
+            config.get_value("script_security.enabled"),
+            Some("true".to_string())
         );
         assert_eq!(config.get_value("unknown.key"), None);
     }

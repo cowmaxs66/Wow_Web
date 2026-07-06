@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "script_id": "bootstrap",
+  "version": "0.1.0",
+  "entry": "bootstrap.lua",
+  "sha256": "c0702d602cfadbb9db0651858fff6a7deba647dccf0c029756dfd3dc2a78ddeb",
+  "permissions": ["host.log", "config.read"],
+  "signature": "660ad2c896b3a26f673ebf8b4e18f91dd5db75dd4345ecd89c63ba9c6cb4b7c7f068cb6c39f8103b6e8153dfb824e643ea7d3018d51d2739f02e728816b63708"
+}

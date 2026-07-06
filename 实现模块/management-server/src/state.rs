@@ -1,6 +1,8 @@
+use crate::persistence::{HistoryPersistence, PersistenceError};
 use shared_types::{ClientStatus, WsEnvelope};
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 pub const CLIENT_HISTORY_LIMIT: usize = 50;
@@ -9,17 +11,41 @@ pub const CLIENT_HISTORY_LIMIT: usize = 50;
 pub struct ServerState {
     clients: Arc<RwLock<HashMap<String, WsEnvelope<ClientStatus>>>>,
     histories: Arc<RwLock<HashMap<String, VecDeque<WsEnvelope<ClientStatus>>>>>,
+    persistence: Option<HistoryPersistence>,
 }
 
 impl ServerState {
-    pub fn save_status(&self, envelope: WsEnvelope<ClientStatus>) {
+    pub fn with_persistence(path: PathBuf) -> Result<Self, PersistenceError> {
+        let persistence = HistoryPersistence::open(path.clone())?;
+        let state = Self {
+            persistence: Some(persistence),
+            ..Self::default()
+        };
+
+        for envelope in HistoryPersistence::load(&path)? {
+            state.save_status_in_memory(envelope);
+        }
+
+        Ok(state)
+    }
+
+    pub fn save_status(&self, envelope: WsEnvelope<ClientStatus>) -> Result<(), PersistenceError> {
+        if let Some(persistence) = &self.persistence {
+            persistence.append(&envelope)?;
+        }
+
+        self.save_status_in_memory(envelope);
+        Ok(())
+    }
+
+    fn save_status_in_memory(&self, envelope: WsEnvelope<ClientStatus>) {
         let client_id = envelope.client_id.clone();
 
         let mut clients = self.clients.write().expect("client status lock poisoned");
         // 最新状态仍然单独保存，保证 P3/P4/P7 的查询接口语义不变。
         // 输入：Client 上报的状态信封。
         // 输出：内存中的最新状态快照。
-        // 边界：进程退出即丢失，历史持久化后续阶段单独设计。
+        // 边界：未配置持久化时进程退出即丢失；配置持久化时启动会从 JSONL 回放。
         clients.insert(client_id.clone(), envelope.clone());
         drop(clients);
 
@@ -68,6 +94,8 @@ impl ServerState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn state_keeps_latest_client_status() {
@@ -75,7 +103,9 @@ mod tests {
         let status = ClientStatus::new("client-a");
         let envelope = WsEnvelope::status("client-a", status);
 
-        state.save_status(envelope.clone());
+        state
+            .save_status(envelope.clone())
+            .expect("status must save");
 
         assert_eq!(state.get_status("client-a"), Some(envelope));
         assert_eq!(state.get_status("missing"), None);
@@ -84,14 +114,18 @@ mod tests {
     #[test]
     fn state_lists_client_statuses_in_stable_order() {
         let state = ServerState::default();
-        state.save_status(WsEnvelope::status(
-            "client-b",
-            ClientStatus::new("client-b"),
-        ));
-        state.save_status(WsEnvelope::status(
-            "client-a",
-            ClientStatus::new("client-a"),
-        ));
+        state
+            .save_status(WsEnvelope::status(
+                "client-b",
+                ClientStatus::new("client-b"),
+            ))
+            .expect("client-b must save");
+        state
+            .save_status(WsEnvelope::status(
+                "client-a",
+                ClientStatus::new("client-a"),
+            ))
+            .expect("client-a must save");
 
         let statuses = state.list_statuses();
 
@@ -108,7 +142,7 @@ mod tests {
             let mut envelope = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
             envelope.timestamp_ms = index as u128;
             envelope.message_id = format!("client-a-{index}");
-            state.save_status(envelope);
+            state.save_status(envelope).expect("status must save");
         }
 
         let history = state.get_history("client-a");
@@ -120,5 +154,43 @@ mod tests {
             format!("client-a-{}", CLIENT_HISTORY_LIMIT + 1)
         );
         assert!(state.get_history("missing").is_empty());
+    }
+
+    #[test]
+    fn state_replays_persisted_history_on_startup() {
+        let dir = unique_temp_dir("state-replay");
+        let path = dir.join("status-history.jsonl");
+        let state = ServerState::with_persistence(path.clone()).expect("state must open");
+
+        for index in 0..3 {
+            let mut envelope = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
+            envelope.timestamp_ms = 2000 + index;
+            envelope.message_id = format!("persisted-{index}");
+            state.save_status(envelope).expect("status must persist");
+        }
+
+        let reloaded = ServerState::with_persistence(path).expect("state must replay");
+        let history = reloaded.get_history("client-a");
+
+        assert_eq!(history.len(), 3);
+        assert_eq!(history[0].message_id, "persisted-0");
+        assert_eq!(
+            reloaded
+                .get_status("client-a")
+                .expect("latest must replay")
+                .message_id,
+            "persisted-2"
+        );
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    fn unique_temp_dir(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock must be valid")
+            .as_nanos();
+
+        std::env::temp_dir().join(format!("wow-{name}-{}-{nanos}", std::process::id()))
     }
 }

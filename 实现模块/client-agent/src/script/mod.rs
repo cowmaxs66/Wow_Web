@@ -37,7 +37,7 @@ impl ScriptSource {
         // 脚本加载只负责把受控路径转换成脚本文本，不注册能力、不执行代码。
         // 输入：配置中的 bootstrap_name 与 bootstrap_path。
         // 输出：带名称、绝对路径和文本内容的 ScriptSource。
-        // 边界：相对路径固定按 client-agent 模块根目录解析，避免从 workspace 根目录运行时路径漂移。
+        // 边界：相对路径优先按当前目录解析，找不到时回退到源码模块目录。
         Ok(Self {
             name: config.lua.bootstrap_name.clone(),
             path,
@@ -87,6 +87,16 @@ fn resolve_module_path(path: &PathBuf) -> PathBuf {
         return path.clone();
     }
 
+    let cwd_path = path.clone();
+    if cwd_path.exists() {
+        return fs::canonicalize(&cwd_path).unwrap_or(cwd_path);
+    }
+
+    // 发布包从包根目录运行时，`scripts/bootstrap.lua` 会位于当前目录下。
+    // 开发期从 workspace 根目录运行时当前目录通常没有该文件，所以回退到编译期模块目录。
+    // 输入：配置中的相对脚本路径。
+    // 输出：优先适配发布包，其次适配源码开发目录的实际脚本路径。
+    // 边界：后续接入 CLI 参数后，应由用户显式传入脚本根目录。
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(path)
 }
 

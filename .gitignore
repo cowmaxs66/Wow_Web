@@ -16,6 +16,8 @@ coverage/
 *.local
 *.identcache
 __history/
+data/
+*.jsonl
 *.rlib
 *.sqlite
 *.db

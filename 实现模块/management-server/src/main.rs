@@ -1,6 +1,7 @@
 mod app;
 mod config;
 mod error;
+mod persistence;
 mod state;
 
 use config::ServerConfig;
@@ -12,10 +13,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
     init_logging();
 
     let config = ServerConfig::from_env()?;
-    let listener = TcpListener::bind(config.bind_addr).await?;
-    tracing::info!(bind = %config.bind_addr, "Management Server 已启动");
+    let state = match config.history_path.clone() {
+        Some(path) => state::ServerState::with_persistence(path)?,
+        None => state::ServerState::default(),
+    };
 
-    axum::serve(listener, app::build_router(state::ServerState::default())).await?;
+    let listener = TcpListener::bind(config.bind_addr).await?;
+    tracing::info!(
+        bind = %config.bind_addr,
+        history_path = ?config.history_path,
+        "Management Server 已启动"
+    );
+
+    axum::serve(listener, app::build_router(state)).await?;
     Ok(())
 }
 

@@ -22,6 +22,7 @@
 | P6 最终发布验证 | 前后端构建、DmBridge 编译、Server/Client 烟测 | 已通过 |
 | P7 Web 信息扩展验证 | 协议扩展、前端构建、浏览器桌面/移动烟测 | 已通过 |
 | P8 历史趋势验证 | 历史 API、Web 趋势面板、浏览器桌面/移动烟测 | 已通过 |
+| P9 持久化与编译包验证 | JSONL 重启恢复、release build、普通编译包包内烟测 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -110,3 +111,16 @@
 - Playwright fallback 桌面视口：1440x920，通过，页面显示 `歷史趨勢`、`3/50`、`v1.2.0`、`local-dev-client`，无横向溢出。
 - Playwright fallback 移动视口：390x844，通过，历史趋势、快照、列表、设置、详情单列展示，无横向溢出。
 - `view_image` 截图复查：发现并修复历史趋势面板 SVG 选择器过宽导致图标放大的问题。
+
+## P9 验证记录
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 21 项测试、management-server 13 项测试、shared-types 3 项测试通过。
+- `cargo build --workspace`：通过。
+- `cargo build --workspace --release`：通过，生成 Windows release 可执行文件。
+- `npm run build`：通过，`vue-tsc --noEmit` 与 `vite build` 成功，Web Admin 版本为 `1.3.0`。
+- P9 持久化烟测：通过，Server 启用 `MANAGEMENT_SERVER_HISTORY_PATH` 后连续接收两次 Client 上报，JSONL 文件写入 2 行。
+- P9 重启恢复烟测：通过，Server 停止后使用同一 JSONL 文件重启，`GET /api/client/history/local-dev-client` 仍返回 `history_total = 2`。
+- P9 版本烟测：通过，恢复后的最新状态返回 `release_version = v1.3.0`、`current_script = bootstrap`。
+- 普通编译包包内烟测：通过，从包根目录运行 `bin/management-server.exe` 和 `bin/client-agent.exe`，历史 API 返回 `history_total = 1`。
+- 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、`.env` 和 JSONL 历史文件。

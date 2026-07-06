@@ -30,7 +30,9 @@ async fn report_status(
     validate_status_envelope(&envelope)?;
 
     let ack = StatusAck::accepted(envelope.client_id.clone(), envelope.message_id.clone());
-    state.save_status(envelope);
+    state
+        .save_status(envelope)
+        .map_err(|error| ApiError::Internal(format!("failed to save client status: {error}")))?;
     Ok(Json(ack))
 }
 

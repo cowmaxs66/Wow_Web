@@ -16,6 +16,8 @@
 | DmBridge 32 位 COM 烟测 | `cargo test -p client-agent --target i686-pc-windows-msvc dm_bridge_com_ver_and_color_smoke_when_enabled` | 已通过 |
 | Lua dm 32 位 COM 烟测 | `cargo test -p client-agent --target i686-pc-windows-msvc lua_dm_api_com_ver_and_color_smoke_when_enabled` | 已通过 |
 | P3 本地通讯烟测 | 启动 Server、Client 上报、GET 查询状态 | 已通过 |
+| Web Admin 生产构建 | `npm run build` | 已通过 |
+| P4 Web Admin 浏览器烟测 | Playwright fallback 桌面/移动视口 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -48,3 +50,14 @@
 - `cargo run -p client-agent`：默认不上报 Server，仍可独立输出状态 JSON。
 - 上报模块拆分后最终烟测：通过，直接启动 `management-server.exe`，运行 `client-agent.exe` 上报到 `127.0.0.1:18082`。
 - 烟测残留：已删除 `target/p3-smoke` 临时日志目录。
+
+## P4 验证记录
+- `npm run build`：通过，`vue-tsc --noEmit` 与 `vite build` 均成功。
+- `cargo fmt --all`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 13 项测试、management-server 6 项测试、shared-types 2 项测试通过。
+- P4 API 烟测：通过，`GET /api/client/status` 返回 `local-dev-client`，`current_script = bootstrap`。
+- Browser/IAB：当前会话未暴露直接浏览器控制工具，使用 Playwright fallback。
+- Playwright 桌面视口：1440x920，通过，页面显示 `Server 正常`、`local-dev-client`、`bootstrap`，无横向溢出。
+- Playwright 移动视口：390x844，通过，客户端表格改为字段卡片，无文字截断和页面横向溢出。
+- 概念图对照：已用生成概念图和最终实现截图做 `view_image` 检查。

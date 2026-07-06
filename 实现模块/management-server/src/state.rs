@@ -26,6 +26,18 @@ impl ServerState {
             .get(client_id)
             .cloned()
     }
+
+    pub fn list_statuses(&self) -> Vec<WsEnvelope<ClientStatus>> {
+        let clients = self.clients.read().expect("client status lock poisoned");
+        let mut statuses: Vec<_> = clients.values().cloned().collect();
+
+        // 列表输出按 client_id 排序，保证 Web 管理端和测试看到稳定顺序。
+        // 输入：内存中的最新状态 HashMap。
+        // 输出：按 client_id 升序排列的状态数组。
+        // 边界：P4 不返回历史记录，只返回每个 Client 最后一条状态。
+        statuses.sort_by(|left, right| left.client_id.cmp(&right.client_id));
+        statuses
+    }
 }
 
 #[cfg(test)]
@@ -42,5 +54,24 @@ mod tests {
 
         assert_eq!(state.get_status("client-a"), Some(envelope));
         assert_eq!(state.get_status("missing"), None);
+    }
+
+    #[test]
+    fn state_lists_client_statuses_in_stable_order() {
+        let state = ServerState::default();
+        state.save_status(WsEnvelope::status(
+            "client-b",
+            ClientStatus::new("client-b"),
+        ));
+        state.save_status(WsEnvelope::status(
+            "client-a",
+            ClientStatus::new("client-a"),
+        ));
+
+        let statuses = state.list_statuses();
+
+        assert_eq!(statuses.len(), 2);
+        assert_eq!(statuses[0].client_id, "client-a");
+        assert_eq!(statuses[1].client_id, "client-b");
     }
 }

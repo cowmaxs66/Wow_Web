@@ -8,13 +8,14 @@
 - 状态、日志、配置、脚本元数据持久化。
 
 ## 当前状态
-P3 阶段已完成本地 HTTP 状态上报闭环。
+P4 阶段已完成 Web Admin 读取所需的本地 HTTP API。
 
 ## 当前 API
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `GET` | `/health` | 健康检查 |
 | `POST` | `/api/client/status` | 接收 `WsEnvelope<ClientStatus>` 状态上报 |
+| `GET` | `/api/client/status` | 查询所有 Client 最新状态 |
 | `GET` | `/api/client/status/{client_id}` | 查询指定 Client 最新状态 |
 
 ## 当前目录
@@ -25,6 +26,10 @@ P3 阶段已完成本地 HTTP 状态上报闭环。
 | `src/state.rs` | Client 状态内存仓库 |
 | `src/error.rs` | API 错误响应 |
 | `src/app.rs` | Axum Router 和 handler |
+
+## P4 说明
+- 当前 CORS 使用开发期宽松配置，方便 `web-admin` 本地 Vite 调试。
+- 生产部署前必须结合鉴权、TLS 和来源白名单收紧。
 
 ## 验证命令
 ```powershell

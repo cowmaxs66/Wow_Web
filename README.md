@@ -4,17 +4,17 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P1 Client Agent 最小闭环
-- 当前版本：v0.1.0
-- 当前目标：建立配置读取与 Lua 宿主最小闭环
+- 当前阶段：P4 Web 管理端 MVP
+- 当前版本：v0.5.0
+- 当前目标：完成浏览器管理端查看 Server 健康和 Client 状态
 
 ## 第一里程碑
-已完成 P0 项目骨架。当前 P1 先完成单机最小闭环：
+已完成 P0-P3 技术闭环。当前 P4 已建立 Web 管理端 MVP：
 
-1. Client Agent 能启动。
-2. Client Agent 能读取本地 TOML 配置。
-3. Client Agent 能启动 Lua 宿主并注册白名单 API。
-4. Client Agent 能生成标准状态消息。
+1. Client Agent 能执行 Lua bootstrap。
+2. DmBridge 能通过 Rust/Lua 调用大漠最小链路。
+3. Management Server 能接收和查询 Client 状态。
+4. Web Admin 能在浏览器查看 Server 健康和 Client 最新状态。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -28,4 +28,6 @@
 ## 验证命令
 ```powershell
 cargo test --workspace
+cd 实现模块/web-admin
+npm run build
 ```

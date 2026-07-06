@@ -5,6 +5,8 @@
 ## 当前验证项
 | 验证项 | 命令 | 状态 |
 |--------|------|------|
+| Rust 格式化 | `cargo fmt --all` | 已通过 |
+| Rust Clippy | `cargo clippy --workspace -- -D warnings` | 已通过 |
 | Rust workspace 测试 | `cargo test --workspace` | 已通过 |
 | Client 状态输出 | `cargo run -p client-agent` | 已通过 |
 | Server 契约输出 | `cargo run -p management-server` | 已通过 |
@@ -13,6 +15,7 @@
 | DmBridge 32 位 ABI 测试 | `cargo test -p client-agent --target i686-pc-windows-msvc dm_bridge_loads_abi_version_from_env_when_available` | 已通过 |
 | DmBridge 32 位 COM 烟测 | `cargo test -p client-agent --target i686-pc-windows-msvc dm_bridge_com_ver_and_color_smoke_when_enabled` | 已通过 |
 | Lua dm 32 位 COM 烟测 | `cargo test -p client-agent --target i686-pc-windows-msvc lua_dm_api_com_ver_and_color_smoke_when_enabled` | 已通过 |
+| P3 本地通讯烟测 | 启动 Server、Client 上报、GET 查询状态 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -34,3 +37,14 @@
 - `dm_bridge_init -> dm_bridge_ver -> dm_bridge_get_color -> dm_bridge_move_to -> dm_bridge_shutdown`：通过，返回大漠版本 `7.2149`，取色返回 `000000`，`MoveTo` 返回 `1`。
 - Lua `dm.init -> dm.ver -> dm.get_color -> dm.move_to -> dm.shutdown`：通过，Lua 高层 API 可穿透到 DmBridge。
 - 安全说明：自动烟测未执行 `LeftClick`，避免误点击；`LeftClick` 已完成导出和 Rust/Lua 封装。
+
+## P3 验证记录
+- `cargo fmt --all`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 13 项测试、management-server 4 项测试、shared-types 2 项测试通过。
+- `GET /health`：通过，返回 `status = ok`。
+- `POST /api/client/status`：通过，Client 上报 `local-dev-client` 状态后 Server 返回 ACK。
+- `GET /api/client/status/local-dev-client`：通过，返回 `message_type = status`、`current_script = bootstrap`、`online = true`。
+- `cargo run -p client-agent`：默认不上报 Server，仍可独立输出状态 JSON。
+- 上报模块拆分后最终烟测：通过，直接启动 `management-server.exe`，运行 `client-agent.exe` 上报到 `127.0.0.1:18082`。
+- 烟测残留：已删除 `target/p3-smoke` 临时日志目录。

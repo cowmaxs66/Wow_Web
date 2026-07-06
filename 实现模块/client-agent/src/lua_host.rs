@@ -65,7 +65,7 @@ impl LuaHost {
 
     fn install_instruction_limit(&self, lua: &Lua) -> mlua::Result<()> {
         let instruction_limit = self.config.lua.instruction_limit;
-        let hook_step = instruction_limit.min(1000).max(1);
+        let hook_step = instruction_limit.clamp(1, 1000);
         let remaining = AtomicI64::new(i64::from(instruction_limit));
 
         // 用 VM hook 做开发期最小防护，避免 Lua 脚本无限循环卡死 Agent。
@@ -90,7 +90,7 @@ impl LuaHost {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AgentConfig, ClientConfig, DmConfig, LuaConfig};
+    use crate::config::{AgentConfig, ClientConfig, DmConfig, LuaConfig, ServerConfig};
     use std::path::PathBuf;
 
     fn test_config(instruction_limit: u32) -> AgentConfig {
@@ -105,6 +105,13 @@ mod tests {
             },
             dm: DmConfig {
                 bridge_path: PathBuf::from("missing/DmBridge.dll"),
+            },
+            server: ServerConfig {
+                enabled: false,
+                host: "127.0.0.1".to_string(),
+                port: 18080,
+                status_path: "/api/client/status".to_string(),
+                connect_timeout_ms: 3000,
             },
         }
     }

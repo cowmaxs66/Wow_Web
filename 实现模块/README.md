@@ -6,7 +6,7 @@
 | 模块 | 类型 | 当前状态 | 职责 |
 |------|------|----------|------|
 | `shared-types` | Rust library | 进行中 | Client/Server 共用协议类型 |
-| `client-agent` | Rust binary | 进行中 | 客户端代理入口 |
-| `management-server` | Rust binary | 进行中 | 管理服务入口 |
-| `dm-bridge` | Delphi DLL | 未开始 | 大漠 COM 桥接 |
+| `client-agent` | Rust binary | 进行中 | 客户端代理入口、Lua 宿主、大漠高层 API、状态上报 |
+| `management-server` | Rust binary | 进行中 | HTTP 状态接收与查询 |
+| `dm-bridge` | Delphi DLL | 进行中 | 大漠 COM 桥接 |
 | `web-admin` | Vue frontend | 未开始 | Web 管理端 |

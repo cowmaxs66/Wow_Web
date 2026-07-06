@@ -4,11 +4,13 @@ mod logging;
 mod lua_dm;
 mod lua_host;
 mod script;
+mod server_reporter;
 mod status;
 
 use config::{AgentConfig, default_config_path};
 use lua_host::LuaHost;
 use script::ScriptSource;
+use server_reporter::StatusReporter;
 use shared_types::WsEnvelope;
 use status::AgentStatusSnapshot;
 use std::error::Error;
@@ -29,6 +31,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let status = AgentStatusSnapshot::from_script_report(&config, &report).into_client_status();
     let envelope = WsEnvelope::status(config.client.id.clone(), status);
+
+    if config.server.enabled {
+        let ack = StatusReporter::new(config.server.clone()).report_status(&envelope)?;
+        tracing::info!(
+            client_id = %ack.client_id,
+            message_id = %ack.message_id,
+            accepted = ack.accepted,
+            "Client 状态已上报 Management Server"
+        );
+    }
 
     // 当前阶段输出标准 JSON，验证配置读取、Lua 宿主和协议消息可以串成闭环。
     // 输入：本地 TOML 配置和 bootstrap Lua 文件。

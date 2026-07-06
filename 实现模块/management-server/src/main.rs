@@ -1,13 +1,30 @@
-use shared_types::{ClientStatus, WsEnvelope};
+mod app;
+mod config;
+mod error;
+mod state;
 
-fn main() {
-    let sample_status = ClientStatus::new("server-contract-check");
-    let envelope = WsEnvelope::status("server-contract-check", sample_status);
+use config::ServerConfig;
+use std::error::Error;
+use tokio::net::TcpListener;
 
-    // 服务端在 P0 阶段只复用协议类型，确认 Client/Server 使用同一份契约。
-    // 输入：开发期样例状态。
-    // 输出：可序列化的服务端契约检查消息。
-    // 边界：P3 接入 Axum 后，此入口会替换为真实 HTTP/WebSocket 服务。
-    let json = serde_json::to_string(&envelope).expect("server contract sample must serialize");
-    println!("{json}");
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    init_logging();
+
+    let config = ServerConfig::from_env()?;
+    let listener = TcpListener::bind(config.bind_addr).await?;
+    tracing::info!(bind = %config.bind_addr, "Management Server 已启动");
+
+    axum::serve(listener, app::build_router(state::ServerState::default())).await?;
+    Ok(())
+}
+
+fn init_logging() {
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .with_target(false)
+        .try_init();
 }

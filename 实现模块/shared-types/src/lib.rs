@@ -56,6 +56,36 @@ impl ClientStatus {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct HealthResponse {
+    pub status: String,
+}
+
+impl HealthResponse {
+    pub fn ok() -> Self {
+        Self {
+            status: "ok".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct StatusAck {
+    pub accepted: bool,
+    pub client_id: String,
+    pub message_id: String,
+}
+
+impl StatusAck {
+    pub fn accepted(client_id: impl Into<String>, message_id: impl Into<String>) -> Self {
+        Self {
+            accepted: true,
+            client_id: client_id.into(),
+            message_id: message_id.into(),
+        }
+    }
+}
+
 fn current_timestamp_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -76,5 +106,14 @@ mod tests {
         assert_eq!(envelope.client_id, "local-dev-client");
         assert_eq!(envelope.message_type, MessageType::Status);
         assert!(envelope.data.online);
+    }
+
+    #[test]
+    fn status_ack_keeps_message_identity() {
+        let ack = StatusAck::accepted("local-dev-client", "message-1");
+
+        assert!(ack.accepted);
+        assert_eq!(ack.client_id, "local-dev-client");
+        assert_eq!(ack.message_id, "message-1");
     }
 }

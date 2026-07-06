@@ -8,3 +8,10 @@ instruction_limit = 100000
 
 [dm]
 bridge_path = "../../target/dm-bridge/Win32/DmBridge.dll"
+
+[server]
+enabled = false
+host = "127.0.0.1"
+port = 18080
+status_path = "/api/client/status"
+connect_timeout_ms = 3000

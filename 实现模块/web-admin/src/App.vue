@@ -15,6 +15,7 @@ import HistoryTrendPanel from "./components/HistoryTrendPanel.vue";
 import MetricCard from "./components/MetricCard.vue";
 import SnapshotAnalytics from "./components/SnapshotAnalytics.vue";
 import StatusDot from "./components/StatusDot.vue";
+import SetupWizardPanel from "./components/SetupWizardPanel.vue";
 import { useDashboardStatus } from "./composables/useDashboardStatus";
 
 const {
@@ -58,6 +59,12 @@ const {
         </button>
       </div>
     </header>
+
+    <SetupWizardPanel
+      v-model:server-url="serverUrl"
+      v-model:client-id="clientId"
+      @apply="refreshDashboard"
+    />
 
     <section class="metrics-grid" aria-label="狀態指標">
       <MetricCard

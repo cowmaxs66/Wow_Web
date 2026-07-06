@@ -4,12 +4,12 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P9 生产持久化 MVP
-- 当前版本：v1.3.0
-- 当前目标：让 Management Server 状态历史具备本地 JSONL 持久化与启动恢复能力
+- 当前阶段：P10 一键运行与首次设置向导
+- 当前版本：v1.4.0
+- 当前目标：让本机发布包能一键启动 Server、Client 和 Web Admin，并提供首次设置向导
 
 ## 第一里程碑
-已完成 P0-P9 第一轮源码、Web 信息扩展、短期历史分析与持久化闭环：
+已完成 P0-P10 第一轮源码、Web 信息扩展、短期历史分析、持久化与一键运行闭环：
 
 1. Client Agent 能执行 Lua bootstrap。
 2. DmBridge 能通过 Rust/Lua 调用大漠最小链路。
@@ -20,6 +20,7 @@
 7. Web Admin 能展示在线比例、脚本分布、Agent 运行详情、脚本安全配置和 Server 上报目标。
 8. Management Server 能保存短期状态历史，Web Admin 能展示真实历史趋势。
 9. Management Server 可选启用 JSONL 历史持久化，重启后可恢复最新状态和短期历史。
+10. Management Server 可托管 Web Admin，工具脚本可一键启动本机 Server/Client，Web Admin 提供首次设置向导。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -29,6 +30,7 @@
 | `实现模块/` | Rust、Delphi、Web 等实现模块 |
 | `测试验证/` | 编译检查、烟测、测试记录 |
 | `发布归档/` | 版本发布、交付资料、归档说明 |
+| `tools/` | 一键运行和本机试运行脚本 |
 
 ## 验证命令
 ```powershell
@@ -39,4 +41,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.3.0 发布资料见：`发布归档/README.md`。
+v1.4.0 发布资料见：`发布归档/README.md`。

@@ -6,17 +6,32 @@ use axum::{Json, Router};
 use shared_types::{
     ClientStatus, ClientStatusHistory, HealthResponse, MessageType, StatusAck, WsEnvelope,
 };
+use std::path::PathBuf;
 use tower_http::cors::CorsLayer;
+use tower_http::services::{ServeDir, ServeFile};
 
-pub fn build_router(state: ServerState) -> Router {
-    Router::new()
+pub fn build_router_with_web_dir(state: ServerState, web_dir: Option<PathBuf>) -> Router {
+    let router = Router::new()
         .route("/health", get(health))
         .route("/api/client/status", get(list_statuses).post(report_status))
         .route("/api/client/status/{client_id}", get(get_status))
         .route("/api/client/history/{client_id}", get(get_history))
         .with_state(state)
         // P4 只用于本机 Web Admin 开发联调。生产部署前必须改为明确来源白名单。
-        .layer(CorsLayer::permissive())
+        .layer(CorsLayer::permissive());
+
+    if let Some(web_dir) = web_dir {
+        let index_path = web_dir.join("index.html");
+        // P10 一键运行模式：Server 可直接托管 Web Admin 静态产物。
+        // 输入：MANAGEMENT_SERVER_WEB_DIR 指向的 dist 目录。
+        // 输出：未命中 API 的路径返回静态文件，SPA 路径回退到 index.html。
+        // 边界：API 路由仍优先匹配；生产部署前仍需补鉴权和 CORS 白名单。
+        return router.fallback_service(
+            ServeDir::new(web_dir).not_found_service(ServeFile::new(index_path)),
+        );
+    }
+
+    router
 }
 
 async fn health() -> Json<HealthResponse> {
@@ -94,11 +109,13 @@ mod tests {
     use super::*;
     use axum::body::{Body, to_bytes};
     use axum::http::{Request, StatusCode};
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
     use tower::ServiceExt;
 
     #[tokio::test]
     async fn status_report_can_be_queried_back() {
-        let app = build_router(ServerState::default());
+        let app = build_router_with_web_dir(ServerState::default(), None);
         let status = ClientStatus::new("client-a");
         let envelope = WsEnvelope::status("client-a", status);
         let body = serde_json::to_vec(&envelope).expect("status must serialize");
@@ -138,7 +155,7 @@ mod tests {
 
     #[tokio::test]
     async fn mismatched_client_id_is_rejected() {
-        let app = build_router(ServerState::default());
+        let app = build_router_with_web_dir(ServerState::default(), None);
         let mut envelope = WsEnvelope::status("client-a", ClientStatus::new("client-b"));
         envelope.client_id = "client-a".to_string();
         let body = serde_json::to_vec(&envelope).expect("status must serialize");
@@ -160,7 +177,7 @@ mod tests {
 
     #[tokio::test]
     async fn status_list_returns_all_latest_clients() {
-        let app = build_router(ServerState::default());
+        let app = build_router_with_web_dir(ServerState::default(), None);
 
         for client_id in ["client-b", "client-a"] {
             let envelope = WsEnvelope::status(client_id, ClientStatus::new(client_id));
@@ -205,7 +222,7 @@ mod tests {
 
     #[tokio::test]
     async fn status_history_returns_samples_for_client() {
-        let app = build_router(ServerState::default());
+        let app = build_router_with_web_dir(ServerState::default(), None);
 
         for index in 0..3 {
             let mut envelope = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
@@ -250,5 +267,40 @@ mod tests {
         assert_eq!(history.total, 3);
         assert_eq!(history.items[0].message_id, "client-a-0");
         assert_eq!(history.items[2].message_id, "client-a-2");
+    }
+
+    #[tokio::test]
+    async fn static_web_dir_serves_index_when_configured() {
+        let web_dir = unique_temp_dir("web-dir");
+        fs::create_dir_all(&web_dir).expect("web dir must exist");
+        fs::write(web_dir.join("index.html"), "<main>WoW Control</main>")
+            .expect("index must write");
+        let app = build_router_with_web_dir(ServerState::default(), Some(web_dir.clone()));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        assert!(String::from_utf8_lossy(&body).contains("WoW Control"));
+
+        let _ = fs::remove_dir_all(web_dir);
+    }
+
+    fn unique_temp_dir(name: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock must be valid")
+            .as_nanos();
+
+        std::env::temp_dir().join(format!("wow-{name}-{}-{nanos}", std::process::id()))
     }
 }

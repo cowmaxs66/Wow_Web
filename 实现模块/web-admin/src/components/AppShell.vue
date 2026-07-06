@@ -137,9 +137,8 @@ nav {
     position: sticky;
     top: 0;
     z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: grid;
+    gap: var(--space-3);
     padding: var(--space-3) var(--space-4);
   }
 
@@ -148,13 +147,17 @@ nav {
   }
 
   nav {
-    display: flex;
-    overflow-x: auto;
-    max-width: 48vw;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-2);
   }
 
   .nav-item {
-    flex: 0 0 auto;
+    min-width: 0;
+    justify-content: center;
+    gap: var(--space-2);
+    padding-inline: var(--space-2);
+    font-size: 13px;
   }
 
   .workspace {

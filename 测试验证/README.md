@@ -23,6 +23,7 @@
 | P7 Web 信息扩展验证 | 协议扩展、前端构建、浏览器桌面/移动烟测 | 已通过 |
 | P8 历史趋势验证 | 历史 API、Web 趋势面板、浏览器桌面/移动烟测 | 已通过 |
 | P9 持久化与编译包验证 | JSONL 重启恢复、release build、普通编译包包内烟测 | 已通过 |
+| P10 一键运行与首次设置向导验证 | tools 脚本、Web 托管、向导联动、x86/x64 包内烟测 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -124,3 +125,17 @@
 - P9 版本烟测：通过，恢复后的最新状态返回 `release_version = v1.3.0`、`current_script = bootstrap`。
 - 普通编译包包内烟测：通过，从包根目录运行 `bin/management-server.exe` 和 `bin/client-agent.exe`，历史 API 返回 `history_total = 1`。
 - 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、`.env` 和 JSONL 历史文件。
+
+## P10 验证记录
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 21 项测试、management-server 15 项测试、shared-types 3 项测试通过。
+- `npm run build`：通过，`vue-tsc --noEmit` 与 `vite build` 成功，Web Admin 版本为 `1.4.0`。
+- `pwsh -File tools/start-client.ps1 -DisableReport`：通过，源码脚本会先重建 Client，状态输出 `release_version = v1.4.0`。
+- P10 Server/Web/API 联调：通过，`MANAGEMENT_SERVER_WEB_DIR` 托管 Web Admin，`GET /health = ok`，Client 上报后 API 返回 `release_version = v1.4.0`，首页 HTTP 200。
+- Playwright fallback 桌面视口：1440x1000，通过，页面显示 `首次設定向導`、`Server 啟動命令`、`客戶端狀態`，无页面横向溢出。
+- Playwright fallback 移动视口：390x920，通过，移动导航和向导单列展示，无页面横向溢出。
+- 首次设置向导联动：通过，端口从 `18080` 改为 `18130` 后点击 `套用並完成`，看板自动刷新并显示 `local-dev-client`、`1/1`、`v1.4.0`。
+- v1.4.0 编译包包内烟测：通过，包内脚本启动 Server，x64 Client 上报成功，历史文件写入 1 行。
+- x86 Client 包内烟测：通过，`tools/start-client.ps1 -ClientArch x86 -DisableReport` 输出 `arch = x86`、`release_version = v1.4.0`。
+- 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、`.env`、JSONL、PDB、DCU 和 MAP 文件。

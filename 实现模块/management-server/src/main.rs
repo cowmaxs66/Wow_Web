@@ -22,10 +22,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::info!(
         bind = %config.bind_addr,
         history_path = ?config.history_path,
+        web_dir = ?config.web_dir,
         "Management Server 已启动"
     );
 
-    axum::serve(listener, app::build_router(state)).await?;
+    axum::serve(
+        listener,
+        app::build_router_with_web_dir(state, config.web_dir),
+    )
+    .await?;
     Ok(())
 }
 

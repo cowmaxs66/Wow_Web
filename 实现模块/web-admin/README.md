@@ -8,15 +8,17 @@ Web 管理端，后续负责：
 - 脚本库、版本和指派管理。
 
 ## 当前状态
-P8 阶段已完成 Web 管理端历史趋势扩展。当前页面可读取 Management Server 健康状态、Client 最新状态、短期历史、快照分析、Agent 运行详情、脚本安全配置和本地连接设置。
+P10 阶段已完成首次设置向导。当前页面可读取 Management Server 健康状态、Client 最新状态、短期历史、快照分析、Agent 运行详情、脚本安全配置、本地连接设置，并可在首次运行时生成 Server 与 Client 的一键启动参数。
 
 ## 当前目录
 | 路径 | 职责 |
 |------|------|
 | `src/App.vue` | 页面组合入口 |
+| `src/composables/useSetupWizard.ts` | 首次设置向导状态、命令生成和本地持久化 |
 | `src/composables/useDashboardStatus.ts` | 状态刷新流程与页面状态 |
 | `src/api/managementServer.ts` | Management Server HTTP API 客户端 |
 | `src/types/protocol.ts` | 与 Rust 协议对齐的前端类型 |
+| `src/components/SetupWizardPanel.vue` | 首次设置向导面板 |
 | `src/components/SnapshotAnalytics.vue` | 基于当前状态快照展示在线比例、脚本分布和安全门统计 |
 | `src/components/HistoryTrendPanel.vue` | 基于真实历史状态展示样本数、在线样本、趋势线和最近记录 |
 | `src/components/ClientDetail.vue` | 展示选中 Client 的基础状态、运行详情、脚本设置和 Server 上报 |
@@ -32,6 +34,15 @@ P8 阶段已完成 Web 管理端历史趋势扩展。当前页面可读取 Manag
 - 显示选中 Client 最近历史趋势和最近记录。
 - 显示 Client 列表和运行详情。
 - 支持修改 Web Admin 本地 Server 地址和查询 Client ID 后手动刷新。
+- 支持首次设置向导，保存 Server 地址、历史文件路径、Web 静态目录和 Client 模式。
+- 支持生成 Management Server 与 Client Agent 的本机启动命令。
+- 支持区分 `x64` 核心模式和 `x86` 大漠模式，避免误把 32 位 `dm.dll` 放入 64 位进程。
+
+## P10 首次设置向导
+- 向导配置只保存在浏览器 `localStorage`，不上传到 Server。
+- `x64` 核心模式用于普通状态上报和 Web 联调。
+- `x86` 大漠模式用于加载 32 位 `DmBridge.dll` 和本机大漠插件。
+- 向导生成的命令用于本机运行参考，正式部署前仍需补齐鉴权、TLS 和运维策略。
 
 ## 验证命令
 ```powershell

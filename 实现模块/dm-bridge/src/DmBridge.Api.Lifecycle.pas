@@ -5,7 +5,6 @@ interface
 uses
   Winapi.Windows;
 
-function dm_bridge_abi_version: Integer; stdcall;
 function dm_bridge_init(DmRoot: PWideChar): Integer; stdcall;
 function dm_bridge_shutdown: Integer; stdcall;
 function dm_bridge_get_last_bridge_error: Integer; stdcall;
@@ -19,11 +18,6 @@ uses
   DmBridge.Strings,
   DmBridge.Errors,
   DmBridge.Worker;
-
-function dm_bridge_abi_version: Integer; stdcall;
-begin
-  Result := DM_BRIDGE_ABI_VERSION;
-end;
 
 function dm_bridge_init(DmRoot: PWideChar): Integer; stdcall;
 begin

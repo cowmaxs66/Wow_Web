@@ -1,4 +1,5 @@
 use crate::config::AgentConfig;
+use crate::lua_dm;
 use crate::script::ScriptSource;
 use mlua::{Error as LuaError, HookTriggers, Lua, VmState};
 use std::path::PathBuf;
@@ -57,6 +58,7 @@ impl LuaHost {
         let get_config =
             lua.create_function(move |_, key: String| Ok(config_for_lua.get_value(&key)))?;
         globals.set("get_config", get_config)?;
+        globals.set("dm", lua_dm::create_table(lua, &self.config)?)?;
 
         Ok(())
     }
@@ -88,7 +90,7 @@ impl LuaHost {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AgentConfig, ClientConfig, LuaConfig};
+    use crate::config::{AgentConfig, ClientConfig, DmConfig, LuaConfig};
     use std::path::PathBuf;
 
     fn test_config(instruction_limit: u32) -> AgentConfig {
@@ -100,6 +102,9 @@ mod tests {
                 bootstrap_name: "test-bootstrap".to_string(),
                 bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
                 instruction_limit,
+            },
+            dm: DmConfig {
+                bridge_path: PathBuf::from("missing/DmBridge.dll"),
             },
         }
     }
@@ -134,5 +139,54 @@ mod tests {
             .expect_err("infinite loop must hit instruction limit");
 
         assert!(error.to_string().contains("Lua 脚本超过指令上限"));
+    }
+
+    #[test]
+    fn lua_dm_api_reports_bridge_load_error() {
+        let error = LuaHost::new(test_config(10_000))
+            .run_script(&test_script("return dm.abi_version()"))
+            .expect_err("missing bridge must fail clearly");
+
+        assert!(error.to_string().contains("加载 DmBridge 失败"));
+    }
+
+    #[test]
+    fn lua_dm_api_reads_abi_version_from_env_when_available() {
+        let Some(path) = std::env::var_os("DM_BRIDGE_DLL") else {
+            return;
+        };
+
+        let mut config = test_config(10_000);
+        config.dm.bridge_path = PathBuf::from(path);
+        let report = LuaHost::new(config)
+            .run_script(&test_script("return tostring(dm.abi_version())"))
+            .expect("Lua dm API must call DmBridge");
+
+        assert_eq!(report.result, "1");
+    }
+
+    #[test]
+    fn lua_dm_api_com_ver_and_color_smoke_when_enabled() {
+        if std::env::var("DM_BRIDGE_COM_SMOKE").ok().as_deref() != Some("1") {
+            return;
+        }
+
+        let path = std::env::var_os("DM_BRIDGE_DLL").expect("DM_BRIDGE_DLL must be set");
+        let mut config = test_config(10_000);
+        config.dm.bridge_path = PathBuf::from(path);
+        let report = LuaHost::new(config)
+            .run_script(&test_script(
+                r#"
+                    dm.init("")
+                    local version = dm.ver()
+                    local color = dm.get_color(0, 0)
+                    local move_ret = dm.move_to(0, 0)
+                    dm.shutdown()
+                    return version .. "|" .. color .. "|" .. tostring(move_ret)
+                "#,
+            ))
+            .expect("Lua dm COM smoke must work");
+
+        assert!(report.result.contains("|"));
     }
 }

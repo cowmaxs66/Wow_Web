@@ -5,3 +5,6 @@ id = "local-dev-client"
 bootstrap_name = "bootstrap"
 bootstrap_path = "scripts/bootstrap.lua"
 instruction_limit = 100000
+
+[dm]
+bridge_path = "../../target/dm-bridge/Win32/DmBridge.dll"

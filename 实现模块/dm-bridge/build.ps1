@@ -14,6 +14,9 @@ if (-not (Test-Path -LiteralPath $dcc32)) {
 
 $outputDir = Join-Path $repoRoot 'target\dm-bridge\Win32'
 $dcuDir = Join-Path $outputDir 'dcu'
+if (Test-Path -LiteralPath $dcuDir) {
+    Remove-Item -LiteralPath $dcuDir -Recurse -Force
+}
 New-Item -ItemType Directory -Force -Path $outputDir, $dcuDir | Out-Null
 
 # 只编译 Win32。当前大漠 dm.dll 按 32 位 COM 插件处理，64 位桥接需后续单独验证。

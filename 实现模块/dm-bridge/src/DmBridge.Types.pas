@@ -3,7 +3,7 @@ unit DmBridge.Types;
 interface
 
 const
-  DM_BRIDGE_ABI_VERSION = 1;
+  DM_BRIDGE_CURRENT_ABI_VERSION = 1;
 
   DM_BRIDGE_OK = 1;
   DM_BRIDGE_DM_FAILED = 0;

@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 pub struct AgentConfig {
     pub client: ClientConfig,
     pub lua: LuaConfig,
+    pub dm: DmConfig,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -24,6 +25,11 @@ pub struct LuaConfig {
     pub bootstrap_name: String,
     pub bootstrap_path: PathBuf,
     pub instruction_limit: u32,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct DmConfig {
+    pub bridge_path: PathBuf,
 }
 
 impl AgentConfig {
@@ -46,6 +52,7 @@ impl AgentConfig {
             "client.id" => Some(self.client.id.clone()),
             "lua.bootstrap_name" => Some(self.lua.bootstrap_name.clone()),
             "lua.bootstrap_path" => Some(self.lua.bootstrap_path.display().to_string()),
+            "dm.bridge_path" => Some(self.dm.bridge_path.display().to_string()),
             _ => None,
         }
     }
@@ -74,6 +81,10 @@ impl AgentConfig {
             ));
         }
 
+        if self.dm.bridge_path.as_os_str().is_empty() {
+            return Err(ConfigError::validate(path, "dm.bridge_path 不能为空"));
+        }
+
         Ok(())
     }
 }
@@ -93,6 +104,9 @@ mod tests {
                 bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
                 instruction_limit: 1000,
             },
+            dm: DmConfig {
+                bridge_path: PathBuf::from("../../target/dm-bridge/Win32/DmBridge.dll"),
+            },
         };
 
         assert_eq!(
@@ -102,6 +116,10 @@ mod tests {
         assert_eq!(
             config.get_value("lua.bootstrap_path"),
             Some("scripts/bootstrap.lua".to_string())
+        );
+        assert_eq!(
+            config.get_value("dm.bridge_path"),
+            Some("../../target/dm-bridge/Win32/DmBridge.dll".to_string())
         );
         assert_eq!(config.get_value("unknown.key"), None);
     }

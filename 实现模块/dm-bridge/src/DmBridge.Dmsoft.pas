@@ -42,12 +42,12 @@ end;
 
 function TDmsoftHost.Ver: string;
 begin
-  Result := string(FObj.Ver());
+  Result := string(FObj.Ver);
 end;
 
 function TDmsoftHost.GetLastError: Integer;
 begin
-  Result := Integer(FObj.GetLastError());
+  Result := Integer(FObj.GetLastError);
 end;
 
 function TDmsoftHost.SetPath(const Path: string): Integer;
@@ -77,12 +77,12 @@ end;
 
 function TDmsoftHost.LeftClick: Integer;
 begin
-  Result := Integer(FObj.LeftClick());
+  Result := Integer(FObj.LeftClick);
 end;
 
 function TDmsoftHost.UnBindWindow: Integer;
 begin
-  Result := Integer(FObj.UnBindWindow());
+  Result := Integer(FObj.UnBindWindow);
 end;
 
 end.

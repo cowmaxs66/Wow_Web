@@ -4,15 +4,15 @@ interface
 
 uses
   System.SysUtils,
-  System.Win.ComObj,
-  Winapi.Windows,
-  Winapi.ActiveX,
+  System.SyncObjs,
   DmBridge.Types,
   DmBridge.Errors,
-  DmBridge.Dmsoft;
+  DmBridge.Dmsoft,
+  DmBridge.Worker.Types,
+  DmBridge.Worker.Thread;
 
 type
-  TDmsoftCall = reference to procedure(Dm: TDmsoftHost);
+  TDmsoftCall = DmBridge.Worker.Types.TDmsoftCall;
 
 function WorkerInit(const DmRoot: string): Integer;
 function WorkerShutdown: Integer;
@@ -22,75 +22,75 @@ function WorkerGetLastDmError(out ErrorCode: Integer): Integer;
 implementation
 
 var
-  GDm: TDmsoftHost = nil;
-  GInitialized: Boolean = False;
-  GOwnerThreadId: Cardinal = 0;
-
-function EnsureOwnerThread: Boolean;
-begin
-  Result := (GOwnerThreadId = 0) or (GOwnerThreadId = GetCurrentThreadId);
-end;
+  GWorker: TDmWorkerThread = nil;
+  GWorkerLock: TCriticalSection = nil;
 
 function WorkerInit(const DmRoot: string): Integer;
 var
-  SetPathRet: Integer;
+  NewWorker: TDmWorkerThread;
 begin
-  if GInitialized then
-    Exit(DM_BRIDGE_OK);
-
-  if not EnsureOwnerThread then
-  begin
-    SetBridgeError(DM_BRIDGE_THREAD_ERROR, 'DmBridge 必须在同一线程初始化和调用');
-    Exit(DM_BRIDGE_THREAD_ERROR);
-  end;
-
+  NewWorker := nil;
   try
-    OleCheck(CoInitializeEx(nil, COINIT_APARTMENTTHREADED));
-    GOwnerThreadId := GetCurrentThreadId;
-    GDm := TDmsoftHost.Create;
-
-    // P2-S03 使用最小直接 STA 模式：所有调用必须发生在初始化线程。
-    // 输入：可选大漠资源根目录。
-    // 输出：已创建的 dm.dmsoft COM 对象。
-    // 边界：P2-S04 Rust 多线程接入前必须升级为真正 STA Worker 队列。
-    if DmRoot <> '' then
-    begin
-      SetPathRet := GDm.SetPath(DmRoot);
-      if SetPathRet <> 1 then
-      begin
-        SetBridgeError(DM_BRIDGE_DM_FAILED, 'init SetPath failed');
-        Exit(DM_BRIDGE_DM_FAILED);
-      end;
-    end;
-
-    GInitialized := True;
-    ClearBridgeError;
-    Result := DM_BRIDGE_OK;
+    GWorkerLock.Enter;
   except
     on E: Exception do
     begin
       SetBridgeError(DM_BRIDGE_COM_ERROR, E.Message);
-      Result := DM_BRIDGE_COM_ERROR;
+      Exit(DM_BRIDGE_COM_ERROR);
     end;
+  end;
+
+  try
+    try
+      if GWorker <> nil then
+        Exit(DM_BRIDGE_OK);
+
+      NewWorker := TDmWorkerThread.Create(DmRoot);
+      NewWorker.Start;
+      Result := NewWorker.WaitInit;
+      if Result = DM_BRIDGE_OK then
+      begin
+        GWorker := NewWorker;
+        Exit;
+      end;
+
+      NewWorker.StopAndWait;
+      FreeAndNil(NewWorker);
+    except
+      on E: Exception do
+      begin
+        if NewWorker <> nil then
+        begin
+          NewWorker.StopAndWait;
+          FreeAndNil(NewWorker);
+        end;
+        SetBridgeError(DM_BRIDGE_COM_ERROR, E.Message);
+        Result := DM_BRIDGE_COM_ERROR;
+      end;
+    end;
+  finally
+    GWorkerLock.Leave;
   end;
 end;
 
 function WorkerShutdown: Integer;
+var
+  WorkerToStop: TDmWorkerThread;
 begin
-  if not GInitialized then
-    Exit(DM_BRIDGE_OK);
-
-  if not EnsureOwnerThread then
-  begin
-    SetBridgeError(DM_BRIDGE_THREAD_ERROR, 'DmBridge shutdown 必须在初始化线程调用');
-    Exit(DM_BRIDGE_THREAD_ERROR);
+  GWorkerLock.Enter;
+  try
+    WorkerToStop := GWorker;
+    GWorker := nil;
+  finally
+    GWorkerLock.Leave;
   end;
 
+  if WorkerToStop = nil then
+    Exit(DM_BRIDGE_OK);
+
   try
-    FreeAndNil(GDm);
-    GInitialized := False;
-    GOwnerThreadId := 0;
-    CoUninitialize;
+    WorkerToStop.StopAndWait;
+    WorkerToStop.Free;
     ClearBridgeError;
     Result := DM_BRIDGE_OK;
   except
@@ -104,28 +104,21 @@ end;
 
 function WorkerInvoke(const Call: TDmsoftCall): Integer;
 begin
-  if (not GInitialized) or (GDm = nil) then
-  begin
-    SetBridgeError(DM_BRIDGE_NOT_INITIALIZED, 'DmBridge is not initialized');
-    Exit(DM_BRIDGE_NOT_INITIALIZED);
-  end;
-
-  if not EnsureOwnerThread then
-  begin
-    SetBridgeError(DM_BRIDGE_THREAD_ERROR, 'minimal bridge allows calls only on init thread');
-    Exit(DM_BRIDGE_THREAD_ERROR);
-  end;
-
+  GWorkerLock.Enter;
   try
-    Call(GDm);
-    ClearBridgeError;
-    Result := DM_BRIDGE_OK;
-  except
-    on E: Exception do
+    if GWorker = nil then
     begin
-      SetBridgeError(DM_BRIDGE_COM_ERROR, E.Message);
-      Result := DM_BRIDGE_COM_ERROR;
+      SetBridgeError(DM_BRIDGE_NOT_INITIALIZED, 'DmBridge is not initialized');
+      Exit(DM_BRIDGE_NOT_INITIALIZED);
     end;
+
+    // 对外函数可以来自任意线程，但实际 COM 调用只投递到内部 STA Worker。
+    // 输入：需要访问 dm.dmsoft 的闭包。
+    // 输出：Bridge 状态码。
+    // 边界：这里保持同步等待，避免调用方在闭包捕获变量释放后 Worker 才执行。
+    Result := GWorker.Invoke(Call);
+  finally
+    GWorkerLock.Leave;
   end;
 end;
 
@@ -141,5 +134,16 @@ begin
     end);
   ErrorCode := LocalErrorCode;
 end;
+
+initialization
+  GWorkerLock := TCriticalSection.Create;
+
+finalization
+  if GWorker <> nil then
+  begin
+    GWorker.StopAndWait;
+    FreeAndNil(GWorker);
+  end;
+  FreeAndNil(GWorkerLock);
 
 end.

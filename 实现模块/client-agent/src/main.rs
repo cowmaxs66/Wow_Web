@@ -1,5 +1,7 @@
 mod config;
+mod dm_bridge;
 mod logging;
+mod lua_dm;
 mod lua_host;
 mod script;
 mod status;

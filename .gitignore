@@ -12,3 +12,9 @@ dist/
 *.rlib
 *.sqlite
 *.db
+*.chm
+*.chw
+*.rar
+*.dat
+私有资料/
+private/

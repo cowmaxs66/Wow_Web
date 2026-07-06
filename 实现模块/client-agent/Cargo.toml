@@ -5,5 +5,8 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+mlua.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 shared-types.workspace = true
+toml.workspace = true

@@ -1,0 +1,9 @@
+[client]
+id = "local-dev-client"
+
+[lua]
+bootstrap_name = "inline-bootstrap"
+bootstrap_script = '''
+log("bootstrap started")
+return get_config("client.id")
+'''

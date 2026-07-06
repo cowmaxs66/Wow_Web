@@ -8,7 +8,15 @@
 - 上报状态、日志和执行结果。
 
 ## 当前状态
-P0 阶段只输出标准 JSON 状态消息，用于验证 shared-types 可被客户端复用。
+P1 阶段正在建立配置读取与 Lua 宿主最小闭环。
+
+## 当前目录
+| 路径 | 职责 |
+|------|------|
+| `src/main.rs` | 程序入口，只负责串接配置、Lua 宿主和状态输出 |
+| `src/config/` | 配置读取、错误类型、默认路径解析 |
+| `src/lua_host.rs` | Lua 宿主和白名单 API 注册 |
+| `config/client-agent.toml` | 开发期本地配置样例 |
 
 ## 验证命令
 ```powershell

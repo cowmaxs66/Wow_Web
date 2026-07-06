@@ -242,6 +242,16 @@ dm_bridge_shutdown
 - 能执行一次鼠标移动和点击。
 - 失败时 Rust 能拿到 Bridge 错误和大漠 `GetLastError`。
 
+## P2-S03 实现备注
+P2-S03 已建立最小 Delphi DLL 工程。当前实现为“直接 STA 最小模式”：
+
+- `dm_bridge_init` 在线程内执行 COM 初始化并创建 `dm.dmsoft`。
+- 后续导出函数要求在同一线程调用。
+- 如果跨线程调用，返回 `DM_BRIDGE_THREAD_ERROR`。
+- 该模式只用于验证 Delphi 工程、导出函数、UTF-16 buffer、COM 创建和最小链路。
+
+在 P2-S04 Rust 接入前，必须升级为真正的 STA Worker 队列，否则 Rust 多线程调用会触发线程错误。
+
 ## Delphi 工程目录排版建议
 P2-S03 实现时按以下职责拆分，禁止把代码堆在单个 `.pas` 文件：
 

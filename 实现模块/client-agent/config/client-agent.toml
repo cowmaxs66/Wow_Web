@@ -2,8 +2,6 @@
 id = "local-dev-client"
 
 [lua]
-bootstrap_name = "inline-bootstrap"
-bootstrap_script = '''
-log("bootstrap started")
-return get_config("client.id")
-'''
+bootstrap_name = "bootstrap"
+bootstrap_path = "scripts/bootstrap.lua"
+instruction_limit = 100000

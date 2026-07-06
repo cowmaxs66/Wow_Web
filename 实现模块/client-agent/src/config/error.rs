@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 pub enum ConfigError {
     ReadFailed { path: PathBuf, message: String },
     ParseFailed { path: PathBuf, message: String },
+    ValidateFailed { path: PathBuf, message: String },
 }
 
 impl ConfigError {
@@ -19,6 +20,13 @@ impl ConfigError {
         Self::ParseFailed {
             path: path.to_path_buf(),
             message: error.to_string(),
+        }
+    }
+
+    pub fn validate(path: &Path, message: impl Into<String>) -> Self {
+        Self::ValidateFailed {
+            path: path.to_path_buf(),
+            message: message.into(),
         }
     }
 }
@@ -37,6 +45,13 @@ impl Display for ConfigError {
                 write!(
                     formatter,
                     "解析配置失败：{}，原因：{message}",
+                    path.display()
+                )
+            }
+            Self::ValidateFailed { path, message } => {
+                write!(
+                    formatter,
+                    "配置校验失败：{}，原因：{message}",
                     path.display()
                 )
             }

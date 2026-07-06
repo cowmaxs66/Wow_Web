@@ -15,7 +15,8 @@
 - `cargo run -p management-server`：通过，服务端入口可复用同一份协议类型。
 
 ## P1 验证记录
-- `cargo test --workspace`：通过，client-agent 2 项测试通过，shared-types 1 项测试通过。
-- `cargo run -p client-agent`：通过，读取 TOML 配置并输出 `current_script = inline-bootstrap`。
-- Lua bootstrap：通过，`log("bootstrap started")` 可输出日志，`get_config("client.id")` 可读取白名单配置。
-- 代码结构检查：通过，client-agent 当前最大单文件 60 行，入口文件 21 行。
+- `cargo test --workspace`：通过，client-agent 4 项测试通过，shared-types 1 项测试通过。
+- `cargo run -p client-agent`：通过，读取 TOML 配置和 `scripts/bootstrap.lua`，输出 `current_script = bootstrap`。
+- Lua bootstrap：通过，`log("bootstrap started from file")` 可进入 tracing 日志，`get_config("client.id")` 可读取白名单配置。
+- Lua 指令上限：通过，`while true do end` 会触发 `Lua 脚本超过指令上限` 错误。
+- 代码结构检查：通过，client-agent 当前最大单文件 119 行，入口文件 32 行；最大文件职责仍限定为 Lua 宿主。

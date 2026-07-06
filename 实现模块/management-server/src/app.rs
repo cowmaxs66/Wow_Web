@@ -1,9 +1,11 @@
 use crate::error::ApiError;
-use crate::state::ServerState;
+use crate::state::{CLIENT_HISTORY_LIMIT, ServerState};
 use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router};
-use shared_types::{ClientStatus, HealthResponse, MessageType, StatusAck, WsEnvelope};
+use shared_types::{
+    ClientStatus, ClientStatusHistory, HealthResponse, MessageType, StatusAck, WsEnvelope,
+};
 use tower_http::cors::CorsLayer;
 
 pub fn build_router(state: ServerState) -> Router {
@@ -11,6 +13,7 @@ pub fn build_router(state: ServerState) -> Router {
         .route("/health", get(health))
         .route("/api/client/status", get(list_statuses).post(report_status))
         .route("/api/client/status/{client_id}", get(get_status))
+        .route("/api/client/history/{client_id}", get(get_history))
         .with_state(state)
         // P4 只用于本机 Web Admin 开发联调。生产部署前必须改为明确来源白名单。
         .layer(CorsLayer::permissive())
@@ -43,6 +46,17 @@ async fn get_status(
 
 async fn list_statuses(State(state): State<ServerState>) -> Json<Vec<WsEnvelope<ClientStatus>>> {
     Json(state.list_statuses())
+}
+
+async fn get_history(
+    State(state): State<ServerState>,
+    Path(client_id): Path<String>,
+) -> Json<ClientStatusHistory> {
+    Json(ClientStatusHistory::new(
+        client_id.clone(),
+        CLIENT_HISTORY_LIMIT,
+        state.get_history(&client_id),
+    ))
 }
 
 fn validate_status_envelope(envelope: &WsEnvelope<ClientStatus>) -> Result<(), ApiError> {
@@ -185,5 +199,54 @@ mod tests {
         assert_eq!(statuses.len(), 2);
         assert_eq!(statuses[0].client_id, "client-a");
         assert_eq!(statuses[1].client_id, "client-b");
+    }
+
+    #[tokio::test]
+    async fn status_history_returns_samples_for_client() {
+        let app = build_router(ServerState::default());
+
+        for index in 0..3 {
+            let mut envelope = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
+            envelope.timestamp_ms = 1000 + index;
+            envelope.message_id = format!("client-a-{index}");
+            let body = serde_json::to_vec(&envelope).expect("status must serialize");
+
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/client/status")
+                        .header("content-type", "application/json")
+                        .body(Body::from(body))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+
+            assert_eq!(response.status(), StatusCode::OK);
+        }
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/api/client/history/client-a")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let history: ClientStatusHistory =
+            serde_json::from_slice(&body).expect("history must deserialize");
+
+        assert_eq!(history.client_id, "client-a");
+        assert_eq!(history.limit, CLIENT_HISTORY_LIMIT);
+        assert_eq!(history.total, 3);
+        assert_eq!(history.items[0].message_id, "client-a-0");
+        assert_eq!(history.items[2].message_id, "client-a-2");
     }
 }

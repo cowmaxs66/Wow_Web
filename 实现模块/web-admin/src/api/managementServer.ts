@@ -1,4 +1,5 @@
 import type {
+  ClientStatusHistory,
   ClientStatusEnvelope,
   HealthResponse,
 } from "../types/protocol";
@@ -30,6 +31,16 @@ export async function fetchClientStatus(
   return readJson<ClientStatusEnvelope>(
     baseUrl,
     `/api/client/status/${encodeURIComponent(clientId)}`,
+  );
+}
+
+export async function fetchClientHistory(
+  baseUrl: string,
+  clientId: string,
+): Promise<ClientStatusHistory> {
+  return readJson<ClientStatusHistory>(
+    baseUrl,
+    `/api/client/history/${encodeURIComponent(clientId)}`,
   );
 }
 

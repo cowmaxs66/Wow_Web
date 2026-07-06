@@ -21,6 +21,7 @@
 | P5 脚本安全测试 | hash、签名、权限、Lua API 拒绝测试 | 已通过 |
 | P6 最终发布验证 | 前后端构建、DmBridge 编译、Server/Client 烟测 | 已通过 |
 | P7 Web 信息扩展验证 | 协议扩展、前端构建、浏览器桌面/移动烟测 | 已通过 |
+| P8 历史趋势验证 | 历史 API、Web 趋势面板、浏览器桌面/移动烟测 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -98,3 +99,14 @@
 - Playwright fallback 桌面视口：1440x920，通过，页面显示快照分析、`local-dev-client`、`v1.1.0`、本地设置、脚本安全门，无横向溢出。
 - Playwright fallback 移动视口：390x844，通过，分析、列表、设置、详情按单列展示，无横向溢出。
 - 发现项：直接运行旧 `target/debug/client-agent.exe` 会得到旧协议；发布烟测前必须先执行 `cargo build --workspace`。
+
+## P8 验证记录
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 21 项测试、management-server 8 项测试、shared-types 3 项测试通过。
+- `cargo build --workspace`：通过，重建普通二进制后执行 Server/Client 历史烟测。
+- `npm run build`：通过，`vue-tsc --noEmit` 与 `vite build` 成功。
+- P8 Server/Client 历史 API 烟测：通过，连续三次真实上报后，`GET /api/client/history/local-dev-client` 返回 `history_total = 3`、`history_limit = 50`、`release_version = v1.2.0`。
+- Playwright fallback 桌面视口：1440x920，通过，页面显示 `歷史趨勢`、`3/50`、`v1.2.0`、`local-dev-client`，无横向溢出。
+- Playwright fallback 移动视口：390x844，通过，历史趋势、快照、列表、设置、详情单列展示，无横向溢出。
+- `view_image` 截图复查：发现并修复历史趋势面板 SVG 选择器过宽导致图标放大的问题。

@@ -11,6 +11,7 @@ import AppShell from "./components/AppShell.vue";
 import ClientDetail from "./components/ClientDetail.vue";
 import ClientSettingsPanel from "./components/ClientSettingsPanel.vue";
 import ClientTable from "./components/ClientTable.vue";
+import HistoryTrendPanel from "./components/HistoryTrendPanel.vue";
 import MetricCard from "./components/MetricCard.vue";
 import SnapshotAnalytics from "./components/SnapshotAnalytics.vue";
 import StatusDot from "./components/StatusDot.vue";
@@ -21,6 +22,8 @@ const {
   clientId,
   health,
   clients,
+  selectedHistory,
+  historyLimit,
   selectedClientId,
   loading,
   errorMessage,
@@ -100,6 +103,10 @@ const {
           :clients="clients"
           :online-count="onlineCount"
           :offline-count="offlineCount"
+        />
+        <HistoryTrendPanel
+          :history="selectedHistory"
+          :limit="historyLimit"
         />
         <ClientTable
           :clients="clients"

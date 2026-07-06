@@ -43,6 +43,13 @@ export interface HealthResponse {
 
 export type ClientStatusEnvelope = WsEnvelope<ClientStatus>;
 
+export interface ClientStatusHistory {
+  client_id: string;
+  limit: number;
+  total: number;
+  items: ClientStatusEnvelope[];
+}
+
 export function formatTimestamp(timestampMs: number): string {
   if (!Number.isFinite(timestampMs) || timestampMs <= 0) {
     return "無資料";

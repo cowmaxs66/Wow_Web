@@ -1,6 +1,7 @@
 import { computed, onMounted, ref } from "vue";
 import {
   ManagementServerError,
+  fetchClientHistory,
   fetchClientStatus,
   fetchClientStatuses,
   fetchHealth,
@@ -17,6 +18,8 @@ export function useDashboardStatus() {
   );
   const health = ref<"unknown" | "online" | "offline">("unknown");
   const clients = ref<ClientStatusEnvelope[]>([]);
+  const selectedHistory = ref<ClientStatusEnvelope[]>([]);
+  const historyLimit = ref(0);
   const selectedClientId = ref("");
   const loading = ref(false);
   const errorMessage = ref("");
@@ -99,10 +102,13 @@ export function useDashboardStatus() {
           ?.client_id ??
         clients.value[0]?.client_id ??
         "";
+      await refreshSelectedHistory();
       lastRefreshAt.value = Date.now();
     } catch (error) {
       health.value = "offline";
       clients.value = [];
+      selectedHistory.value = [];
+      historyLimit.value = 0;
       selectedClientId.value = "";
       errorMessage.value =
         error instanceof Error ? error.message : `未知錯誤：${String(error)}`;
@@ -129,6 +135,22 @@ export function useDashboardStatus() {
     }
   }
 
+  async function refreshSelectedHistory(): Promise<void> {
+    if (!selectedClientId.value) {
+      selectedHistory.value = [];
+      historyLimit.value = 0;
+      return;
+    }
+
+    // 历史查询只读取 Server 已保存的真实状态队列。
+    // 输入：当前选中的 Client ID。
+    // 输出：按 Server 返回顺序保存的历史样本。
+    // 边界：404 当前不会出现；空历史按空数组展示，不补假点。
+    const history = await fetchClientHistory(serverUrl.value, selectedClientId.value);
+    selectedHistory.value = history.items;
+    historyLimit.value = history.limit;
+  }
+
   onMounted(() => {
     void refreshDashboard();
   });
@@ -138,6 +160,8 @@ export function useDashboardStatus() {
     clientId,
     health,
     clients,
+    selectedHistory,
+    historyLimit,
     selectedClientId,
     loading,
     errorMessage,

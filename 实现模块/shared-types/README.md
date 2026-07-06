@@ -4,11 +4,12 @@
 本模块保存 Client Agent、Management Server 和 Web Admin 共同依赖的协议结构。
 
 ## 当前状态
-P7 已扩展 `ClientStatus`，状态上报包含：
+P8 已扩展 `ClientStatus` 和历史响应结构，状态上报包含：
 - 基础状态：`client_id`、`online`、`current_script`。
 - 运行详情：框架版本、操作系统、架构、进程 ID。
 - 脚本摘要：bootstrap 名称、Lua 指令上限、脚本安全门和允许权限。
 - 上报摘要：是否启用 Server 上报以及上报目标。
+- 历史响应：`ClientStatusHistory` 保存指定 Client 的状态样本列表、上限和数量。
 
 ## 约束
 - 字段必须来自真实配置或运行时，不在协议层制造假数据。

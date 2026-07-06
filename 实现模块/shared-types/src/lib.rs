@@ -145,6 +145,29 @@ impl StatusAck {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientStatusHistory {
+    pub client_id: String,
+    pub limit: usize,
+    pub total: usize,
+    pub items: Vec<WsEnvelope<ClientStatus>>,
+}
+
+impl ClientStatusHistory {
+    pub fn new(
+        client_id: impl Into<String>,
+        limit: usize,
+        items: Vec<WsEnvelope<ClientStatus>>,
+    ) -> Self {
+        Self {
+            client_id: client_id.into(),
+            limit,
+            total: items.len(),
+            items,
+        }
+    }
+}
+
 fn current_timestamp_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -176,5 +199,15 @@ mod tests {
         assert!(ack.accepted);
         assert_eq!(ack.client_id, "local-dev-client");
         assert_eq!(ack.message_id, "message-1");
+    }
+
+    #[test]
+    fn status_history_reports_total_from_items() {
+        let envelope = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
+        let history = ClientStatusHistory::new("client-a", 50, vec![envelope]);
+
+        assert_eq!(history.client_id, "client-a");
+        assert_eq!(history.limit, 50);
+        assert_eq!(history.total, 1);
     }
 }

@@ -20,6 +20,7 @@
 | P4 Web Admin 浏览器烟测 | Playwright fallback 桌面/移动视口 | 已通过 |
 | P5 脚本安全测试 | hash、签名、权限、Lua API 拒绝测试 | 已通过 |
 | P6 最终发布验证 | 前后端构建、DmBridge 编译、Server/Client 烟测 | 已通过 |
+| P7 Web 信息扩展验证 | 协议扩展、前端构建、浏览器桌面/移动烟测 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -86,3 +87,14 @@
 - DmBridge Win32 编译：通过，`.\实现模块\dm-bridge\build.ps1` 生成 `target/dm-bridge/Win32/DmBridge.dll`。
 - DmBridge 导出符号检查：通过，`tdump -ee target\dm-bridge\Win32\DmBridge.dll` 可看到 `dm_bridge_*` 导出函数。
 - 文档烟测修正：部署指南已改用 `CLIENT_AGENT_SERVER_HOST` 和 `CLIENT_AGENT_SERVER_PORT`，避免错误使用不存在的 `CLIENT_AGENT_SERVER_ADDR`。
+
+## P7 验证记录
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 21 项测试、management-server 6 项测试、shared-types 2 项测试通过。
+- `npm run build`：通过，`vue-tsc --noEmit` 与 `vite build` 成功。
+- `cargo build --workspace`：通过，重建普通二进制后执行 Server/Client 烟测。
+- P7 Server 上报烟测：通过，API 返回 `release_version = v1.1.0`、`os = windows`、`arch = x86_64`、`security_enabled = true`、`report_target = 127.0.0.1:18087/api/client/status`。
+- Playwright fallback 桌面视口：1440x920，通过，页面显示快照分析、`local-dev-client`、`v1.1.0`、本地设置、脚本安全门，无横向溢出。
+- Playwright fallback 移动视口：390x844，通过，分析、列表、设置、详情按单列展示，无横向溢出。
+- 发现项：直接运行旧 `target/debug/client-agent.exe` 会得到旧协议；发布烟测前必须先执行 `cargo build --workspace`。

@@ -34,8 +34,20 @@ export function useDashboardStatus() {
     return clients.value.filter((client) => client.data.online).length;
   });
 
+  const offlineCount = computed(() => {
+    return Math.max(clients.value.length - onlineCount.value, 0);
+  });
+
+  const securityEnabledCount = computed(() => {
+    return clients.value.filter((client) => client.data.script.security_enabled).length;
+  });
+
   const currentScript = computed(() => {
     return selectedStatus.value?.data.current_script ?? "無";
+  });
+
+  const selectedReleaseVersion = computed(() => {
+    return selectedStatus.value?.data.runtime.release_version ?? "無資料";
   });
 
   const healthLabel = computed(() => {
@@ -131,7 +143,10 @@ export function useDashboardStatus() {
     errorMessage,
     selectedStatus,
     onlineCount,
+    offlineCount,
+    securityEnabledCount,
     currentScript,
+    selectedReleaseVersion,
     healthLabel,
     lastReportLabel,
     lastRefreshLabel,

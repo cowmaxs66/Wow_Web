@@ -5,12 +5,14 @@ import {
   MonitorCheck,
   RefreshCw,
   Server,
+  ShieldCheck,
 } from "@lucide/vue";
 import AppShell from "./components/AppShell.vue";
 import ClientDetail from "./components/ClientDetail.vue";
+import ClientSettingsPanel from "./components/ClientSettingsPanel.vue";
 import ClientTable from "./components/ClientTable.vue";
-import ConnectionPanel from "./components/ConnectionPanel.vue";
 import MetricCard from "./components/MetricCard.vue";
+import SnapshotAnalytics from "./components/SnapshotAnalytics.vue";
 import StatusDot from "./components/StatusDot.vue";
 import { useDashboardStatus } from "./composables/useDashboardStatus";
 
@@ -24,7 +26,10 @@ const {
   errorMessage,
   selectedStatus,
   onlineCount,
+  offlineCount,
+  securityEnabledCount,
   currentScript,
+  selectedReleaseVersion,
   healthLabel,
   lastReportLabel,
   lastRefreshLabel,
@@ -73,6 +78,13 @@ const {
         :icon="Activity"
       />
       <MetricCard
+        label="腳本安全門"
+        :value="`${securityEnabledCount}/${clients.length}`"
+        :note="`Agent 版本：${selectedReleaseVersion}`"
+        :icon="ShieldCheck"
+        tone="success"
+      />
+      <MetricCard
         label="最近上報"
         :value="lastReportLabel"
         :note="`頁面刷新：${lastRefreshLabel}`"
@@ -83,16 +95,24 @@ const {
     <p v-if="errorMessage" class="error-banner">{{ errorMessage }}</p>
 
     <section class="content-grid">
-      <ClientTable
-        :clients="clients"
-        :selected-client-id="selectedStatus?.client_id ?? ''"
-        :loading="loading"
-        @select="selectedClientId = $event"
-      />
+      <div class="main-stack">
+        <SnapshotAnalytics
+          :clients="clients"
+          :online-count="onlineCount"
+          :offline-count="offlineCount"
+        />
+        <ClientTable
+          :clients="clients"
+          :selected-client-id="selectedStatus?.client_id ?? ''"
+          :loading="loading"
+          @select="selectedClientId = $event"
+        />
+      </div>
       <aside class="side-stack">
-        <ConnectionPanel
+        <ClientSettingsPanel
           v-model:server-url="serverUrl"
           v-model:client-id="clientId"
+          :selected-client-id="selectedStatus?.client_id ?? ''"
           :loading="loading"
           @refresh="refreshDashboard"
         />
@@ -154,7 +174,7 @@ h1 {
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-4);
   margin-bottom: var(--space-5);
 }
@@ -177,6 +197,7 @@ h1 {
   gap: var(--space-5);
 }
 
+.main-stack,
 .side-stack {
   display: grid;
   gap: var(--space-5);
@@ -193,10 +214,6 @@ h1 {
 }
 
 @media (max-width: 1180px) {
-  .metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .content-grid {
     grid-template-columns: 1fr;
   }
@@ -216,7 +233,7 @@ h1 {
   }
 
   .metrics-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

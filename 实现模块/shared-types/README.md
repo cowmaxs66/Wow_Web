@@ -1,0 +1,16 @@
+# shared-types 说明
+
+## 职责
+本模块保存 Client Agent、Management Server 和 Web Admin 共同依赖的协议结构。
+
+## 当前状态
+P7 已扩展 `ClientStatus`，状态上报包含：
+- 基础状态：`client_id`、`online`、`current_script`。
+- 运行详情：框架版本、操作系统、架构、进程 ID。
+- 脚本摘要：bootstrap 名称、Lua 指令上限、脚本安全门和允许权限。
+- 上报摘要：是否启用 Server 上报以及上报目标。
+
+## 约束
+- 字段必须来自真实配置或运行时，不在协议层制造假数据。
+- 修改协议后必须同步 Web Admin TypeScript 类型。
+- 生产字段扩展前必须考虑向后兼容和 Server 持久化迁移。

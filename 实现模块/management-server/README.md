@@ -7,7 +7,7 @@
 - WebSocket 实时推送、命令下发与结果接收。
 
 ## 当前状态
-P6 阶段已完成 Web Admin 读取所需的本地 HTTP API，并归档运行和安全边界说明。
+P7 阶段已完成 Web Admin 读取所需的本地 HTTP API，并可透传扩展后的 Client 运行详情、脚本摘要和 Server 上报摘要。
 
 ## 当前 API
 | 方法 | 路径 | 说明 |

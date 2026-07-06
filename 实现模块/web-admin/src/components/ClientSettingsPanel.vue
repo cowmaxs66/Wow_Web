@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { RefreshCw } from "@lucide/vue";
+import { RefreshCw, Settings } from "@lucide/vue";
 
 defineProps<{
   serverUrl: string;
   clientId: string;
+  selectedClientId: string;
   loading: boolean;
 }>();
 
@@ -15,11 +16,11 @@ defineEmits<{
 </script>
 
 <template>
-  <section class="connection-panel">
-    <div>
-      <h2>連線設定</h2>
-      <p>指定本機 Management Server 與查詢用 Client ID。</p>
-    </div>
+  <section class="settings-panel">
+    <header>
+      <Settings :size="18" />
+      <h2>本地設定</h2>
+    </header>
 
     <label>
       <span>Server 地址</span>
@@ -32,7 +33,7 @@ defineEmits<{
     </label>
 
     <label>
-      <span>Client ID</span>
+      <span>查詢 Client ID</span>
       <input
         :value="clientId"
         autocomplete="off"
@@ -40,6 +41,17 @@ defineEmits<{
         @input="$emit('update:clientId', ($event.target as HTMLInputElement).value)"
       />
     </label>
+
+    <dl>
+      <div>
+        <dt>目前選中</dt>
+        <dd>{{ selectedClientId || "無資料" }}</dd>
+      </div>
+      <div>
+        <dt>設定範圍</dt>
+        <dd>瀏覽器本地</dd>
+      </div>
+    </dl>
 
     <button type="button" :disabled="loading" @click="$emit('refresh')">
       <RefreshCw :size="16" :class="{ spinning: loading }" />
@@ -49,7 +61,7 @@ defineEmits<{
 </template>
 
 <style scoped>
-.connection-panel {
+.settings-panel {
   display: grid;
   gap: var(--space-4);
   border: 1px solid var(--color-border);
@@ -58,21 +70,18 @@ defineEmits<{
   padding: var(--space-5);
 }
 
-h2,
-p {
-  margin: 0;
+header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-accent);
 }
 
 h2 {
+  margin: 0;
+  color: var(--color-text);
   font-size: 16px;
   line-height: 1.3;
-}
-
-p {
-  margin-top: var(--space-1);
-  color: var(--color-muted);
-  font-size: 13px;
-  line-height: 1.6;
 }
 
 label {
@@ -80,7 +89,8 @@ label {
   gap: var(--space-2);
 }
 
-label span {
+label span,
+dt {
   color: var(--color-muted);
   font-size: 12px;
   font-weight: 750;
@@ -100,6 +110,25 @@ input {
 input:focus {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px rgba(33, 95, 154, 0.12);
+}
+
+dl {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+dl div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+dd {
+  overflow-wrap: anywhere;
+  margin: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 button {

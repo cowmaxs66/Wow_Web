@@ -25,6 +25,12 @@
 | P9 持久化与编译包验证 | JSONL 重启恢复、release build、普通编译包包内烟测 | 已通过 |
 | P10 一键运行与首次设置向导验证 | tools 脚本、Web 托管、向导联动、x86/x64 包内烟测 | 已通过 |
 | P11 单 exe 与客户端监控验证 | 内嵌 Web、Server 消息、Client monitor、日志和浏览器烟测 | 已通过 |
+| P12 Client 本机设置与开机启动验证 | HKCU 开机启动、工具脚本、Web 向导命令 | 已通过 |
+| P13 正式运行基础验证 | Service、托盘、设置窗口、更新器、远程命令 | 已通过 |
+| P14 双击正式入口验证 | 无参数正式入口和维护参数兼容 | 已通过 |
+| P15 无控制台正式入口与安装器验证 | GUI launcher、当前用户安装器、打包和包内烟测 | 已通过 |
+| P16 自动更新自替换验证 | `update-apply`、打包脚本、包内烟测和敏感文件检查 | 已通过 |
+| P17 服务端远程更新与导航补全验证 | Server `update.apply`、在线收敛、Web 导航功能页 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -220,4 +226,21 @@
 - Client core 包内烟测：通过，`bin/client-agent-core.exe --run-once` 输出 `v1.10.0` 和 `local-dev-client`。
 - `--update-apply` 包内烟测：通过，当前 `v1.10.0` 高于远端 latest `v1.9.0` 时返回 `up_to_date`，不会误下载或误降级。
 - Server core 包内烟测：通过，`bin/management-server-core.exe --no-open-browser` 临时端口 `/health` 返回 `ok`，内嵌 Web HTTP 200。
+- 编译包敏感文件检查：通过，zip 内未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。
+
+## P17 服务端远程更新与导航补全验证
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 39 项测试、management-server 28 项测试、shared-types 5 项测试、wow-launcher 3 项测试通过。
+- `npm run build`：通过，Web Admin 版本为 `1.11.0`。
+- Server 命令白名单测试：通过，`update.apply` 可创建并被 Client 拉取。
+- Server 在线收敛测试：通过，最后上报超过 60 秒的最新状态查询会显示离线。
+- Web Admin 构建测试：通过，左侧导航页面、远程操作组件和脚本配置组件均通过 TypeScript 检查。
+- `tools/package-release.ps1`：通过，生成 `WoW_Framework_v1.11.0_windows.zip`，SHA-256 为 `9027d9bd52e4b5d21aed82908280185914bd070599c0bd96ba8f2993a62b7b97`。
+- DmBridge Win32 编译：通过。
+- PE 子系统检查：通过，根目录 GUI launcher 与 `bin` core 维护入口保持 P15 结构。
+- Client core 包内烟测：通过，`bin/client-agent-core.exe --run-once` 输出 `v1.11.0` 和 `local-dev-client`。
+- `--update-apply` 包内烟测：通过，当前 `v1.11.0` 高于远端 latest `v1.10.0` 时返回 `up_to_date`，不会误下载或误降级。
+- Server core 包内烟测：通过，临时端口 `/health` 返回 `ok`。
+- Server 远程命令包内烟测：通过，`update.apply` 可写入并取出命令队列。
 - 编译包敏感文件检查：通过，zip 内未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。

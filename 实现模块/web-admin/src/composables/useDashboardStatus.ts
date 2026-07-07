@@ -1,4 +1,4 @@
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import {
   ManagementServerError,
   fetchClientHistory,
@@ -153,6 +153,12 @@ export function useDashboardStatus() {
 
   onMounted(() => {
     void refreshDashboard();
+  });
+
+  watch(selectedClientId, () => {
+    if (!loading.value) {
+      void refreshSelectedHistory();
+    }
   });
 
   return {

@@ -12,6 +12,11 @@ pub fn execute_remote_command(command_type: &str) -> Result<String, Box<dyn Erro
         "service.stop" => Ok(crate::service_runtime::stop_service()?),
         "update.check" => Ok(crate::updater::check_update()?),
         "update.download" => Ok(crate::updater::download_update()?),
+        // Server 下发安装更新时复用本机自替换更新器。
+        // 输入：Management Server 命令队列中的 update.apply。
+        // 输出：检查 GitHub Release、下载新版包、启动独立替换脚本后的 JSON 摘要。
+        // 边界：替换脚本可能停止当前 monitor，执行过程会写入本机 update-apply.log。
+        "update.apply" => Ok(crate::updater::apply_update()?),
         "settings.open" => {
             crate::settings_window::open_settings_window()?;
             Ok("已请求打开设置窗口".to_string())

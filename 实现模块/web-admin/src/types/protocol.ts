@@ -79,6 +79,7 @@ export type ClientCommandType =
   | "service.stop"
   | "update.check"
   | "update.download"
+  | "update.apply"
   | "settings.open"
   | "log.open"
   | "tray.open";

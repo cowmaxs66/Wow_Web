@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  Bolt,
   FileCode2,
   LayoutDashboard,
   MonitorCheck,
@@ -8,16 +9,25 @@ import {
 import type { Component } from "vue";
 
 interface NavItem {
+  id: string;
   label: string;
   icon: Component;
-  active?: boolean;
 }
 
+defineProps<{
+  activeView: string;
+}>();
+
+defineEmits<{
+  navigate: [view: string];
+}>();
+
 const navItems: NavItem[] = [
-  { label: "總覽", icon: LayoutDashboard, active: true },
-  { label: "客戶端", icon: MonitorCheck },
-  { label: "腳本", icon: FileCode2 },
-  { label: "設定", icon: Settings },
+  { id: "overview", label: "總覽", icon: LayoutDashboard },
+  { id: "clients", label: "客戶端", icon: MonitorCheck },
+  { id: "scripts", label: "腳本", icon: FileCode2 },
+  { id: "operations", label: "遠程操作", icon: Bolt },
+  { id: "settings", label: "設定", icon: Settings },
 ];
 </script>
 
@@ -34,10 +44,11 @@ const navItems: NavItem[] = [
       <nav>
         <button
           v-for="item in navItems"
-          :key="item.label"
+          :key="item.id"
           class="nav-item"
-          :class="{ active: item.active }"
+          :class="{ active: item.id === activeView }"
           type="button"
+          @click="$emit('navigate', item.id)"
         >
           <component :is="item.icon" :size="18" :stroke-width="2" />
           <span>{{ item.label }}</span>
@@ -148,7 +159,7 @@ nav {
 
   nav {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: var(--space-2);
   }
 
@@ -157,7 +168,7 @@ nav {
     justify-content: center;
     gap: var(--space-2);
     padding-inline: var(--space-2);
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .workspace {

@@ -7,10 +7,12 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const CLIENT_HISTORY_LIMIT: usize = 50;
 pub const CLIENT_MESSAGE_LIMIT: usize = 100;
 pub const CLIENT_COMMAND_LIMIT: usize = 100;
+pub const CLIENT_ONLINE_STALE_MS: u128 = 60_000;
 
 #[derive(Debug, Clone, Default)]
 pub struct ServerState {
@@ -74,16 +76,17 @@ impl ServerState {
             .expect("client status lock poisoned")
             .get(client_id)
             .cloned()
+            .map(mark_stale_status)
     }
 
     pub fn list_statuses(&self) -> Vec<WsEnvelope<ClientStatus>> {
         let clients = self.clients.read().expect("client status lock poisoned");
-        let mut statuses: Vec<_> = clients.values().cloned().collect();
+        let mut statuses: Vec<_> = clients.values().cloned().map(mark_stale_status).collect();
 
         // 列表输出按 client_id 排序，保证 Web 管理端和测试看到稳定顺序。
         // 输入：内存中的最新状态 HashMap。
         // 输出：按 client_id 升序排列的状态数组。
-        // 边界：P4 不返回历史记录，只返回每个 Client 最后一条状态。
+        // 边界：P17 只在最新状态查询层收敛在线状态，不改写历史样本。
         statuses.sort_by(|left, right| left.client_id.cmp(&right.client_id));
         statuses
     }
@@ -150,6 +153,31 @@ impl ServerState {
     }
 }
 
+fn mark_stale_status(mut envelope: WsEnvelope<ClientStatus>) -> WsEnvelope<ClientStatus> {
+    let now_ms = current_timestamp_ms();
+
+    // Client 上报是轮询心跳模型，Server 不能长期相信旧快照仍然在线。
+    // 输入：内存中最后一条状态信封。
+    // 输出：查询结果中的 online 字段；历史记录不被改写。
+    // 边界：客户端主动上报 offline 时保持 offline；本机时间早于上报时间时不误判离线。
+    if envelope.data.online && is_stale_timestamp(envelope.timestamp_ms, now_ms) {
+        envelope.data.online = false;
+    }
+
+    envelope
+}
+
+fn is_stale_timestamp(timestamp_ms: u128, now_ms: u128) -> bool {
+    now_ms.saturating_sub(timestamp_ms) > CLIENT_ONLINE_STALE_MS
+}
+
+fn current_timestamp_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock must be later than UNIX_EPOCH")
+        .as_millis()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,6 +219,33 @@ mod tests {
         assert_eq!(statuses.len(), 2);
         assert_eq!(statuses[0].client_id, "client-a");
         assert_eq!(statuses[1].client_id, "client-b");
+    }
+
+    #[test]
+    fn state_marks_stale_latest_status_offline() {
+        let state = ServerState::default();
+        let mut envelope = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
+        envelope.timestamp_ms = current_timestamp_ms() - CLIENT_ONLINE_STALE_MS - 1;
+
+        state.save_status(envelope).expect("status must save");
+
+        let latest = state.get_status("client-a").expect("latest must exist");
+        assert!(!latest.data.online);
+
+        let statuses = state.list_statuses();
+        assert!(!statuses[0].data.online);
+    }
+
+    #[test]
+    fn state_keeps_recent_latest_status_online() {
+        let state = ServerState::default();
+        let mut envelope = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
+        envelope.timestamp_ms = current_timestamp_ms();
+
+        state.save_status(envelope).expect("status must save");
+
+        let latest = state.get_status("client-a").expect("latest must exist");
+        assert!(latest.data.online);
     }
 
     #[test]

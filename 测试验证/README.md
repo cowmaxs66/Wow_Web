@@ -34,6 +34,7 @@
 | P18 服务端上线日志与分包验证 | Server 控制台上线日志、Server/Client 分包、三类 zip 安全检查 | 已通过 |
 | P19 客户端直启与远程目标选择修正验证 | Client 分包默认上报、离线上报、Web 目标选择、三类 zip 安全检查 | 已通过 |
 | P20 Client 正式直启热修复验证 | 根目录 `client-agent.exe` 真实直启、PowerShell 编码、STA 和隐藏启动链路 | 已通过 |
+| P21 Server 托盘与双端图标验证 | Server 托盘真实入口、Client 托盘图标回归、三类 zip 图标资源 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -287,3 +288,20 @@
   - 总包 `3ece2cafba9063ff122a5393179b8fe5cdaf8b7c25a431ff3653cfe3ccaf137a`
   - Server 分包 `00b63001a781d6c19bc9ef85b47c03677a803574081d7a74939296ea0667e6f3`
   - Client 分包 `85206e3bcf2079f75443794bff7685a9660159017ec0218bfeb42ad4d4dfa292`
+
+## P21 Server 托盘与双端图标验证
+- `cargo fmt --all`：通过。
+- `cargo test --workspace`：通过，management-server 新增 Server 托盘 CLI 和 URL 测试，wow-launcher Server 启动计划测试通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.14.0`。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Server 分包根目录 exe 真实入口烟测：通过，直接启动 `WoW_Server_v1.14.0_windows/management-server.exe` 后产生 `powershell.exe -STA ... wow-management-server/tray.ps1` 和 `management-server-core.exe --no-open-browser` 两个进程。
+- Server 健康检查：通过，测试端口 `/health` 返回 `status = ok`。
+- Server 托盘错误日志：通过，`logs/server-tray-error.log` 长度为 0。
+- Server 图标资源：通过，Server 分包包含 `assets/icons/server.ico` 和 `assets/icons/lua_ai_server_icon.svg`。
+- Client 分包根目录 exe 回归烟测：通过，`client-agent.exe` 启动托盘宿主和 x86 monitor，Server 查询 `online = true`、`release_version = v1.14.0`、`arch = x86`。
+- Client 图标资源：通过，Client 分包包含 `assets/icons/client.ico` 和 `assets/icons/lua_ai_client_icon.svg`。
+- 三类 zip SHA-256：
+  - 总包 `2bea315e31595fa4df8c1e54e459b175524085ed7901f990af6520f6e204a942`
+  - Server 分包 `fa5a85231e01a83fd5dadc9d49aa202a08fddb8f715a79b6f48b65e8bb8c4236`
+  - Client 分包 `73130bf34be397a911d08b2dc332392d4e1f48bfc375332f68dd373cc2b56bd1`

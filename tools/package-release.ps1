@@ -120,6 +120,7 @@ function Copy-PackagePayload {
     Copy-RequiredDirectory (Join-Path $root '实现模块\client-agent\scripts') (Join-Path $packageRoot 'scripts')
     Copy-RequiredDirectory (Join-Path $root 'tools') (Join-Path $packageRoot 'tools')
     Copy-RequiredDirectory (Join-Path $root 'tools\installer') (Join-Path $packageRoot 'installer')
+    Copy-IconAssets $packageRoot @('server.ico', 'client.ico', 'lua_ai_server_icon.svg', 'lua_ai_client_icon.svg')
     Copy-RequiredFile (Join-Path $root 'README.md') (Join-Path $packageRoot 'README.md')
     Copy-RequiredFile (Join-Path $root 'VERSION') (Join-Path $packageRoot 'VERSION')
 }
@@ -133,6 +134,17 @@ function Copy-ToolFiles {
     New-Item -ItemType Directory -Force -Path $Destination | Out-Null
     foreach ($name in $Names) {
         Copy-RequiredFile (Join-Path $root "tools\$name") (Join-Path $Destination $name)
+    }
+}
+
+function Copy-IconAssets {
+    param(
+        [string]$DestinationRoot,
+        [string[]]$Names
+    )
+
+    foreach ($name in $Names) {
+        Copy-RequiredFile (Join-Path $root "assets\icons\$name") (Join-Path $DestinationRoot "assets\icons\$name")
     }
 }
 
@@ -161,6 +173,7 @@ function Copy-SplitPackagePayload {
     Copy-RequiredFile (Join-Path $releaseDir 'wow-server-launcher.exe') (Join-Path $serverPackageRoot 'management-server.exe')
     Copy-RequiredFile (Join-Path $releaseDir 'management-server.exe') (Join-Path $serverPackageRoot 'bin\management-server-core.exe')
     Copy-ToolFiles (Join-Path $serverPackageRoot 'tools') @('common.ps1', 'start-server.ps1')
+    Copy-IconAssets $serverPackageRoot @('server.ico', 'lua_ai_server_icon.svg')
     Copy-RequiredFile (Join-Path $root 'README.md') (Join-Path $serverPackageRoot 'README.md')
     Copy-RequiredFile (Join-Path $root 'VERSION') (Join-Path $serverPackageRoot 'VERSION')
 
@@ -172,6 +185,7 @@ function Copy-SplitPackagePayload {
     Write-PackagedClientConfig $clientPackageRoot
     Copy-RequiredDirectory (Join-Path $root '实现模块\client-agent\scripts') (Join-Path $clientPackageRoot 'scripts')
     Copy-ToolFiles (Join-Path $clientPackageRoot 'tools') @('common.ps1', 'start-client.ps1')
+    Copy-IconAssets $clientPackageRoot @('client.ico', 'lua_ai_client_icon.svg')
     Copy-RequiredFile (Join-Path $root 'README.md') (Join-Path $clientPackageRoot 'README.md')
     Copy-RequiredFile (Join-Path $root 'VERSION') (Join-Path $clientPackageRoot 'VERSION')
 }
@@ -188,10 +202,11 @@ function Write-PackageReadme {
             "# WoW Server $Version",
             '',
             '## Main entry point',
-            '- Double-click `management-server.exe` to start Server and open Web Admin.',
+            '- Double-click `management-server.exe` to start the Server tray UI. The tray starts Server and opens Web Admin.',
             '',
             '## Maintenance entry point',
             '- `bin/management-server-core.exe --no-open-browser`',
+            '- `bin/management-server-core.exe --tray`',
             '',
             '## Package boundary',
             'This server package does not include Client config, scripts, DmBridge, dm.dll, RegDll.dll, private data, or runtime logs.'
@@ -224,13 +239,14 @@ function Write-PackageReadme {
         "# WoW Framework $Version",
         '',
         '## Main entry points',
-        '- Double-click `management-server.exe` to start Server and open Web Admin.',
+        '- Double-click `management-server.exe` to start the Server tray UI. The tray starts Server and opens Web Admin.',
         '- Double-click `client-agent.exe` to start Client tray UI.',
         '- Double-click `WoW-Manager.exe` to install for current user and create shortcuts.',
         '- Double-click `WoW-Remove.exe` to remove current-user program files and shortcuts.',
         '',
         '## Maintenance entry points',
         '- `bin/management-server-core.exe --no-open-browser`',
+        '- `bin/management-server-core.exe --tray`',
         '- `bin/client-agent-core.exe --run-once`',
         '- `bin/client-agent-core.exe --startup-status`',
         '- `bin/client-agent-core.exe --update-apply`',

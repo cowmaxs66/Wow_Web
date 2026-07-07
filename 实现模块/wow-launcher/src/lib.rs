@@ -44,7 +44,7 @@ pub fn build_plan(target: LaunchTarget, launcher_dir: &Path) -> io::Result<Launc
         LaunchTarget::Server => core_plan(
             launcher_dir,
             "management-server-core.exe",
-            &[],
+            &["--tray"],
             "Management Server 核心程序",
         ),
         LaunchTarget::Client => core_plan(
@@ -182,7 +182,7 @@ mod tests {
     use std::fs;
 
     #[test]
-    fn server_launcher_prefers_core_in_bin() {
+    fn server_launcher_starts_tray_core() {
         let root = unique_temp_root("server");
         let bin = root.join("bin");
         fs::create_dir_all(&bin).expect("bin must be created");
@@ -191,7 +191,7 @@ mod tests {
         let plan = build_plan(LaunchTarget::Server, &root).expect("server plan must build");
 
         assert_eq!(plan.program, bin.join("management-server-core.exe"));
-        assert_eq!(plan.args, Vec::<String>::new());
+        assert_eq!(plan.args, vec!["--tray".to_string()]);
         assert_eq!(plan.working_dir, root);
     }
 

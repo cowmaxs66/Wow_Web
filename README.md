@@ -4,12 +4,12 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P20 Client 正式直启热修复
-- 当前版本：v1.13.1
-- 当前目标：修复 Client 分包根目录 `client-agent.exe` 双击无效果问题，并发布热修复包
+- 当前阶段：P21 Server 托盘与双端图标
+- 当前版本：v1.14.0
+- 当前目标：接入 Server/Client 图标，并让 Server 正式入口进入右下角托盘菜单
 
 ## 第一里程碑
-已完成 P0-P20 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正和 Client 直启热修复：
+已完成 P0-P21 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘和双端图标：
 
 1. Client Agent 能执行 Lua bootstrap。
 2. DmBridge 能通过 Rust/Lua 调用大漠最小链路。
@@ -31,6 +31,7 @@
 18. Management Server 控制台可显示 Client 上线/刷新/离线日志，发布脚本可生成总包、Server 分包和 Client 分包。
 19. Client 分包根目录 `client-agent.exe` 可正式直启，正常退出会上报离线，Web Admin 远程操作可选择单台或全部 Client。
 20. Client 分包根目录 `client-agent.exe` 真实双击入口已修复，可启动托盘宿主和 x86 monitor 并向 Server 上报在线。
+21. Server 分包根目录 `management-server.exe` 可启动右下角托盘，提供启动、关闭、重启、打开 Web 和日志目录快捷操作；Server/Client 托盘均使用独立图标。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -51,4 +52,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.13.1 发布资料已归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.13.1
+v1.14.0 发布资料已归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.14.0

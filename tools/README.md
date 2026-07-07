@@ -1,12 +1,12 @@
 # 工具脚本说明
 
-本目录保存一键运行、维护和打包脚本。P15 起普通用户优先直接双击根目录 GUI 入口，核心维护 exe 放入发布包 `bin` 目录；P18 起打包脚本同时输出总包、Server 分包和 Client 分包。
+本目录保存一键运行、维护和打包脚本。P15 起普通用户优先直接双击根目录 GUI 入口，核心维护 exe 放入发布包 `bin` 目录；P18 起打包脚本同时输出总包、Server 分包和 Client 分包；P21 起 Server 和 Client 都提供托盘入口。
 
 ## 脚本清单
 | 文件 | 职责 |
 |------|------|
 | `common.ps1` | 公共路径解析、构建检测和健康检查函数 |
-| `start-server.ps1` | 启动 Management Server，可同时托管 Web Admin |
+| `start-server.ps1` | 启动 Management Server，可启动 Server 托盘或维护模式 |
 | `start-client.ps1` | 运行 Client Agent，可执行 monitor、tray、settings、service、update 和开机启动设置 |
 | `start-server.cmd` | Windows 双击入口，调用 `start-server.ps1` |
 | `start-client.cmd` | Windows 双击入口，调用 `start-client.ps1` |
@@ -26,7 +26,14 @@
 .\WoW-Manager.exe
 ```
 
-P15 发布包中，脚本会优先调用 `bin\management-server-core.exe`、`bin\client-agent-core.exe`，避免维护参数传给 GUI launcher。
+P21 发布包中，脚本会优先调用 `bin\management-server-core.exe`、`bin\client-agent-core.exe`，避免维护参数传给 GUI launcher。
+
+## Server 维护入口
+```powershell
+.\tools\start-server.ps1 -Tray
+.\tools\start-server.ps1 -OpenBrowser
+.\tools\start-server.ps1
+```
 
 ## Client 维护入口
 ```powershell

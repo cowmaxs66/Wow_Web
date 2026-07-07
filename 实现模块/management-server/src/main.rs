@@ -3,7 +3,9 @@ mod config;
 mod embedded_web;
 mod error;
 mod persistence;
+mod ps_script;
 mod state;
+mod tray;
 
 use config::ServerConfig;
 use std::error::Error;
@@ -18,6 +20,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
     if launch.help {
         println!("{}", help_text());
+        return Ok(());
+    }
+    if launch.tray {
+        tray::run_tray()?;
         return Ok(());
     }
 
@@ -50,12 +56,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct LaunchOptions {
     open_browser: bool,
+    tray: bool,
     help: bool,
 }
 
 fn parse_launch_args(args: impl IntoIterator<Item = String>) -> Result<LaunchOptions, String> {
     let mut options = LaunchOptions {
         open_browser: true,
+        tray: false,
         help: false,
     };
 
@@ -63,6 +71,10 @@ fn parse_launch_args(args: impl IntoIterator<Item = String>) -> Result<LaunchOpt
         match arg.as_str() {
             "--open-browser" => options.open_browser = true,
             "--no-open-browser" | "--api-only" => options.open_browser = false,
+            "--tray" => {
+                options.tray = true;
+                options.open_browser = false;
+            }
             "--help" | "-h" => options.help = true,
             unknown => return Err(format!("未知参数：{unknown}\n\n{}", help_text())),
         }
@@ -72,7 +84,7 @@ fn parse_launch_args(args: impl IntoIterator<Item = String>) -> Result<LaunchOpt
 }
 
 fn help_text() -> &'static str {
-    "management-server 用法：\n  management-server.exe                    启动 Server 并打开 Web 管理页\n  management-server.exe --open-browser     启动 Server 并打开 Web 管理页\n  management-server.exe --no-open-browser  只启动 API / Web 服务，不自动打开浏览器\n  management-server.exe --api-only         同 --no-open-browser"
+    "management-server 用法：\n  management-server.exe                    启动 Server 并打开 Web 管理页\n  management-server.exe --tray             启动 Server 托盘常驻 UI\n  management-server.exe --open-browser     启动 Server 并打开 Web 管理页\n  management-server.exe --no-open-browser  只启动 API / Web 服务，不自动打开浏览器\n  management-server.exe --api-only         同 --no-open-browser"
 }
 
 fn init_logging() {
@@ -110,6 +122,7 @@ mod tests {
             options,
             LaunchOptions {
                 open_browser: true,
+                tray: false,
                 help: false
             }
         );
@@ -124,5 +137,21 @@ mod tests {
         .expect("args must parse");
 
         assert!(!options.open_browser);
+        assert!(!options.tray);
+    }
+
+    #[test]
+    fn tray_disables_direct_browser_open() {
+        let options = parse_launch_args(["management-server".to_string(), "--tray".to_string()])
+            .expect("args must parse");
+
+        assert_eq!(
+            options,
+            LaunchOptions {
+                open_browser: false,
+                tray: true,
+                help: false
+            }
+        );
     }
 }

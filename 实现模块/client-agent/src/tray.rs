@@ -12,7 +12,12 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 pub fn run_tray() -> io::Result<()> {
     let exe = std::env::current_exe()?;
-    let script_path = write_tray_script(&exe.display().to_string())?;
+    let icon_path = std::env::current_dir()?
+        .join("assets")
+        .join("icons")
+        .join("client.ico");
+    let script_path =
+        write_tray_script(&exe.display().to_string(), &icon_path.display().to_string())?;
     let stderr = tray_error_log()?;
     let mut command = Command::new(shell_executable());
     command.args([
@@ -27,17 +32,19 @@ pub fn run_tray() -> io::Result<()> {
     spawn_hidden(command)
 }
 
-fn write_tray_script(exe_path: &str) -> io::Result<PathBuf> {
+fn write_tray_script(exe_path: &str, icon_path: &str) -> io::Result<PathBuf> {
     let script_dir = std::env::temp_dir().join("wow-client-agent");
     fs::create_dir_all(&script_dir)?;
     let script_path = script_dir.join("tray.ps1");
     let exe = escape_ps_single(exe_path);
+    let icon_path = escape_ps_single(icon_path);
     let current_version = escape_ps_single(framework_release_version());
     let script = format!(
         r#"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 $exe = '{exe}'
+$iconPath = '{icon_path}'
 $currentVersion = '{current_version}'
 $monitor = $null
 
@@ -86,7 +93,11 @@ function Stop-Monitor {{
 
 $notify = New-Object System.Windows.Forms.NotifyIcon
 $notify.Text = 'WoW Client Agent ' + $currentVersion
-$notify.Icon = [System.Drawing.SystemIcons]::Application
+if (Test-Path -LiteralPath $iconPath) {{
+  $notify.Icon = New-Object System.Drawing.Icon($iconPath)
+}} else {{
+  $notify.Icon = [System.Drawing.SystemIcons]::Application
+}}
 $notify.Visible = $true
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 

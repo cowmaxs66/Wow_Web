@@ -2,7 +2,8 @@ param(
     [string]$HostAddress = '127.0.0.1',
     [int]$Port = 18080,
     [string]$HistoryPath = 'data/status-history.jsonl',
-    [switch]$OpenBrowser
+    [switch]$OpenBrowser,
+    [switch]$Tray
 )
 
 Set-StrictMode -Version Latest
@@ -38,7 +39,9 @@ try {
         }
     }
 
-    if ($OpenBrowser) {
+    if ($Tray) {
+        & $serverExe --tray
+    } elseif ($OpenBrowser) {
         & $serverExe --open-browser
     } else {
         & $serverExe --no-open-browser

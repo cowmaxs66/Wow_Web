@@ -6,7 +6,7 @@
 ## 当前阶段
 - 当前阶段：P24 命令执行回执与审计可视化
 - 当前版本：v1.17.0
-- 当前目标：v1.17.0 正在发布，完成 Server 命令回执 API、Client 执行后上报和 Web 最近回执展示
+- 当前目标：v1.17.0 已发布，完成 Server 命令回执 API、Client 执行后上报和 Web 最近回执展示
 
 ## 第一里程碑
 已完成 P0-P24 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执：
@@ -55,4 +55,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.17.0 发布资料正在归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.17.0
+v1.17.0 发布资料已归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.17.0

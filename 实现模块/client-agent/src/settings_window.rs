@@ -1,24 +1,37 @@
 use crate::config::default_config_path;
+use crate::ps_script;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 pub fn open_settings_window() -> io::Result<()> {
     let config_path = default_config_path();
     ensure_config_exists(&config_path)?;
     let script_path = write_settings_script(&config_path)?;
 
-    Command::new(shell_executable())
-        .args([
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            &script_path.display().to_string(),
-        ])
-        .spawn()
-        .map(|_| ())
+    let mut command = Command::new(shell_executable());
+    command.args([
+        "-STA",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        &script_path.display().to_string(),
+    ]);
+
+    #[cfg(windows)]
+    {
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    command.spawn().map(|_| ())
 }
 
 fn ensure_config_exists(config_path: &Path) -> io::Result<()> {
@@ -101,22 +114,12 @@ $form.Controls.Add($reload)
 [void]$form.ShowDialog()
 "#
     );
-    fs::write(&script_path, script)?;
+    ps_script::write_utf8_bom(&script_path, &script)?;
     Ok(script_path)
 }
 
 fn shell_executable() -> &'static str {
-    if Command::new("pwsh")
-        .arg("-NoProfile")
-        .arg("-Command")
-        .arg("$PSVersionTable.PSVersion.ToString()")
-        .output()
-        .is_ok_and(|output| output.status.success())
-    {
-        "pwsh"
-    } else {
-        "powershell"
-    }
+    "powershell"
 }
 
 fn escape_ps_single(value: &str) -> String {

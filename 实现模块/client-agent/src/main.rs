@@ -8,6 +8,7 @@ mod lua_dm;
 mod lua_host;
 mod monitor;
 mod notifier;
+mod ps_script;
 mod remote_command;
 mod script;
 mod server_reporter;

@@ -32,6 +32,8 @@
 | P16 自动更新自替换验证 | `update-apply`、打包脚本、包内烟测和敏感文件检查 | 已通过 |
 | P17 服务端远程更新与导航补全验证 | Server `update.apply`、在线收敛、Web 导航功能页 | 已通过 |
 | P18 服务端上线日志与分包验证 | Server 控制台上线日志、Server/Client 分包、三类 zip 安全检查 | 已通过 |
+| P19 客户端直启与远程目标选择修正验证 | Client 分包默认上报、离线上报、Web 目标选择、三类 zip 安全检查 | 已通过 |
+| P20 Client 正式直启热修复验证 | 根目录 `client-agent.exe` 真实直启、PowerShell 编码、STA 和隐藏启动链路 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -258,3 +260,30 @@
 - Server 控制台上线日志烟测：通过，Server 分包 core 收到 Client 分包上报后输出 `[server] Client 上线: client_id=local-dev-client online=true script=bootstrap release_version=v1.12.0 ...`。
 - 分包边界检查：通过，Server 分包不含 `client-agent.exe`、Client core、Client config、scripts、DmBridge；Client 分包不含 `management-server.exe` 和 Server core。
 - 三类 zip 敏感文件检查：通过，均未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。
+
+## P19 客户端直启与远程目标选择修正验证
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.13.0`。
+- `tools/package-release.ps1`：通过，生成总包、Server 分包和 Client 分包。
+- Client 分包默认上报烟测：通过，未设置 `CLIENT_AGENT_SERVER_ENABLED` 时，Client 分包可向 Server 上报 `v1.13.0`。
+- 离线上报烟测：通过，正常停止 monitor 后可上报 `online = false`。
+- Web Admin 目标选择：通过，远程操作支持单台 Client 或全部已上报 Client。
+- 三类 zip 敏感文件检查：通过，均未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。
+
+## P20 Client 正式直启热修复验证
+- `cargo fmt --all --check`：通过。
+- `cargo test -p client-agent`：通过，41 项测试通过。
+- `cargo test --workspace`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.13.1`。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- DmBridge Win32 编译：通过，生成 `target/dm-bridge/Win32/DmBridge.dll`。
+- Client 分包根目录 exe 真实直启烟测：通过，直接启动 `WoW_Client_v1.13.1_windows/client-agent.exe` 后产生 `powershell.exe -STA ... tray.ps1` 和 `client-agent-core.exe --monitor` 两个进程。
+- Server 状态查询：通过，`local-dev-client` 返回 `online = true`、`release_version = v1.13.1`、`arch = x86`。
+- 托盘错误日志：通过，`logs/tray-error.log` 长度为 0。
+- 三类 zip SHA-256：
+  - 总包 `3ece2cafba9063ff122a5393179b8fe5cdaf8b7c25a431ff3653cfe3ccaf137a`
+  - Server 分包 `00b63001a781d6c19bc9ef85b47c03677a803574081d7a74939296ea0667e6f3`
+  - Client 分包 `85206e3bcf2079f75443794bff7685a9660159017ec0218bfeb42ad4d4dfa292`

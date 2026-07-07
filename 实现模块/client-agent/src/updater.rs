@@ -3,6 +3,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::ps_script;
 use serde::{Deserialize, Serialize};
 
 #[cfg(windows)]
@@ -12,8 +13,6 @@ const RELEASE_API: &str = "https://api.github.com/repos/cowmaxs66/Wow_Web/releas
 const ASSET_NAME: &str = "WoW_Framework";
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-#[cfg(windows)]
-const DETACHED_PROCESS: u32 = 0x0000_0008;
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
 struct UpdateMetadata {
@@ -83,7 +82,7 @@ pub fn apply_update() -> io::Result<String> {
     let script_dir = update_dir()?.join(&downloaded.latest);
     fs::create_dir_all(&script_dir)?;
     let apply_script = script_dir.join("apply-update.ps1");
-    fs::write(&apply_script, apply_script_content())?;
+    ps_script::write_utf8_bom(&apply_script, apply_script_content())?;
     let backup_root = update_dir()?.join("backups");
     fs::create_dir_all(&backup_root)?;
     spawn_apply_script(
@@ -224,7 +223,7 @@ fn spawn_apply_script(
 
     #[cfg(windows)]
     {
-        command.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+        command.creation_flags(CREATE_NO_WINDOW);
     }
 
     command.spawn().map(|_| ())

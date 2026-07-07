@@ -1,29 +1,29 @@
+use crate::ps_script;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
 #[cfg(windows)]
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-#[cfg(windows)]
-const DETACHED_PROCESS: u32 = 0x0000_0008;
 
 pub fn run_tray() -> io::Result<()> {
     let exe = std::env::current_exe()?;
     let script_path = write_tray_script(&exe.display().to_string())?;
+    let stderr = tray_error_log()?;
     let mut command = Command::new(shell_executable());
     command.args([
+        "-STA",
         "-NoProfile",
-        "-WindowStyle",
-        "Hidden",
         "-ExecutionPolicy",
         "Bypass",
         "-File",
         &script_path.display().to_string(),
     ]);
+    command.stderr(Stdio::from(stderr));
     spawn_hidden(command)
 }
 
@@ -139,41 +139,30 @@ Start-Monitor
 [System.Windows.Forms.Application]::Run()
 "#
     );
-    fs::write(&script_path, script)?;
+    ps_script::write_utf8_bom(&script_path, &script)?;
     Ok(script_path)
 }
 
+fn tray_error_log() -> io::Result<fs::File> {
+    let log_dir = PathBuf::from("logs");
+    fs::create_dir_all(&log_dir)?;
+    fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_dir.join("tray-error.log"))
+}
+
 fn shell_executable() -> &'static str {
-    let mut command = Command::new("pwsh");
-    command
-        .arg("-NoProfile")
-        .arg("-WindowStyle")
-        .arg("Hidden")
-        .arg("-Command")
-        .arg("$PSVersionTable.PSVersion.ToString()");
-    if output_hidden(command).is_ok_and(|output| output.status.success()) {
-        "pwsh"
-    } else {
-        "powershell"
-    }
+    "powershell"
 }
 
 fn spawn_hidden(mut command: Command) -> io::Result<()> {
     #[cfg(windows)]
     {
-        command.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+        command.creation_flags(CREATE_NO_WINDOW);
     }
 
     command.spawn().map(|_| ())
-}
-
-fn output_hidden(mut command: Command) -> io::Result<std::process::Output> {
-    #[cfg(windows)]
-    {
-        command.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
-    }
-
-    command.output()
 }
 
 fn framework_release_version() -> &'static str {

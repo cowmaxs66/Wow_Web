@@ -45,4 +45,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.8.0 发布资料将在 P14 验证与发布后归档。
+v1.8.0 发布资料已归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.8.0

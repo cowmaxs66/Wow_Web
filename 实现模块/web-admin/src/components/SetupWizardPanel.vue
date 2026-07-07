@@ -29,6 +29,9 @@ const {
   architectureNote,
   serverCommand,
   clientCommand,
+  startupStatusCommand,
+  enableStartupCommand,
+  disableStartupCommand,
   applyDashboardDefaults,
   markCompleted,
   reset,
@@ -130,6 +133,27 @@ function completeSetup(): void {
             </button>
           </div>
           <pre>{{ clientCommand }}</pre>
+        </article>
+
+        <article>
+          <div class="command-title">
+            <strong>Client 開機啟動</strong>
+            <div class="command-actions">
+              <button type="button" @click="copyText('startup-status', startupStatusCommand)">
+                <Clipboard :size="14" />
+                <span>{{ copiedTarget === "startup-status" ? "已複製" : "查詢" }}</span>
+              </button>
+              <button type="button" @click="copyText('startup-enable', enableStartupCommand)">
+                <Clipboard :size="14" />
+                <span>{{ copiedTarget === "startup-enable" ? "已複製" : "啟用" }}</span>
+              </button>
+              <button type="button" @click="copyText('startup-disable', disableStartupCommand)">
+                <Clipboard :size="14" />
+                <span>{{ copiedTarget === "startup-disable" ? "已複製" : "停用" }}</span>
+              </button>
+            </div>
+          </div>
+          <pre>{{ startupStatusCommand + "\n" + enableStartupCommand + "\n" + disableStartupCommand }}</pre>
         </article>
       </div>
 
@@ -278,6 +302,13 @@ article {
 .command-title {
   justify-content: space-between;
   gap: var(--space-3);
+}
+
+.command-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .command-title strong {

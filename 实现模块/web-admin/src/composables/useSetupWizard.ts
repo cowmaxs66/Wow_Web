@@ -69,38 +69,34 @@ export function useSetupWizard() {
   });
 
   const serverCommand = computed(() => {
-    const bindAddress = `${fallbackText(profile.value.serverHost, defaultProfile.serverHost)}:${normalizedPort.value}`;
-
-    // P10 向导命令只用于复制执行，不直接运行用户输入。
+    // 向导命令只用于复制执行，不直接运行用户输入。
     // 所有可编辑字段统一按 PowerShell 单引号转义，避免路径空格或单引号破坏命令结构。
     return [
-      `$env:MANAGEMENT_SERVER_BIND=${quotePowerShellValue(bindAddress)}`,
-      `$env:MANAGEMENT_SERVER_HISTORY_PATH=${quotePowerShellValue(fallbackText(profile.value.historyPath, defaultProfile.historyPath))}`,
-      `$env:MANAGEMENT_SERVER_WEB_DIR=${quotePowerShellValue(fallbackText(profile.value.webDir, defaultProfile.webDir))}`,
-      ".\\bin\\management-server.exe",
-    ].join("\n");
+      ".\\tools\\start-server.ps1",
+      "-HostAddress",
+      quotePowerShellValue(fallbackText(profile.value.serverHost, defaultProfile.serverHost)),
+      "-Port",
+      normalizedPort.value,
+      "-HistoryPath",
+      quotePowerShellValue(fallbackText(profile.value.historyPath, defaultProfile.historyPath)),
+      "-OpenBrowser",
+    ].join(" ");
   });
 
   const clientCommand = computed(() => {
-    const exeName =
-      profile.value.clientMode === "x86-dm"
-        ? ".\\bin\\client-agent-x86.exe"
-        : ".\\bin\\client-agent.exe";
-    // 与 Server 命令保持同一套转义规则，保证复制后的命令可读、可审计、可直接执行。
-    const lines = [
-      `$env:CLIENT_AGENT_SERVER_ENABLED=${quotePowerShellValue(profile.value.reportEnabled ? "1" : "0")}`,
-      `$env:CLIENT_AGENT_SERVER_HOST=${quotePowerShellValue(fallbackText(profile.value.serverHost, defaultProfile.serverHost))}`,
-      `$env:CLIENT_AGENT_SERVER_PORT=${quotePowerShellValue(normalizedPort.value)}`,
-    ];
+    return clientToolCommand("-Monitor");
+  });
 
-    if (profile.value.clientMode === "x86-dm") {
-      lines.push(
-        `$env:DM_BRIDGE_DLL=${quotePowerShellValue(fallbackText(profile.value.dmBridgePath, defaultProfile.dmBridgePath))}`,
-      );
-    }
+  const startupStatusCommand = computed(() => {
+    return clientToolCommand("-StartupStatus");
+  });
 
-    lines.push(exeName);
-    return lines.join("\n");
+  const enableStartupCommand = computed(() => {
+    return clientToolCommand("-EnableStartup");
+  });
+
+  const disableStartupCommand = computed(() => {
+    return clientToolCommand("-DisableStartup");
   });
 
   function applyDashboardDefaults(serverUrlValue: string, clientIdValue: string): void {
@@ -135,6 +131,35 @@ export function useSetupWizard() {
     }, 1600);
   }
 
+  function clientToolCommand(action: string): string {
+    const arch = profile.value.clientMode === "x86-dm" ? "x86" : "x64";
+    const args = [
+      ".\\tools\\start-client.ps1",
+      "-ClientArch",
+      quotePowerShellValue(arch),
+      "-ServerHost",
+      quotePowerShellValue(fallbackText(profile.value.serverHost, defaultProfile.serverHost)),
+      "-ServerPort",
+      normalizedPort.value,
+    ];
+
+    if (!profile.value.reportEnabled) {
+      args.push("-DisableReport");
+    }
+
+    if (profile.value.clientMode === "x86-dm") {
+      args.push(
+        "-DmBridgePath",
+        quotePowerShellValue(
+          fallbackText(profile.value.dmBridgePath, defaultProfile.dmBridgePath),
+        ),
+      );
+    }
+
+    args.push(action);
+    return args.join(" ");
+  }
+
   return {
     profile,
     copiedTarget,
@@ -144,6 +169,9 @@ export function useSetupWizard() {
     architectureNote,
     serverCommand,
     clientCommand,
+    startupStatusCommand,
+    enableStartupCommand,
+    disableStartupCommand,
     applyDashboardDefaults,
     markCompleted,
     reset,

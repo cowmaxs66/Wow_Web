@@ -8,17 +8,18 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P11 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容，并新增 monitor、setup、open-log 和 notify 入口。
+P12 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify 入口，并新增当前用户开机启动设置入口。
 
 ## 当前目录
 | 路径 | 职责 |
 |------|------|
 | `src/main.rs` | 程序入口，只负责命令分发 |
 | `src/agent.rs` | 单次执行 Lua、生成状态、上报 Server |
-| `src/cli.rs` | `--monitor`、`--setup`、`--open-log`、`--notify` 参数解析 |
+| `src/cli.rs` | `--monitor`、`--setup`、`--open-log`、`--notify` 和开机启动参数解析 |
 | `src/monitor.rs` | 常驻监控、周期上报、轮询 Server 消息 |
 | `src/local_log.rs` | 本地事件日志和状态 JSONL |
 | `src/notifier.rs` | Windows 通知气泡 |
+| `src/startup.rs` | 当前用户开机启动查询、启用和停用 |
 | `src/config/` | 配置读取、错误类型、默认路径解析 |
 | `src/script/` | Lua 脚本文件加载、manifest、签名、hash 和权限校验 |
 | `src/lua_host.rs` | Lua 宿主和按权限注册的白名单 API |
@@ -64,6 +65,9 @@ client-agent.exe --monitor
 client-agent.exe --setup
 client-agent.exe --open-log
 client-agent.exe --notify
+client-agent.exe --startup-status
+client-agent.exe --enable-startup
+client-agent.exe --disable-startup
 ```
 
 - 默认模式执行一次并输出状态 JSON。
@@ -71,6 +75,12 @@ client-agent.exe --notify
 - `--setup` 打开本机配置文件。
 - `--open-log` 打开 `logs/client-agent.log`。
 - `--notify` 执行一次后弹出状态通知。
+
+## P12 开机启动入口
+- `--startup-status` 查询当前用户开机启动状态。
+- `--enable-startup` 写入 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`，启动命令为当前 `client-agent.exe --monitor`。
+- `--disable-startup` 删除同名当前用户开机启动项。
+- 移动发布包目录后需要重新执行 `--enable-startup`。
 
 ## 验证命令
 ```powershell

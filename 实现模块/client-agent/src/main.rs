@@ -10,6 +10,7 @@ mod monitor;
 mod notifier;
 mod script;
 mod server_reporter;
+mod startup;
 mod status;
 
 use agent::run_once;
@@ -38,6 +39,25 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if command == AgentCommand::OpenLog {
         LocalLog::default().open_event_log()?;
+        return Ok(());
+    }
+
+    if command == AgentCommand::StartupStatus {
+        println!("{}", startup::startup_status()?.summary());
+        return Ok(());
+    }
+
+    if command == AgentCommand::EnableStartup {
+        let status = startup::enable_startup()?;
+        let _ = LocalLog::default().append_event("已启用当前用户开机启动");
+        println!("{}", status.summary());
+        return Ok(());
+    }
+
+    if command == AgentCommand::DisableStartup {
+        let status = startup::disable_startup()?;
+        let _ = LocalLog::default().append_event("已禁用当前用户开机启动");
+        println!("{}", status.summary());
         return Ok(());
     }
 

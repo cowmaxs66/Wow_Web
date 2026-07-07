@@ -8,7 +8,7 @@ Web 管理端，后续负责：
 - 脚本库、版本和指派管理。
 
 ## 当前状态
-P11 阶段已完成 Server 消息发送入口。当前页面可读取 Management Server 健康状态、Client 最新状态、短期历史、快照分析、Agent 运行详情、脚本安全配置、本地连接设置，可在首次运行时生成 Server 与 Client 的一键启动参数，并可向选中 Client 写入 Server 消息。
+P12 阶段已完成 Client 开机启动命令生成入口。当前页面可读取 Management Server 健康状态、Client 最新状态、短期历史、快照分析、Agent 运行详情、脚本安全配置、本地连接设置，可在首次运行时生成 Server、Client 与开机启动设置命令，并可向选中 Client 写入 Server 消息。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -36,6 +36,7 @@ P11 阶段已完成 Server 消息发送入口。当前页面可读取 Management
 - 支持修改 Web Admin 本地 Server 地址和查询 Client ID 后手动刷新。
 - 支持首次设置向导，保存 Server 地址、历史文件路径、Web 静态目录和 Client 模式。
 - 支持生成 Management Server 与 Client Agent 的本机启动命令。
+- 支持生成 Client 开机启动查询、启用和停用命令。
 - 支持区分 `x64` 核心模式和 `x86` 大漠模式，避免误把 32 位 `dm.dll` 放入 64 位进程。
 - 支持在 Client 详情中发送 Server 消息，供 `client-agent --monitor` 轮询、记录日志和弹出通知。
 
@@ -44,6 +45,7 @@ P11 阶段已完成 Server 消息发送入口。当前页面可读取 Management
 - `x64` 核心模式用于普通状态上报和 Web 联调。
 - `x86` 大漠模式用于加载 32 位 `DmBridge.dll` 和本机大漠插件。
 - 向导生成的命令用于本机运行参考，正式部署前仍需补齐鉴权、TLS 和运维策略。
+- P12 起向导额外生成开机启动命令；浏览器只负责展示命令，真正修改本机设置仍由 `client-agent.exe` 或 `tools/start-client.ps1` 执行。
 
 ## 验证命令
 ```powershell

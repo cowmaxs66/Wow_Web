@@ -154,3 +154,17 @@
 - Playwright fallback 移动视口：390x920，通过，消息表单和详情面板单列展示，无横向溢出。
 - v1.5.0 编译包包内烟测：通过，根目录 `management-server.exe` 和 x86 `client-agent.exe --monitor` 可联动，Client 日志包含 `package message works`。
 - 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、`.env`、JSONL、PDB、DCU 和 MAP 文件。
+
+## P12 Client 本机设置与开机启动验证
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 26 项测试、management-server 20 项测试、shared-types 4 项测试通过。
+- `cargo test -p client-agent`：通过，26 项测试覆盖 CLI 解析、启动项命令格式和注册表输出解析。
+- `npm run build`：通过，Web Admin 首次设置向导新增开机启动命令后构建成功。
+- `cargo run -p client-agent -- --startup-status`：通过，只读查询当前用户开机启动状态，未修改注册表。
+- `tools/start-client.ps1 -ClientArch x64 -StartupStatus`：通过，工具脚本可调用只读查询。
+- Playwright fallback 桌面视口：1440x1000，通过，页面显示 `Client 開機啟動`、`-StartupStatus`、`-EnableStartup`、`-DisableStartup`，无横向溢出。
+- Playwright fallback 移动视口：390x920，通过，开机启动命令区单列展示，无横向溢出。
+- v1.6.0 编译包包内烟测：通过，根目录 `management-server.exe` 和 x86 `client-agent.exe --monitor` 可联动，Client 日志包含 `startup package message works`。
+- 包内 `client-agent.exe --startup-status`：通过，只读查询输出注册项 `WoW Client Agent`，未修改注册表。
+- 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、`.env`、JSONL、PDB、DCU 和 MAP 文件。

@@ -8,7 +8,10 @@ param(
     [switch]$Monitor,
     [switch]$Notify,
     [switch]$OpenLog,
-    [switch]$Setup
+    [switch]$Setup,
+    [switch]$StartupStatus,
+    [switch]$EnableStartup,
+    [switch]$DisableStartup
 )
 
 Set-StrictMode -Version Latest
@@ -38,6 +41,12 @@ try {
         $arguments += '--setup'
     } elseif ($OpenLog) {
         $arguments += '--open-log'
+    } elseif ($StartupStatus) {
+        $arguments += '--startup-status'
+    } elseif ($EnableStartup) {
+        $arguments += '--enable-startup'
+    } elseif ($DisableStartup) {
+        $arguments += '--disable-startup'
     } elseif ($Notify) {
         $arguments += '--notify'
     }

@@ -41,6 +41,7 @@
 | P25 工程化地基验证 | 共享命令清单、错误类型、app 拆分、CI 配置、Rust/Web 构建 | 已通过 |
 | P26 Client 远程配置下发验证 | `config.apply`、Client 配置写回、monitor 动态重载、包内闭环 | 已通过 |
 | P27 Client 原生设置表单化验证 | 设置窗口表单脚本、Rust/Web 全量验证、本地三类包和包内烟测 | 已通过 |
+| P28 DM 实机烟测验证 | DM smoke manifest、x86 Client 分包实机烟测、多机通讯规划 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -408,3 +409,18 @@
   - 总包 `33adc868ae1fe5f4b466fa340739fa4d039b4a02f5bb0d2787b36f9871ba5fc3`
   - Server 分包 `146df267022bb8d76feaecd75c71e4dc632a3b2fbcc610fc2db5b099f09907d8`
   - Client 分包 `9ef5aa373c90e553ed6d007aa711cd95cbac6dcb7f87c42c971e4b7d80d1e2ab`
+
+## P28 DM 实机烟测验证
+- `cargo fmt --all --check`：通过。
+- `cargo test -p client-agent shipped_dm_smoke_manifest_matches_script_and_permissions`：通过。
+- `cargo test --workspace`：通过，Client 47 个测试、Server 42 个测试、shared-types 8 个测试、launcher 3 个测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo build --workspace`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.21.0`。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Client 分包 DM smoke 实机烟测：通过，临时复制 Client 分包并切换配置到 `dm-smoke` 后，`bin/client-agent-core.exe --run-once` 输出 `release_version = v1.21.0`、`current_script = dm-smoke`、`arch = x86`。
+- 三类 zip 敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、PDB、DCU、MAP。
+- 三类 zip SHA-256：
+  - 总包 `dc00902da683c924f780a77fc16220be5b234e5d923fb76f0fc485d81dff835a`
+  - Server 分包 `17e3f015c38a7f5a7db4c25adf144531a35cda191ef198cd8b2726dba63bb6f0`
+  - Client 分包 `6cd35dffe48a82375cab14e1340802caa5fdde8efedfe64e8346b1b6b1579d72`

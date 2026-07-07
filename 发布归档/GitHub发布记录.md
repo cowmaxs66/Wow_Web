@@ -21,11 +21,11 @@
 ## 待发布本地包
 | 项目 | 内容 |
 |------|------|
-| 版本 | v1.20.0 |
-| 范围 | Client 原生设置表单化 |
+| 版本 | v1.21.0 |
+| 范围 | DM 实机烟测与多机通讯规划 |
 | 本地路径 | `target/release-package/` |
-| 编译包 | `WoW_Framework_v1.20.0_windows.zip`、`WoW_Server_v1.20.0_windows.zip`、`WoW_Client_v1.20.0_windows.zip` |
-| 编译包 SHA-256 | 总包 `33adc868ae1fe5f4b466fa340739fa4d039b4a02f5bb0d2787b36f9871ba5fc3`；Server `146df267022bb8d76feaecd75c71e4dc632a3b2fbcc610fc2db5b099f09907d8`；Client `9ef5aa373c90e553ed6d007aa711cd95cbac6dcb7f87c42c971e4b7d80d1e2ab` |
+| 编译包 | `WoW_Framework_v1.21.0_windows.zip`、`WoW_Server_v1.21.0_windows.zip`、`WoW_Client_v1.21.0_windows.zip` |
+| 编译包 SHA-256 | 总包 `dc00902da683c924f780a77fc16220be5b234e5d923fb76f0fc485d81dff835a`；Server `17e3f015c38a7f5a7db4c25adf144531a35cda191ef198cd8b2726dba63bb6f0`；Client `6cd35dffe48a82375cab14e1340802caa5fdde8efedfe64e8346b1b6b1579d72` |
 | 当前状态 | 本地包已生成，GitHub Release 未创建 |
 
 ## 安全边界
@@ -68,4 +68,4 @@
 | v1.2.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.2.0 | `41ca63e6b29658fd572d83c4378b6980dbf0bd36` | 已完成 |
 
 ## 下一步建议
-进入 P27 前先确认优先方向：登录鉴权与操作者审计、命令持久化、完整命令 registry、前端工程化、脚本分发签名流程、真实 DM 场景验证、MSI/MSIX 安装器或代码签名。
+优先进入 P29 多机器管理数据模型、Client 分组/标签和批量操作安全边界；随后进入 P30 通讯效率优化，增加轮询 jitter 和 `/api/client/sync` 合并同步接口。

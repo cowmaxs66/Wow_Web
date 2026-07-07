@@ -8,7 +8,7 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P27 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、更新检查/下载/自替换、远程命令入口和 `config.apply` 受控配置写回。
+P28 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回和 DM smoke 脚本样例。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -39,6 +39,9 @@ P27 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `config/client-agent.toml` | 开发期本地配置样例 |
 | `scripts/bootstrap.lua` | 开发期 bootstrap Lua 脚本 |
 | `scripts/bootstrap.manifest.json` | bootstrap manifest、hash、权限和签名 |
+| `scripts/dm_smoke.lua` | DM 实机烟测 Lua 脚本，只读版本和颜色，不点击 |
+| `scripts/dm_smoke.manifest.json` | DM 烟测 manifest、hash、权限和签名 |
+| `scripts/README.md` | Client Lua 脚本目录说明和 DM smoke 切换方式 |
 
 ## P5 脚本安全
 - 默认启用 `script_security`。
@@ -122,6 +125,12 @@ client-agent.exe --update-apply
 - 用户通过文本框、复选框和权限勾选保存设置，保存前会校验端口、路径、公钥和整数范围。
 - 保存后仍写回标准 TOML，monitor 和 service 下一轮刷新时读取新配置。
 - “打开配置文件”只作为高级排错入口保留，不作为普通设置主流程。
+
+## P28 DM smoke 脚本
+- `scripts/dm_smoke.lua` 用于实机验证 Lua -> Rust -> DmBridge -> 大漠 COM 链路。
+- 脚本只执行 ABI、初始化、版本、取色、错误码和关闭 Bridge，不点击、不键盘输入、不绑定窗口。
+- 运行前需在设置窗口切换 `bootstrap_name = dm-smoke`、`bootstrap_path = scripts/dm_smoke.lua`、`manifest_path = scripts/dm_smoke.manifest.json`，公钥设为 `ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c`，并勾选 `host.log` 和 `dm.access`。
+- DM smoke 仍要求本机大漠 COM 可用；项目不会提交 `dm.dll`、`RegDll.dll`、授权文件或账号资料。
 
 ## 验证命令
 ```powershell

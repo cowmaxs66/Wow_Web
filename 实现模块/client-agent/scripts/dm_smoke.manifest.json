@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "script_id": "dm-smoke",
+  "version": "0.1.0",
+  "entry": "dm_smoke.lua",
+  "sha256": "f3d78408e56bd8738aa07003c377fb745b0c0017f39c283969509dfa5a7f3190",
+  "permissions": ["host.log", "dm.access"],
+  "signature": "23d52db275264c9c585f860166d5de7212bb00e6bad42f2a2d624b76be83b37af702d30cd6d080253c02ae95495096e6959c470d7929eec3a52a5ed65d426707"
+}

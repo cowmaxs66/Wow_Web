@@ -82,6 +82,26 @@ fn secure_bootstrap_rejects_permission_outside_whitelist() {
     assert!(error.to_string().contains("未在配置白名单中"));
 }
 
+#[test]
+fn shipped_dm_smoke_manifest_matches_script_and_permissions() {
+    let module_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let script_path = module_dir.join("scripts/dm_smoke.lua");
+    let manifest_path = module_dir.join("scripts/dm_smoke.manifest.json");
+    let config = test_config_with_name(
+        "dm-smoke",
+        &script_path,
+        &manifest_path,
+        &["host.log", "dm.access"],
+    );
+
+    let script = ScriptSource::load_bootstrap(&config).expect("dm smoke manifest must load");
+
+    assert_eq!(script.name, "dm-smoke");
+    assert!(script.permissions.allows(PERMISSION_HOST_LOG));
+    assert!(script.permissions.allows(PERMISSION_DM_ACCESS));
+    assert!(!script.permissions.allows(PERMISSION_CONFIG_READ));
+}
+
 fn create_test_workspace(name: &str) -> PathBuf {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -129,12 +149,21 @@ fn test_config(
     manifest_path: &Path,
     allowed_permissions: &[&str],
 ) -> AgentConfig {
+    test_config_with_name("bootstrap", script_path, manifest_path, allowed_permissions)
+}
+
+fn test_config_with_name(
+    bootstrap_name: &str,
+    script_path: &Path,
+    manifest_path: &Path,
+    allowed_permissions: &[&str],
+) -> AgentConfig {
     AgentConfig {
         client: ClientConfig {
             id: "script-test-client".to_string(),
         },
         lua: LuaConfig {
-            bootstrap_name: "bootstrap".to_string(),
+            bootstrap_name: bootstrap_name.to_string(),
             bootstrap_path: script_path.to_path_buf(),
             instruction_limit: 1000,
         },

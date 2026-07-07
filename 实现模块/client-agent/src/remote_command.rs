@@ -1,45 +1,94 @@
 use crate::config::AgentConfig;
 use crate::local_log::LocalLog;
-use std::error::Error;
+use shared_types::{
+    REMOTE_COMMAND_LOG_OPEN, REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP, REMOTE_COMMAND_SERVICE_INSTALL,
+    REMOTE_COMMAND_SERVICE_START, REMOTE_COMMAND_SERVICE_STATUS, REMOTE_COMMAND_SERVICE_STOP,
+    REMOTE_COMMAND_SETTINGS_OPEN, REMOTE_COMMAND_STARTUP_DISABLE, REMOTE_COMMAND_STARTUP_ENABLE,
+    REMOTE_COMMAND_STARTUP_STATUS, REMOTE_COMMAND_TRAY_OPEN, REMOTE_COMMAND_UPDATE_APPLY,
+    REMOTE_COMMAND_UPDATE_CHECK, REMOTE_COMMAND_UPDATE_DOWNLOAD, is_supported_remote_command,
+};
+use thiserror::Error;
 
 pub fn execute_remote_command(
     command_type: &str,
     config: &AgentConfig,
-) -> Result<String, Box<dyn Error>> {
+) -> Result<String, RemoteCommandError> {
+    if !is_supported_remote_command(command_type) {
+        return Err(RemoteCommandError::Unsupported(command_type.to_string()));
+    }
+
     match command_type {
-        "script.run_bootstrap" => run_bootstrap_command(config),
-        "startup.status" => Ok(crate::startup::startup_status()?.summary()),
-        "startup.enable" => Ok(crate::startup::enable_startup()?.summary()),
-        "startup.disable" => Ok(crate::startup::disable_startup()?.summary()),
-        "service.status" => Ok(crate::service_runtime::service_status()?),
-        "service.install" => Ok(crate::service_runtime::install_service()?),
-        "service.start" => Ok(crate::service_runtime::start_service()?),
-        "service.stop" => Ok(crate::service_runtime::stop_service()?),
-        "update.check" => Ok(crate::updater::check_update()?),
-        "update.download" => Ok(crate::updater::download_update()?),
+        REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP => run_bootstrap_command(config),
+        REMOTE_COMMAND_STARTUP_STATUS => crate::startup::startup_status()
+            .map(|status| status.summary())
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_STARTUP_ENABLE => crate::startup::enable_startup()
+            .map(|status| status.summary())
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_STARTUP_DISABLE => crate::startup::disable_startup()
+            .map(|status| status.summary())
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_SERVICE_STATUS => crate::service_runtime::service_status()
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_SERVICE_INSTALL => crate::service_runtime::install_service()
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_SERVICE_START => crate::service_runtime::start_service()
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_SERVICE_STOP => crate::service_runtime::stop_service()
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_UPDATE_CHECK => crate::updater::check_update()
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_UPDATE_DOWNLOAD => crate::updater::download_update()
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
         // Server 下发安装更新时复用本机自替换更新器。
         // 输入：Management Server 命令队列中的 update.apply。
         // 输出：检查 GitHub Release、下载新版包、启动独立替换脚本后的 JSON 摘要。
         // 边界：替换脚本可能停止当前 monitor，执行过程会写入本机 update-apply.log。
-        "update.apply" => Ok(crate::updater::apply_update()?),
-        "settings.open" => {
-            crate::settings_window::open_settings_window()?;
+        REMOTE_COMMAND_UPDATE_APPLY => crate::updater::apply_update()
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_SETTINGS_OPEN => {
+            crate::settings_window::open_settings_window()
+                .map_err(|error| RemoteCommandError::execute(command_type, error))?;
             Ok("已请求打开设置窗口".to_string())
         }
-        "log.open" => {
-            LocalLog::default().open_event_log()?;
+        REMOTE_COMMAND_LOG_OPEN => {
+            LocalLog::default()
+                .open_event_log()
+                .map_err(|error| RemoteCommandError::execute(command_type, error))?;
             Ok("已请求打开日志窗口".to_string())
         }
-        "tray.open" => {
-            crate::tray::run_tray()?;
+        REMOTE_COMMAND_TRAY_OPEN => {
+            crate::tray::run_tray()
+                .map_err(|error| RemoteCommandError::execute(command_type, error))?;
             Ok("已请求打开托盘".to_string())
         }
-        unknown => Err(format!("不支持的远程命令：{unknown}").into()),
+        _ => Err(RemoteCommandError::Unsupported(command_type.to_string())),
     }
 }
 
-fn run_bootstrap_command(config: &AgentConfig) -> Result<String, Box<dyn Error>> {
-    let result = crate::agent::run_once(config)?;
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum RemoteCommandError {
+    #[error("不支持的远程命令：{0}")]
+    Unsupported(String),
+    #[error("执行远程命令失败：{command_type}: {message}")]
+    Execute {
+        command_type: String,
+        message: String,
+    },
+}
+
+impl RemoteCommandError {
+    fn execute(command_type: &str, error: impl ToString) -> Self {
+        Self::Execute {
+            command_type: command_type.to_string(),
+            message: error.to_string(),
+        }
+    }
+}
+
+fn run_bootstrap_command(config: &AgentConfig) -> Result<String, RemoteCommandError> {
+    let result = crate::agent::run_once(config)
+        .map_err(|error| RemoteCommandError::execute(REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP, error))?;
     let log = LocalLog::default();
     let _ = log.append_status(&result.envelope);
 
@@ -70,7 +119,10 @@ mod tests {
     fn unsupported_remote_command_is_rejected() {
         let error = super::execute_remote_command("shell.exec", &test_config())
             .expect_err("must reject shell");
-        assert!(error.to_string().contains("不支持"));
+        assert_eq!(
+            error,
+            super::RemoteCommandError::Unsupported("shell.exec".to_string())
+        );
     }
 
     fn test_config() -> AgentConfig {

@@ -38,6 +38,7 @@
 | P22 产品化控制中心与安装体验验证 | `WoW-Manager.exe` 控制中心入口、脚本语法、三类 zip 生成 | 已通过 |
 | P23 Web 使用体验与 DM/Lua 操作流验证 | Client 列表、仪表盘、设置向导、DM/Lua 面板、`script.run_bootstrap` 和三类 zip | 已通过 |
 | P24 命令执行回执验证 | Server 回执 API、Client 回执上报、Web 最近回执、三类 zip | 已通过 |
+| P25 工程化地基验证 | 共享命令清单、错误类型、app 拆分、CI 配置、Rust/Web 构建 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -354,3 +355,19 @@
   - 总包 `b33a9f3efc3fb4ad493006cf6f081b1af827714a7d839429d7358fb021ac8ca7`
   - Server 分包 `7ab457c001d493041cd8135e5e9d1edc72baa8e921137b4c30f3ceb7ab64fde0`
   - Client 分包 `d5ad14c5c92c0f1734fdb5f532a2fd3b8dba8d30b91e89af20f7440500fcd448`
+
+## P25 工程化地基验证
+- `cargo fmt --all --check`：首次发现 `app_tests.rs` 文件头空行，已执行 `cargo fmt --all` 修正。
+- `cargo test --workspace`：通过，Client、Server、shared-types、launcher 测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.18.0`。
+- 共享命令清单测试：通过，`REMOTE_COMMAND_TYPES` 接受已知命令并拒绝 `shell.exec`。
+- Server app 拆分验证：通过，原 app 路由测试迁移到 `app_tests.rs` 后全部通过。
+- CI 配置范围：已新增 `.github/workflows/ci.yml`，远端将验证 Rust 和 Web，不包含 Delphi 打包。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- 包内闭环烟测：通过，Server 分包临时端口 `/health` 返回 `ok`，Client 分包 monitor 上报 `v1.18.0`，下发 `startup.status` 后收到成功回执。
+- 三类 zip 敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、PDB、DCU、MAP。
+- 三类 zip SHA-256：
+  - 总包 `0a266237a70a88583d9d01bc13b75cc9a62d93405202e832304c5bb4c1a761f1`
+  - Server 分包 `1ea56c01b1115109ed6b8c2b07584b8371b1ebecce293e942611ea2c2e7813a7`
+  - Client 分包 `6e4a926e0f081eb7f20822bdb8f73a50861f7c4c9d0c8c4f56494d2674eb6762`

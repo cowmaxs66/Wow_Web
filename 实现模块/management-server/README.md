@@ -7,7 +7,7 @@
 - WebSocket 实时推送、命令下发与结果接收。
 
 ## 当前状态
-P14 阶段已将 `management-server.exe` 调整为双击正式入口：无参数启动 Server 并打开 Web 管理页。Server 保留 P9 JSONL 历史持久化、P11 Web Admin 内嵌、P11 Client 消息队列和 P13 Client 远程命令队列能力。
+P25 阶段已将 `app.rs` 拆分为路由处理、请求校验和测试三个文件。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列和命令执行回执能力。
 
 ## 当前 API
 | 方法 | 路径 | 说明 |
@@ -21,6 +21,8 @@ P14 阶段已将 `management-server.exe` 调整为双击正式入口：无参数
 | `GET` | `/api/client/messages/{client_id}` | 查询指定 Client 当前内存消息队列 |
 | `POST` | `/api/client/commands/{client_id}` | 给指定 Client 写入一条白名单本机操作命令 |
 | `GET` | `/api/client/commands/{client_id}` | 取出并消费指定 Client 当前内存命令队列 |
+| `POST` | `/api/client/command-receipts/{client_id}` | 接收指定 Client 的命令执行回执 |
+| `GET` | `/api/client/command-receipts/{client_id}` | 查询指定 Client 最近命令执行回执 |
 
 ## 当前目录
 | 路径 | 职责 |
@@ -31,7 +33,9 @@ P14 阶段已将 `management-server.exe` 调整为双击正式入口：无参数
 | `src/persistence.rs` | JSONL 历史持久化读写 |
 | `src/error.rs` | API 错误响应 |
 | `src/embedded_web.rs` | 编译期内嵌 Web Admin 资源响应 |
-| `src/app.rs` | Axum Router、handler 和 Web Admin 静态文件 fallback |
+| `src/app.rs` | Axum Router、handler、上线日志和 Web Admin 静态文件 fallback |
+| `src/app_validation.rs` | API 请求字段校验 |
+| `src/app_tests.rs` | app 路由、状态、命令和回执测试 |
 | `build.rs` | release 构建时读取 `web-admin/dist` 并生成内嵌资源表 |
 
 ## P4 说明

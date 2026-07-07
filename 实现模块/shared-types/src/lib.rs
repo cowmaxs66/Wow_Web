@@ -226,6 +226,46 @@ pub struct ClientCommandRequest {
     pub payload: serde_json::Value,
 }
 
+pub const REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP: &str = "script.run_bootstrap";
+pub const REMOTE_COMMAND_STARTUP_STATUS: &str = "startup.status";
+pub const REMOTE_COMMAND_STARTUP_ENABLE: &str = "startup.enable";
+pub const REMOTE_COMMAND_STARTUP_DISABLE: &str = "startup.disable";
+pub const REMOTE_COMMAND_SERVICE_STATUS: &str = "service.status";
+pub const REMOTE_COMMAND_SERVICE_INSTALL: &str = "service.install";
+pub const REMOTE_COMMAND_SERVICE_START: &str = "service.start";
+pub const REMOTE_COMMAND_SERVICE_STOP: &str = "service.stop";
+pub const REMOTE_COMMAND_UPDATE_CHECK: &str = "update.check";
+pub const REMOTE_COMMAND_UPDATE_DOWNLOAD: &str = "update.download";
+pub const REMOTE_COMMAND_UPDATE_APPLY: &str = "update.apply";
+pub const REMOTE_COMMAND_SETTINGS_OPEN: &str = "settings.open";
+pub const REMOTE_COMMAND_LOG_OPEN: &str = "log.open";
+pub const REMOTE_COMMAND_TRAY_OPEN: &str = "tray.open";
+
+pub const REMOTE_COMMAND_TYPES: &[&str] = &[
+    REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP,
+    REMOTE_COMMAND_STARTUP_STATUS,
+    REMOTE_COMMAND_STARTUP_ENABLE,
+    REMOTE_COMMAND_STARTUP_DISABLE,
+    REMOTE_COMMAND_SERVICE_STATUS,
+    REMOTE_COMMAND_SERVICE_INSTALL,
+    REMOTE_COMMAND_SERVICE_START,
+    REMOTE_COMMAND_SERVICE_STOP,
+    REMOTE_COMMAND_UPDATE_CHECK,
+    REMOTE_COMMAND_UPDATE_DOWNLOAD,
+    REMOTE_COMMAND_UPDATE_APPLY,
+    REMOTE_COMMAND_SETTINGS_OPEN,
+    REMOTE_COMMAND_LOG_OPEN,
+    REMOTE_COMMAND_TRAY_OPEN,
+];
+
+pub fn is_supported_remote_command(command_type: &str) -> bool {
+    // P25 将 Server 白名单和 Client 执行分支收敛到同一份共享清单。
+    // 输入：协议中的 command_type 字符串。
+    // 输出：是否属于当前版本允许的远程命令。
+    // 边界：这里仍只定义“允许的命令类型”，不代表该命令一定能在本机执行成功。
+    REMOTE_COMMAND_TYPES.contains(&command_type)
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientCommand {
     pub id: String,
@@ -393,7 +433,7 @@ mod tests {
         let command = ClientCommand::new(
             "client-a",
             ClientCommandRequest {
-                command_type: "startup.status".to_string(),
+                command_type: REMOTE_COMMAND_STARTUP_STATUS.to_string(),
                 payload: serde_json::json!({}),
             },
         );
@@ -401,9 +441,19 @@ mod tests {
 
         assert_eq!(command.client_id, "client-a");
         assert!(command.id.starts_with("client-a-command-"));
-        assert_eq!(command.command_type, "startup.status");
+        assert_eq!(command.command_type, REMOTE_COMMAND_STARTUP_STATUS);
         assert_eq!(list.total, 1);
         assert_eq!(list.items[0], command);
+    }
+
+    #[test]
+    fn remote_command_catalog_accepts_only_known_types() {
+        assert!(is_supported_remote_command(REMOTE_COMMAND_STARTUP_STATUS));
+        assert!(is_supported_remote_command(REMOTE_COMMAND_UPDATE_APPLY));
+        assert!(is_supported_remote_command(
+            REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP
+        ));
+        assert!(!is_supported_remote_command("shell.exec"));
     }
 
     #[test]

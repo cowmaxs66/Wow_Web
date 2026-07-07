@@ -219,6 +219,58 @@ impl ClientMessageList {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientCommandRequest {
+    pub command_type: String,
+    #[serde(default)]
+    pub payload: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientCommand {
+    pub id: String,
+    pub client_id: String,
+    pub timestamp_ms: u128,
+    pub command_type: String,
+    pub payload: serde_json::Value,
+}
+
+impl ClientCommand {
+    pub fn new(client_id: impl Into<String>, request: ClientCommandRequest) -> Self {
+        let client_id = client_id.into();
+        let timestamp_ms = current_timestamp_ms();
+
+        // P13 远程命令与 P11 文本消息分离，避免把可执行动作塞进普通消息体。
+        // 输入：目标 Client ID、命令类型和可选 JSON 参数。
+        // 输出：可被 Client monitor 轮询并按白名单执行的命令。
+        // 边界：当前仍是本机试运行队列；生产环境必须补鉴权、审计和送达确认。
+        Self {
+            id: format!("{client_id}-command-{timestamp_ms}"),
+            client_id,
+            timestamp_ms,
+            command_type: request.command_type,
+            payload: request.payload,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientCommandList {
+    pub client_id: String,
+    pub total: usize,
+    pub items: Vec<ClientCommand>,
+}
+
+impl ClientCommandList {
+    pub fn new(client_id: impl Into<String>, items: Vec<ClientCommand>) -> Self {
+        Self {
+            client_id: client_id.into(),
+            total: items.len(),
+            items,
+        }
+    }
+}
+
 fn current_timestamp_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -277,5 +329,23 @@ mod tests {
         assert!(message.id.starts_with("client-a-message-"));
         assert_eq!(message.title, "测试消息");
         assert_eq!(list.total, 1);
+    }
+
+    #[test]
+    fn client_command_keeps_target_identity() {
+        let command = ClientCommand::new(
+            "client-a",
+            ClientCommandRequest {
+                command_type: "startup.status".to_string(),
+                payload: serde_json::json!({}),
+            },
+        );
+        let list = ClientCommandList::new("client-a", vec![command.clone()]);
+
+        assert_eq!(command.client_id, "client-a");
+        assert!(command.id.starts_with("client-a-command-"));
+        assert_eq!(command.command_type, "startup.status");
+        assert_eq!(list.total, 1);
+        assert_eq!(list.items[0], command);
     }
 }

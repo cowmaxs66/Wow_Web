@@ -221,6 +221,7 @@ p {
 .trend-box line {
   stroke: var(--color-border);
   stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 
 .trend-box polyline {
@@ -229,6 +230,7 @@ p {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 3;
+  vector-effect: non-scaling-stroke;
 }
 
 .trend-box circle {
@@ -292,6 +294,20 @@ p {
 @media (max-width: 520px) {
   .summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .trend-box svg {
+    height: 96px;
+  }
+
+  .trend-box circle {
+    display: none;
+  }
+
+  .trend-labels {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-1);
   }
 }
 </style>

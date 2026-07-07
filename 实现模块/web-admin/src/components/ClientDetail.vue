@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { FileJson2, Send } from "@lucide/vue";
 import { ref } from "vue";
-import { sendClientMessage } from "../api/managementServer";
-import type { ClientStatusEnvelope } from "../types/protocol";
+import { sendClientCommand, sendClientMessage } from "../api/managementServer";
+import type { ClientCommandType, ClientStatusEnvelope } from "../types/protocol";
 import { formatFullTimestamp, formatRelativeAge } from "../types/protocol";
 import StatusDot from "./StatusDot.vue";
 
@@ -15,6 +15,24 @@ const messageTitle = ref("服务端消息");
 const messageBody = ref("");
 const sendingMessage = ref(false);
 const messageResult = ref("");
+const selectedCommand = ref<ClientCommandType>("startup.status");
+const sendingCommand = ref(false);
+const commandResult = ref("");
+
+const commandOptions: Array<{ value: ClientCommandType; label: string }> = [
+  { value: "startup.status", label: "查询开机启动" },
+  { value: "startup.enable", label: "启用开机启动" },
+  { value: "startup.disable", label: "停用开机启动" },
+  { value: "service.status", label: "查询 Service" },
+  { value: "service.install", label: "安装 Service" },
+  { value: "service.start", label: "启动 Service" },
+  { value: "service.stop", label: "停止 Service" },
+  { value: "update.check", label: "检查更新" },
+  { value: "update.download", label: "下载更新包" },
+  { value: "settings.open", label: "打开设置窗口" },
+  { value: "log.open", label: "打开日志" },
+  { value: "tray.open", label: "打开托盘" },
+];
 
 async function submitMessage(): Promise<void> {
   if (!props.status || !messageTitle.value.trim() || !messageBody.value.trim()) {
@@ -36,6 +54,28 @@ async function submitMessage(): Promise<void> {
       error instanceof Error ? error.message : `发送失败：${String(error)}`;
   } finally {
     sendingMessage.value = false;
+  }
+}
+
+async function submitCommand(): Promise<void> {
+  if (!props.status) {
+    return;
+  }
+
+  sendingCommand.value = true;
+  commandResult.value = "";
+
+  try {
+    const command = await sendClientCommand(props.serverUrl, props.status.client_id, {
+      command_type: selectedCommand.value,
+      payload: {},
+    });
+    commandResult.value = `已写入命令队列：${command.id}`;
+  } catch (error) {
+    commandResult.value =
+      error instanceof Error ? error.message : `下发失败：${String(error)}`;
+  } finally {
+    sendingCommand.value = false;
   }
 }
 </script>
@@ -163,6 +203,29 @@ async function submitMessage(): Promise<void> {
           <p v-if="messageResult">{{ messageResult }}</p>
         </form>
       </section>
+
+      <section>
+        <h3>远程本机操作</h3>
+        <form class="message-form" @submit.prevent="submitCommand">
+          <label>
+            <span>命令</span>
+            <select v-model="selectedCommand">
+              <option
+                v-for="option in commandOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+          </label>
+          <button type="submit" :disabled="sendingCommand">
+            <Send :size="15" />
+            <span>{{ sendingCommand ? "下发中" : "下发命令" }}</span>
+          </button>
+          <p v-if="commandResult">{{ commandResult }}</p>
+        </form>
+      </section>
     </div>
 
     <pre v-if="status">{{ JSON.stringify(status.data, null, 2) }}</pre>
@@ -262,7 +325,8 @@ pre {
 }
 
 .message-form input,
-.message-form textarea {
+.message-form textarea,
+.message-form select {
   width: 100%;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control);

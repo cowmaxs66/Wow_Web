@@ -11,7 +11,16 @@ param(
     [switch]$Setup,
     [switch]$StartupStatus,
     [switch]$EnableStartup,
-    [switch]$DisableStartup
+    [switch]$DisableStartup,
+    [switch]$Tray,
+    [switch]$SettingsWindow,
+    [switch]$ServiceInstall,
+    [switch]$ServiceUninstall,
+    [switch]$ServiceStart,
+    [switch]$ServiceStop,
+    [switch]$ServiceStatus,
+    [switch]$UpdateCheck,
+    [switch]$UpdateDownload
 )
 
 Set-StrictMode -Version Latest
@@ -47,6 +56,24 @@ try {
         $arguments += '--enable-startup'
     } elseif ($DisableStartup) {
         $arguments += '--disable-startup'
+    } elseif ($Tray) {
+        $arguments += '--tray'
+    } elseif ($SettingsWindow) {
+        $arguments += '--settings-window'
+    } elseif ($ServiceInstall) {
+        $arguments += '--service-install'
+    } elseif ($ServiceUninstall) {
+        $arguments += '--service-uninstall'
+    } elseif ($ServiceStart) {
+        $arguments += '--service-start'
+    } elseif ($ServiceStop) {
+        $arguments += '--service-stop'
+    } elseif ($ServiceStatus) {
+        $arguments += '--service-status'
+    } elseif ($UpdateCheck) {
+        $arguments += '--update-check'
+    } elseif ($UpdateDownload) {
+        $arguments += '--update-download'
     } elseif ($Notify) {
         $arguments += '--notify'
     }

@@ -5,17 +5,31 @@ use crate::notifier;
 use crate::server_reporter::StatusReporter;
 use std::collections::HashSet;
 use std::error::Error;
+use std::sync::mpsc::{Receiver, TryRecvError};
 use std::thread;
 use std::time::Duration;
 
 pub fn run_monitor(config: AgentConfig) -> Result<(), Box<dyn Error>> {
+    run_monitor_until_shutdown(config, None)
+}
+
+pub fn run_monitor_until_shutdown(
+    config: AgentConfig,
+    shutdown: Option<Receiver<()>>,
+) -> Result<(), Box<dyn Error>> {
     let log = LocalLog::default();
     let interval = monitor_interval();
     let mut seen_messages = HashSet::new();
+    let mut seen_commands = HashSet::new();
     log.append_event("Client monitor 已启动")?;
     let _ = notifier::notify("WoW Client", "客户端监控已启动");
 
     loop {
+        if should_shutdown(shutdown.as_ref()) {
+            log.append_event("Client monitor 已收到停止信号")?;
+            break;
+        }
+
         match run_once(&config) {
             Ok(result) => {
                 log.append_status(&result.envelope)?;
@@ -25,7 +39,12 @@ pub fn run_monitor(config: AgentConfig) -> Result<(), Box<dyn Error>> {
                 ))?;
 
                 if config.server.enabled {
-                    poll_messages(&config, &log, &mut seen_messages)?;
+                    if let Err(error) = poll_messages(&config, &log, &mut seen_messages) {
+                        log.append_event(&format!("轮询 Server 消息失败：{error}"))?;
+                    }
+                    if let Err(error) = poll_commands(&config, &log, &mut seen_commands) {
+                        log.append_event(&format!("轮询 Server 命令失败：{error}"))?;
+                    }
                 }
             }
             Err(error) => {
@@ -35,8 +54,13 @@ pub fn run_monitor(config: AgentConfig) -> Result<(), Box<dyn Error>> {
             }
         }
 
-        thread::sleep(interval);
+        if sleep_with_shutdown(interval, shutdown.as_ref()) {
+            log.append_event("Client monitor 已收到停止信号")?;
+            break;
+        }
     }
+
+    Ok(())
 }
 
 fn poll_messages(
@@ -74,4 +98,58 @@ fn monitor_interval() -> Duration {
         .unwrap_or(10);
 
     Duration::from_secs(seconds)
+}
+
+fn poll_commands(
+    config: &AgentConfig,
+    log: &LocalLog,
+    seen_commands: &mut HashSet<String>,
+) -> Result<(), Box<dyn Error>> {
+    let reporter = StatusReporter::new(config.server.clone());
+    let commands = reporter.fetch_commands(&config.client.id)?;
+
+    for command in commands.items {
+        if !seen_commands.insert(command.id.clone()) {
+            continue;
+        }
+
+        let result = crate::remote_command::execute_remote_command(&command.command_type);
+        match result {
+            Ok(summary) => {
+                log.append_event(&format!(
+                    "执行 Server 命令成功：id={} type={} result={}",
+                    command.id, command.command_type, summary
+                ))?;
+            }
+            Err(error) => {
+                let message = format!(
+                    "执行 Server 命令失败：id={} type={} error={}",
+                    command.id, command.command_type, error
+                );
+                log.append_event(&message)?;
+                let _ = notifier::notify("WoW Client 命令失败", &message);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn should_shutdown(shutdown: Option<&Receiver<()>>) -> bool {
+    matches!(
+        shutdown.map(Receiver::try_recv),
+        Some(Ok(_)) | Some(Err(TryRecvError::Disconnected))
+    )
+}
+
+fn sleep_with_shutdown(duration: Duration, shutdown: Option<&Receiver<()>>) -> bool {
+    let Some(shutdown) = shutdown else {
+        thread::sleep(duration);
+        return false;
+    };
+
+    matches!(
+        shutdown.recv_timeout(duration),
+        Ok(_) | Err(std::sync::mpsc::RecvTimeoutError::Disconnected)
+    )
 }

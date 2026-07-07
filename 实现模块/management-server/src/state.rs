@@ -1,5 +1,8 @@
 use crate::persistence::{HistoryPersistence, PersistenceError};
-use shared_types::{ClientMessage, ClientMessageRequest, ClientStatus, WsEnvelope};
+use shared_types::{
+    ClientCommand, ClientCommandRequest, ClientMessage, ClientMessageRequest, ClientStatus,
+    WsEnvelope,
+};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::path::PathBuf;
@@ -7,12 +10,14 @@ use std::sync::{Arc, RwLock};
 
 pub const CLIENT_HISTORY_LIMIT: usize = 50;
 pub const CLIENT_MESSAGE_LIMIT: usize = 100;
+pub const CLIENT_COMMAND_LIMIT: usize = 100;
 
 #[derive(Debug, Clone, Default)]
 pub struct ServerState {
     clients: Arc<RwLock<HashMap<String, WsEnvelope<ClientStatus>>>>,
     histories: Arc<RwLock<HashMap<String, VecDeque<WsEnvelope<ClientStatus>>>>>,
     messages: Arc<RwLock<HashMap<String, VecDeque<ClientMessage>>>>,
+    commands: Arc<RwLock<HashMap<String, VecDeque<ClientCommand>>>>,
     persistence: Option<HistoryPersistence>,
 }
 
@@ -115,6 +120,32 @@ impl ServerState {
             .expect("client message lock poisoned")
             .get(client_id)
             .map(|messages| messages.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    pub fn push_command(&self, client_id: &str, request: ClientCommandRequest) -> ClientCommand {
+        let command = ClientCommand::new(client_id.to_string(), request);
+        let mut commands = self.commands.write().expect("client command lock poisoned");
+        let queue = commands.entry(client_id.to_string()).or_default();
+
+        // P13 命令队列独立于文本消息队列。
+        // 输入：Server 创建的 ClientCommand。
+        // 输出：每个 Client 最近 100 条待轮询命令。
+        // 边界：当前为内存队列；鉴权、审计、持久化和确认后续继续补齐。
+        queue.push_back(command.clone());
+        while queue.len() > CLIENT_COMMAND_LIMIT {
+            queue.pop_front();
+        }
+
+        command
+    }
+
+    pub fn take_commands(&self, client_id: &str) -> Vec<ClientCommand> {
+        self.commands
+            .write()
+            .expect("client command lock poisoned")
+            .get_mut(client_id)
+            .map(|commands| commands.drain(..).collect())
             .unwrap_or_default()
     }
 }
@@ -232,6 +263,28 @@ mod tests {
         assert_eq!(messages.len(), CLIENT_MESSAGE_LIMIT);
         assert_eq!(messages[0].title, "title-2");
         assert!(state.list_messages("missing").is_empty());
+    }
+
+    #[test]
+    fn state_keeps_bounded_client_commands() {
+        let state = ServerState::default();
+
+        for index in 0..(CLIENT_COMMAND_LIMIT + 2) {
+            state.push_command(
+                "client-a",
+                ClientCommandRequest {
+                    command_type: "startup.status".to_string(),
+                    payload: serde_json::json!({ "index": index }),
+                },
+            );
+        }
+
+        let commands = state.take_commands("client-a");
+
+        assert_eq!(commands.len(), CLIENT_COMMAND_LIMIT);
+        assert_eq!(commands[0].payload["index"], serde_json::json!(2));
+        assert!(state.take_commands("client-a").is_empty());
+        assert!(state.take_commands("missing").is_empty());
     }
 
     fn unique_temp_dir(name: &str) -> PathBuf {

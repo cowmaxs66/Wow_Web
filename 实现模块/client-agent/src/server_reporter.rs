@@ -4,7 +4,7 @@ mod response;
 
 pub use error::ServerReportError;
 use response::{parse_json_response, parse_status_ack};
-use shared_types::{ClientMessageList, ClientStatus, StatusAck, WsEnvelope};
+use shared_types::{ClientCommandList, ClientMessageList, ClientStatus, StatusAck, WsEnvelope};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
@@ -30,6 +30,12 @@ impl StatusReporter {
 
     pub fn fetch_messages(&self, client_id: &str) -> Result<ClientMessageList, ServerReportError> {
         let path = format!("/api/client/messages/{client_id}");
+        let response = self.send_http("GET", &path, None)?;
+        parse_json_response(&response)
+    }
+
+    pub fn fetch_commands(&self, client_id: &str) -> Result<ClientCommandList, ServerReportError> {
+        let path = format!("/api/client/commands/{client_id}");
         let response = self.send_http("GET", &path, None)?;
         parse_json_response(&response)
     }

@@ -168,3 +168,18 @@
 - v1.6.0 编译包包内烟测：通过，根目录 `management-server.exe` 和 x86 `client-agent.exe --monitor` 可联动，Client 日志包含 `startup package message works`。
 - 包内 `client-agent.exe --startup-status`：通过，只读查询输出注册项 `WoW Client Agent`，未修改注册表。
 - 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、`.env`、JSONL、PDB、DCU 和 MAP 文件。
+
+## P13 正式运行基础验证
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 33 项测试、management-server 23 项测试、shared-types 5 项测试通过。
+- `npm run build`：通过，Web Admin 版本为 `1.7.0`。
+- `client-agent.exe --service-status`：通过，未安装时返回明确状态。
+- `client-agent.exe --update-check`：通过，可读取 GitHub latest release。
+- Server 远程命令烟测：通过，Server 下发 `startup.status`，Client monitor 轮询执行并写入本地日志。
+- 命令队列消费检查：通过，Client 拉取后队列清空，避免重启后重复执行旧命令。
+- In-app Browser 桌面视口：通过，`远程本机操作` 区显示完整命令列表，选择 `查询 Service` 后可写入命令队列，无控制台错误和横向溢出。
+- In-app Browser 移动视口：390x844，通过，远程操作区 DOM 完整，无控制台错误和横向溢出；已修正历史趋势图移动端采样点过密的视觉问题。
+- v1.7.0 编译包包内烟测：通过，根目录 `management-server.exe` 内嵌 Web HTTP 200，x86 `client-agent.exe --monitor` 可上报 `v1.7.0` 并执行 `startup.status` 远程命令。
+- 包内 `client-agent.exe --service-status`：通过，只读查询输出 `WoWClientAgent` 未安装或不可查询，未修改系统服务表。
+- 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。

@@ -8,10 +8,15 @@ mod lua_dm;
 mod lua_host;
 mod monitor;
 mod notifier;
+mod remote_command;
 mod script;
 mod server_reporter;
+mod service_runtime;
+mod settings_window;
 mod startup;
 mod status;
+mod tray;
+mod updater;
 
 use agent::run_once;
 use cli::{AgentCommand, help_text, parse_args};
@@ -42,6 +47,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    if command == AgentCommand::SettingsWindow {
+        settings_window::open_settings_window()?;
+        return Ok(());
+    }
+
+    if command == AgentCommand::Tray {
+        tray::run_tray()?;
+        return Ok(());
+    }
+
     if command == AgentCommand::StartupStatus {
         println!("{}", startup::startup_status()?.summary());
         return Ok(());
@@ -58,6 +73,45 @@ fn main() -> Result<(), Box<dyn Error>> {
         let status = startup::disable_startup()?;
         let _ = LocalLog::default().append_event("已禁用当前用户开机启动");
         println!("{}", status.summary());
+        return Ok(());
+    }
+
+    if command == AgentCommand::ServiceRun {
+        return service_runtime::run_service();
+    }
+
+    if command == AgentCommand::ServiceInstall {
+        println!("{}", service_runtime::install_service()?);
+        return Ok(());
+    }
+
+    if command == AgentCommand::ServiceUninstall {
+        println!("{}", service_runtime::uninstall_service()?);
+        return Ok(());
+    }
+
+    if command == AgentCommand::ServiceStart {
+        println!("{}", service_runtime::start_service()?);
+        return Ok(());
+    }
+
+    if command == AgentCommand::ServiceStop {
+        println!("{}", service_runtime::stop_service()?);
+        return Ok(());
+    }
+
+    if command == AgentCommand::ServiceStatus {
+        println!("{}", service_runtime::service_status()?);
+        return Ok(());
+    }
+
+    if command == AgentCommand::UpdateCheck {
+        println!("{}", updater::check_update()?);
+        return Ok(());
+    }
+
+    if command == AgentCommand::UpdateDownload {
+        println!("{}", updater::download_update()?);
         return Ok(());
     }
 

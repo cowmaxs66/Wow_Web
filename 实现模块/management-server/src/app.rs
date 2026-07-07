@@ -5,8 +5,9 @@ use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use shared_types::{
-    ClientMessage, ClientMessageList, ClientMessageRequest, ClientStatus, ClientStatusHistory,
-    HealthResponse, MessageType, StatusAck, WsEnvelope,
+    ClientCommand, ClientCommandList, ClientCommandRequest, ClientMessage, ClientMessageList,
+    ClientMessageRequest, ClientStatus, ClientStatusHistory, HealthResponse, MessageType,
+    StatusAck, WsEnvelope,
 };
 use std::path::PathBuf;
 use tower_http::cors::CorsLayer;
@@ -21,6 +22,10 @@ pub fn build_router_with_web_dir(state: ServerState, web_dir: Option<PathBuf>) -
         .route(
             "/api/client/messages/{client_id}",
             get(list_messages).post(push_message),
+        )
+        .route(
+            "/api/client/commands/{client_id}",
+            get(list_commands).post(push_command),
         )
         .with_state(state)
         // P4 只用于本机 Web Admin 开发联调。生产部署前必须改为明确来源白名单。
@@ -109,6 +114,25 @@ async fn list_messages(
     ))
 }
 
+async fn push_command(
+    State(state): State<ServerState>,
+    Path(client_id): Path<String>,
+    Json(request): Json<ClientCommandRequest>,
+) -> Result<Json<ClientCommand>, ApiError> {
+    validate_command_request(&client_id, &request)?;
+    Ok(Json(state.push_command(&client_id, request)))
+}
+
+async fn list_commands(
+    State(state): State<ServerState>,
+    Path(client_id): Path<String>,
+) -> Json<ClientCommandList> {
+    Json(ClientCommandList::new(
+        client_id.clone(),
+        state.take_commands(&client_id),
+    ))
+}
+
 fn validate_status_envelope(envelope: &WsEnvelope<ClientStatus>) -> Result<(), ApiError> {
     if envelope.schema_version != 1 {
         return Err(ApiError::BadRequest(
@@ -170,6 +194,44 @@ fn validate_message_request(
     Ok(())
 }
 
+fn validate_command_request(
+    client_id: &str,
+    request: &ClientCommandRequest,
+) -> Result<(), ApiError> {
+    if client_id.trim().is_empty() {
+        return Err(ApiError::BadRequest(
+            "client_id must not be empty".to_string(),
+        ));
+    }
+
+    if !is_allowed_command(&request.command_type) {
+        return Err(ApiError::BadRequest(format!(
+            "unsupported command_type: {}",
+            request.command_type
+        )));
+    }
+
+    Ok(())
+}
+
+fn is_allowed_command(command_type: &str) -> bool {
+    matches!(
+        command_type,
+        "startup.status"
+            | "startup.enable"
+            | "startup.disable"
+            | "service.status"
+            | "service.install"
+            | "service.start"
+            | "service.stop"
+            | "update.check"
+            | "update.download"
+            | "settings.open"
+            | "log.open"
+            | "tray.open"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -202,6 +264,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         let response = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .method("GET")
@@ -227,6 +290,7 @@ mod tests {
         let body = serde_json::to_vec(&envelope).expect("status must serialize");
 
         let response = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .method("POST")
@@ -386,6 +450,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
 
         let response = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .method("GET")
@@ -418,6 +483,90 @@ mod tests {
                 Request::builder()
                     .method("POST")
                     .uri("/api/client/messages/client-a")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn client_command_can_be_created_and_taken() {
+        let app = build_router_with_web_dir(ServerState::default(), None);
+        let body = serde_json::to_vec(&ClientCommandRequest {
+            command_type: "startup.status".to_string(),
+            payload: serde_json::json!({}),
+        })
+        .expect("command request must serialize");
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/client/commands/client-a")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/api/client/commands/client-a")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let commands: ClientCommandList =
+            serde_json::from_slice(&body).expect("command list must deserialize");
+
+        assert_eq!(commands.client_id, "client-a");
+        assert_eq!(commands.total, 1);
+        assert_eq!(commands.items[0].command_type, "startup.status");
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/api/client/commands/client-a")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let empty: ClientCommandList =
+            serde_json::from_slice(&body).expect("command list must deserialize");
+
+        assert_eq!(empty.total, 0);
+    }
+
+    #[tokio::test]
+    async fn unsupported_client_command_is_rejected() {
+        let app = build_router_with_web_dir(ServerState::default(), None);
+        let body = serde_json::to_vec(&ClientCommandRequest {
+            command_type: "shell.exec".to_string(),
+            payload: serde_json::json!({}),
+        })
+        .expect("command request must serialize");
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/client/commands/client-a")
                     .header("content-type", "application/json")
                     .body(Body::from(body))
                     .unwrap(),

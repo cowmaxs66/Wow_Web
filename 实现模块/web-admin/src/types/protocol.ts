@@ -69,6 +69,39 @@ export interface ClientMessageList {
   items: ClientMessage[];
 }
 
+export type ClientCommandType =
+  | "startup.status"
+  | "startup.enable"
+  | "startup.disable"
+  | "service.status"
+  | "service.install"
+  | "service.start"
+  | "service.stop"
+  | "update.check"
+  | "update.download"
+  | "settings.open"
+  | "log.open"
+  | "tray.open";
+
+export interface ClientCommandRequest {
+  command_type: ClientCommandType;
+  payload: Record<string, unknown>;
+}
+
+export interface ClientCommand {
+  id: string;
+  client_id: string;
+  timestamp_ms: number;
+  command_type: ClientCommandType;
+  payload: Record<string, unknown>;
+}
+
+export interface ClientCommandList {
+  client_id: string;
+  total: number;
+  items: ClientCommand[];
+}
+
 export function formatTimestamp(timestampMs: number): string {
   if (!Number.isFinite(timestampMs) || timestampMs <= 0) {
     return "無資料";

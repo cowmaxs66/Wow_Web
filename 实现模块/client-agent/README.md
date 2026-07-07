@@ -8,18 +8,23 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P12 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify 入口，并新增当前用户开机启动设置入口。
+P13 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、设置窗口、更新器和远程命令入口。
 
 ## 当前目录
 | 路径 | 职责 |
 |------|------|
 | `src/main.rs` | 程序入口，只负责命令分发 |
 | `src/agent.rs` | 单次执行 Lua、生成状态、上报 Server |
-| `src/cli.rs` | `--monitor`、`--setup`、`--open-log`、`--notify` 和开机启动参数解析 |
+| `src/cli.rs` | monitor、setup、open-log、notify、startup、service、tray、settings 和 update 参数解析 |
 | `src/monitor.rs` | 常驻监控、周期上报、轮询 Server 消息 |
 | `src/local_log.rs` | 本地事件日志和状态 JSONL |
 | `src/notifier.rs` | Windows 通知气泡 |
 | `src/startup.rs` | 当前用户开机启动查询、启用和停用 |
+| `src/service_runtime.rs` | Windows Service 运行入口和管理命令 |
+| `src/tray.rs` | WinForms 托盘常驻和右键菜单 |
+| `src/settings_window.rs` | WinForms 本机设置窗口 |
+| `src/updater.rs` | GitHub Release 检查与下载 |
+| `src/remote_command.rs` | Server 白名单命令执行分发 |
 | `src/config/` | 配置读取、错误类型、默认路径解析 |
 | `src/script/` | Lua 脚本文件加载、manifest、签名、hash 和权限校验 |
 | `src/lua_host.rs` | Lua 宿主和按权限注册的白名单 API |
@@ -68,6 +73,15 @@ client-agent.exe --notify
 client-agent.exe --startup-status
 client-agent.exe --enable-startup
 client-agent.exe --disable-startup
+client-agent.exe --tray
+client-agent.exe --settings-window
+client-agent.exe --service-status
+client-agent.exe --service-install
+client-agent.exe --service-start
+client-agent.exe --service-stop
+client-agent.exe --service-uninstall
+client-agent.exe --update-check
+client-agent.exe --update-download
 ```
 
 - 默认模式执行一次并输出状态 JSON。
@@ -81,6 +95,15 @@ client-agent.exe --disable-startup
 - `--enable-startup` 写入 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`，启动命令为当前 `client-agent.exe --monitor`。
 - `--disable-startup` 删除同名当前用户开机启动项。
 - 移动发布包目录后需要重新执行 `--enable-startup`。
+
+## P13 正式运行入口
+- `--service-run` 是 Windows Service Control Manager 调用入口。
+- `--service-install/start/stop/status/uninstall` 管理 `WoWClientAgent` 服务，安装和启停通常需要管理员权限。
+- `--tray` 启动托盘常驻 UI，右键菜单可控制 monitor、设置窗口、日志、开机启动、Service 和更新。
+- `--settings-window` 打开本机配置编辑窗口。
+- `--update-check` 查询 GitHub latest release。
+- `--update-download` 下载最新发布包到 `%LOCALAPPDATA%\WoWFramework\updates`。
+- Service 不打开交互窗口；托盘和设置窗口必须运行在当前用户 Session。
 
 ## 验证命令
 ```powershell

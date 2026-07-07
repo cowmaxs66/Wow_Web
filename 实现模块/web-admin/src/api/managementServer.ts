@@ -1,4 +1,6 @@
 import type {
+  ClientCommand,
+  ClientCommandRequest,
   ClientMessage,
   ClientMessageRequest,
   ClientStatusHistory,
@@ -54,6 +56,18 @@ export async function sendClientMessage(
   return writeJson<ClientMessage>(
     baseUrl,
     `/api/client/messages/${encodeURIComponent(clientId)}`,
+    request,
+  );
+}
+
+export async function sendClientCommand(
+  baseUrl: string,
+  clientId: string,
+  request: ClientCommandRequest,
+): Promise<ClientCommand> {
+  return writeJson<ClientCommand>(
+    baseUrl,
+    `/api/client/commands/${encodeURIComponent(clientId)}`,
     request,
   );
 }

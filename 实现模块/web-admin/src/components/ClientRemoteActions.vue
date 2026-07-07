@@ -12,7 +12,7 @@ import {
   Terminal,
 } from "@lucide/vue";
 import type { Component } from "vue";
-import { ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { sendClientCommand, sendClientMessage } from "../api/managementServer";
 import type { ClientCommandType, ClientStatusEnvelope } from "../types/protocol";
 
@@ -31,15 +31,70 @@ interface CommandGroup {
 
 const props = defineProps<{
   status: ClientStatusEnvelope | null;
+  clients: ClientStatusEnvelope[];
   serverUrl: string;
 }>();
 
+const allClientsValue = "__all_clients__";
 const messageTitle = ref("服务端消息");
 const messageBody = ref("");
 const sendingMessage = ref(false);
 const messageResult = ref("");
 const pendingCommand = ref<ClientCommandType | null>(null);
 const commandResult = ref("");
+const selectedTarget = ref("");
+
+const clientOptions = computed(() =>
+  props.clients.map((client) => ({
+    id: client.client_id,
+    online: client.data.online,
+    label: `${client.client_id} / ${client.data.online ? "在线" : "离线"}`,
+  })),
+);
+
+const targetClientIds = computed(() => {
+  if (selectedTarget.value === allClientsValue) {
+    return clientOptions.value.map((client) => client.id);
+  }
+
+  return selectedTarget.value ? [selectedTarget.value] : [];
+});
+
+const hasTarget = computed(() => targetClientIds.value.length > 0);
+
+const targetLabel = computed(() => {
+  if (selectedTarget.value === allClientsValue) {
+    return `全部客户端（${targetClientIds.value.length} 台）`;
+  }
+
+  return selectedTarget.value || "未选择";
+});
+
+watch(
+  () => props.status?.client_id ?? "",
+  (selectedId) => {
+    const ids = clientOptions.value.map((client) => client.id);
+    if (selectedId && ids.includes(selectedId)) {
+      selectedTarget.value = selectedId;
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => clientOptions.value.map((client) => client.id).join("\n"),
+  () => {
+    const ids = clientOptions.value.map((client) => client.id);
+    if (selectedTarget.value === allClientsValue && ids.length > 1) {
+      return;
+    }
+
+    if (!ids.includes(selectedTarget.value)) {
+      selectedTarget.value = ids[0] ?? "";
+    }
+  },
+  { immediate: true },
+);
 
 const commandGroups: CommandGroup[] = [
   {
@@ -146,7 +201,8 @@ const commandGroups: CommandGroup[] = [
 ];
 
 async function submitMessage(): Promise<void> {
-  if (!props.status || !messageTitle.value.trim() || !messageBody.value.trim()) {
+  const targets = targetClientIds.value;
+  if (!targets.length || !messageTitle.value.trim() || !messageBody.value.trim()) {
     return;
   }
 
@@ -154,11 +210,18 @@ async function submitMessage(): Promise<void> {
   messageResult.value = "";
 
   try {
-    const message = await sendClientMessage(props.serverUrl, props.status.client_id, {
-      title: messageTitle.value.trim(),
-      body: messageBody.value.trim(),
-    });
-    messageResult.value = `已写入消息队列：${message.id}`;
+    const messages = await Promise.all(
+      targets.map((clientId) =>
+        sendClientMessage(props.serverUrl, clientId, {
+          title: messageTitle.value.trim(),
+          body: messageBody.value.trim(),
+        }),
+      ),
+    );
+    messageResult.value =
+      messages.length === 1
+        ? `已写入消息队列：${messages[0].id}`
+        : `已写入 ${messages.length} 个客户端消息队列`;
     messageBody.value = "";
   } catch (error) {
     messageResult.value =
@@ -169,7 +232,8 @@ async function submitMessage(): Promise<void> {
 }
 
 async function submitCommand(commandType: ClientCommandType): Promise<void> {
-  if (!props.status || pendingCommand.value) {
+  const targets = targetClientIds.value;
+  if (!targets.length || pendingCommand.value) {
     return;
   }
 
@@ -178,14 +242,21 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
 
   try {
     // Server 只负责写入白名单命令队列，Client monitor 轮询到后在本机执行。
-    // 输入：当前选中 Client ID 与命令类型。
-    // 输出：命令队列记录 ID，便于和客户端日志对照。
+    // 输入：Web 中明确选择的 Client ID 列表与命令类型。
+    // 输出：对应客户端命令队列记录，便于和客户端日志对照。
     // 边界：当前阶段没有强确认回执，执行结果以客户端本机日志为准。
-    const command = await sendClientCommand(props.serverUrl, props.status.client_id, {
-      command_type: commandType,
-      payload: {},
-    });
-    commandResult.value = `已写入命令队列：${command.id}`;
+    const commands = await Promise.all(
+      targets.map((clientId) =>
+        sendClientCommand(props.serverUrl, clientId, {
+          command_type: commandType,
+          payload: {},
+        }),
+      ),
+    );
+    commandResult.value =
+      commands.length === 1
+        ? `已写入命令队列：${commands[0].id}`
+        : `已写入 ${commands.length} 个客户端命令队列`;
   } catch (error) {
     commandResult.value =
       error instanceof Error ? error.message : `下发失败：${String(error)}`;
@@ -201,17 +272,35 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
       <Send :size="18" />
       <div>
         <h2>遠程操作</h2>
-        <p v-if="status">目标 Client：{{ status.client_id }}</p>
-        <p v-else>选择 Client 后可发送消息和本机操作命令。</p>
+        <p>目标：{{ targetLabel }}</p>
       </div>
     </header>
 
-    <div v-if="!status" class="empty-detail">
-      <strong>未選擇 Client</strong>
-      <span>刷新並選擇客戶端後，這裡會顯示可下發的操作。</span>
+    <div v-if="!hasTarget" class="empty-detail">
+      <strong>未發現 Client</strong>
+      <span>刷新並等待客戶端上報後，這裡會顯示可下發的操作。</span>
     </div>
 
     <div v-else class="remote-stack">
+      <label class="target-select">
+        <span>下发目标</span>
+        <select v-model="selectedTarget">
+          <option
+            v-if="clientOptions.length > 1"
+            :value="allClientsValue"
+          >
+            全部已上报客户端
+          </option>
+          <option
+            v-for="client in clientOptions"
+            :key="client.id"
+            :value="client.id"
+          >
+            {{ client.label }}
+          </option>
+        </select>
+      </label>
+
       <form class="message-form" @submit.prevent="submitMessage">
         <h3>Server 消息</h3>
         <label>
@@ -224,7 +313,7 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
         </label>
         <button
           type="submit"
-          :disabled="sendingMessage || !messageTitle.trim() || !messageBody.trim()"
+          :disabled="sendingMessage || !hasTarget || !messageTitle.trim() || !messageBody.trim()"
         >
           <Send :size="15" />
           <span>{{ sendingMessage ? "发送中" : "发送消息" }}</span>
@@ -246,7 +335,7 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
               :key="action.value"
               type="button"
               :data-tone="action.tone ?? 'default'"
-              :disabled="!!pendingCommand"
+              :disabled="!!pendingCommand || !hasTarget"
               @click="submitCommand(action.value)"
             >
               <component :is="action.icon" :size="16" :stroke-width="2" />
@@ -309,6 +398,29 @@ header p,
 .command-group {
   display: grid;
   gap: var(--space-3);
+}
+
+.target-select {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.target-select span {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.target-select select {
+  width: 100%;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--color-text);
+  padding: 9px var(--space-3);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
 }
 
 .command-group {

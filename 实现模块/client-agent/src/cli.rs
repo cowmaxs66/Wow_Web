@@ -18,6 +18,7 @@ pub enum AgentCommand {
     UpdateCheck,
     UpdateDownload,
     UpdateApply,
+    ReportOffline,
     Help,
 }
 
@@ -44,6 +45,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<AgentCommand
             "--update-check" => command = AgentCommand::UpdateCheck,
             "--update-download" => command = AgentCommand::UpdateDownload,
             "--update-apply" => command = AgentCommand::UpdateApply,
+            "--report-offline" => command = AgentCommand::ReportOffline,
             "--notify" => command = AgentCommand::RunOnce { notify: true },
             "--help" | "-h" => command = AgentCommand::Help,
             unknown => return Err(format!("未知参数：{unknown}")),
@@ -110,11 +112,14 @@ mod tests {
             .expect("update command must parse");
         let update_apply = parse_args(["client-agent".to_string(), "--update-apply".to_string()])
             .expect("update apply command must parse");
+        let offline = parse_args(["client-agent".to_string(), "--report-offline".to_string()])
+            .expect("offline command must parse");
 
         assert_eq!(service, AgentCommand::ServiceStatus);
         assert_eq!(tray, AgentCommand::Tray);
         assert_eq!(settings, AgentCommand::SettingsWindow);
         assert_eq!(update, AgentCommand::UpdateCheck);
         assert_eq!(update_apply, AgentCommand::UpdateApply);
+        assert_eq!(offline, AgentCommand::ReportOffline);
     }
 }

@@ -12,7 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub const CLIENT_HISTORY_LIMIT: usize = 50;
 pub const CLIENT_MESSAGE_LIMIT: usize = 100;
 pub const CLIENT_COMMAND_LIMIT: usize = 100;
-pub const CLIENT_ONLINE_STALE_MS: u128 = 60_000;
+pub const CLIENT_ONLINE_STALE_MS: u128 = 30_000;
 
 #[derive(Debug, Clone, Default)]
 pub struct ServerState {

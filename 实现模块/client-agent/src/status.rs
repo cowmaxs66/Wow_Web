@@ -5,6 +5,7 @@ use shared_types::{ClientRuntimeInfo, ClientScriptInfo, ClientServerInfo, Client
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentStatusSnapshot {
     client_id: String,
+    online: bool,
     current_script: Option<String>,
     runtime: ClientRuntimeInfo,
     script: ClientScriptInfo,
@@ -19,28 +20,32 @@ impl AgentStatusSnapshot {
         // 边界：只暴露运行与配置摘要，不输出签名私钥、真实账号或本机敏感路径。
         Self {
             client_id: config.client.id.clone(),
+            online: true,
             current_script: Some(report.script_name.clone()),
-            runtime: ClientRuntimeInfo {
-                release_version: framework_release_version(),
-                os: std::env::consts::OS.to_string(),
-                arch: std::env::consts::ARCH.to_string(),
-                process_id: std::process::id(),
-            },
-            script: ClientScriptInfo {
-                bootstrap_name: config.lua.bootstrap_name.clone(),
-                instruction_limit: report.instruction_limit,
-                security_enabled: config.script_security.enabled,
-                allowed_permissions: config.script_security.allowed_permissions.clone(),
-            },
-            server: ClientServerInfo {
-                report_enabled: config.server.enabled,
-                report_target: report_target(config),
-            },
+            runtime: runtime_info(),
+            script: script_info(config, report.instruction_limit),
+            server: server_info(config),
+        }
+    }
+
+    pub fn offline(config: &AgentConfig) -> Self {
+        // 离线状态用于 monitor 退出时主动通知 Server。
+        // 输入：当前已合并环境变量的 AgentConfig。
+        // 输出：online=false 的状态快照，保留版本、架构、脚本配置与上报目标摘要。
+        // 边界：不重新执行 Lua，避免退出阶段因为脚本异常阻塞离线回写。
+        Self {
+            client_id: config.client.id.clone(),
+            online: false,
+            current_script: None,
+            runtime: runtime_info(),
+            script: script_info(config, config.lua.instruction_limit),
+            server: server_info(config),
         }
     }
 
     pub fn into_client_status(self) -> ClientStatus {
         let mut status = ClientStatus::new(self.client_id);
+        status.online = self.online;
         status.current_script = self.current_script;
         status.runtime = self.runtime;
         status.script = self.script;
@@ -51,6 +56,31 @@ impl AgentStatusSnapshot {
 
 fn framework_release_version() -> String {
     include_str!("../../../VERSION").trim().to_string()
+}
+
+fn runtime_info() -> ClientRuntimeInfo {
+    ClientRuntimeInfo {
+        release_version: framework_release_version(),
+        os: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        process_id: std::process::id(),
+    }
+}
+
+fn script_info(config: &AgentConfig, instruction_limit: u32) -> ClientScriptInfo {
+    ClientScriptInfo {
+        bootstrap_name: config.lua.bootstrap_name.clone(),
+        instruction_limit,
+        security_enabled: config.script_security.enabled,
+        allowed_permissions: config.script_security.allowed_permissions.clone(),
+    }
+}
+
+fn server_info(config: &AgentConfig) -> ClientServerInfo {
+    ClientServerInfo {
+        report_enabled: config.server.enabled,
+        report_target: report_target(config),
+    }
 }
 
 fn report_target(config: &AgentConfig) -> String {
@@ -120,6 +150,48 @@ mod tests {
             vec!["host.log".to_string(), "config.read".to_string()]
         );
         assert!(status.server.report_enabled);
+        assert_eq!(
+            status.server.report_target,
+            "127.0.0.1:18080/api/client/status"
+        );
+    }
+
+    #[test]
+    fn offline_snapshot_preserves_safe_summary_without_script_run() {
+        let config = AgentConfig {
+            client: ClientConfig {
+                id: "client-a".to_string(),
+            },
+            lua: LuaConfig {
+                bootstrap_name: "bootstrap".to_string(),
+                bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
+                instruction_limit: 10_000,
+            },
+            script_security: ScriptSecurityConfig {
+                enabled: true,
+                manifest_path: PathBuf::from("scripts/bootstrap.manifest.json"),
+                trusted_signer_public_key:
+                    "1111111111111111111111111111111111111111111111111111111111111111".to_string(),
+                allowed_permissions: vec!["host.log".to_string()],
+            },
+            dm: DmConfig {
+                bridge_path: PathBuf::from("target/dm-bridge/Win32/DmBridge.dll"),
+            },
+            server: ServerConfig {
+                enabled: true,
+                host: "127.0.0.1".to_string(),
+                port: 18080,
+                status_path: "/api/client/status".to_string(),
+                connect_timeout_ms: 3000,
+            },
+        };
+
+        let status = AgentStatusSnapshot::offline(&config).into_client_status();
+
+        assert_eq!(status.client_id, "client-a");
+        assert!(!status.online);
+        assert_eq!(status.current_script, None);
+        assert_eq!(status.script.bootstrap_name, "bootstrap");
         assert_eq!(
             status.server.report_target,
             "127.0.0.1:18080/api/client/status"

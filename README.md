@@ -4,12 +4,12 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P18 服务端上线日志与分包
-- 当前版本：v1.12.0
-- 当前目标：让 Server 控制台显示 Client 上线/刷新日志，并输出 Server/Client 独立分包
+- 当前阶段：P19 客户端直启与远程目标选择修正
+- 当前版本：v1.13.0
+- 当前目标：修正 Client 分包正式直启、离线状态收敛和 Web 远程命令目标选择
 
 ## 第一里程碑
-已完成 P0-P18 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口和部署分包：
+已完成 P0-P19 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包和正式体验修正：
 
 1. Client Agent 能执行 Lua bootstrap。
 2. DmBridge 能通过 Rust/Lua 调用大漠最小链路。
@@ -29,6 +29,7 @@
 16. Client 支持 `--update-apply`，可下载 GitHub Release 并安排独立 updater 替换安装目录。
 17. Web Admin 左侧导航已补齐总览、客户端、脚本、远程操作、设置，Server 可下发 `update.apply` 触发 Client 自替换更新。
 18. Management Server 控制台可显示 Client 上线/刷新/离线日志，发布脚本可生成总包、Server 分包和 Client 分包。
+19. Client 分包根目录 `client-agent.exe` 可正式直启，正常退出会上报离线，Web Admin 远程操作可选择单台或全部 Client。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -49,4 +50,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.12.0 发布资料已归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.12.0
+v1.13.0 发布资料已归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.13.0

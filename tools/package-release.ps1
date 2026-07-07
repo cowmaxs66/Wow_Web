@@ -116,7 +116,7 @@ function Copy-PackagePayload {
     Copy-RequiredFile (Join-Path $releaseDir 'client-agent.exe') (Join-Path $binDir 'client-agent-x64-core.exe')
 
     Copy-RequiredFile (Join-Path $root 'target\dm-bridge\Win32\DmBridge.dll') (Join-Path $packageRoot 'dm-bridge\Win32\DmBridge.dll')
-    Copy-RequiredFile (Join-Path $root '实现模块\client-agent\config\client-agent.toml') (Join-Path $packageRoot 'config\client-agent.toml')
+    Write-PackagedClientConfig $packageRoot
     Copy-RequiredDirectory (Join-Path $root '实现模块\client-agent\scripts') (Join-Path $packageRoot 'scripts')
     Copy-RequiredDirectory (Join-Path $root 'tools') (Join-Path $packageRoot 'tools')
     Copy-RequiredDirectory (Join-Path $root 'tools\installer') (Join-Path $packageRoot 'installer')
@@ -136,6 +136,23 @@ function Copy-ToolFiles {
     }
 }
 
+function Write-PackagedClientConfig {
+    param([string]$TargetRoot)
+
+    $sourcePath = Join-Path $root '实现模块\client-agent\config\client-agent.toml'
+    if (-not (Test-Path -LiteralPath $sourcePath)) {
+        throw "Missing required file: $sourcePath"
+    }
+
+    $destination = Join-Path $TargetRoot 'config\client-agent.toml'
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+    $content = Get-Content -LiteralPath $sourcePath -Raw
+    $content = $content.Replace('bridge_path = "../../target/dm-bridge/Win32/DmBridge.dll"', 'bridge_path = "dm-bridge/Win32/DmBridge.dll"')
+    $content = $content.Replace("enabled = false`r`nhost = `"127.0.0.1`"", "enabled = true`r`nhost = `"127.0.0.1`"")
+    $content = $content.Replace("enabled = false`nhost = `"127.0.0.1`"", "enabled = true`nhost = `"127.0.0.1`"")
+    Set-Content -LiteralPath $destination -Value $content -Encoding UTF8
+}
+
 function Copy-SplitPackagePayload {
     $releaseDir = Join-Path $root 'target\release'
     $x86Dir = Join-Path $root 'target\i686-pc-windows-msvc\release'
@@ -152,7 +169,7 @@ function Copy-SplitPackagePayload {
     Copy-RequiredFile (Join-Path $x86Dir 'client-agent.exe') (Join-Path $clientPackageRoot 'bin\client-agent-core.exe')
     Copy-RequiredFile (Join-Path $releaseDir 'client-agent.exe') (Join-Path $clientPackageRoot 'bin\client-agent-x64-core.exe')
     Copy-RequiredFile (Join-Path $root 'target\dm-bridge\Win32\DmBridge.dll') (Join-Path $clientPackageRoot 'dm-bridge\Win32\DmBridge.dll')
-    Copy-RequiredFile (Join-Path $root '实现模块\client-agent\config\client-agent.toml') (Join-Path $clientPackageRoot 'config\client-agent.toml')
+    Write-PackagedClientConfig $clientPackageRoot
     Copy-RequiredDirectory (Join-Path $root '实现模块\client-agent\scripts') (Join-Path $clientPackageRoot 'scripts')
     Copy-ToolFiles (Join-Path $clientPackageRoot 'tools') @('common.ps1', 'start-client.ps1')
     Copy-RequiredFile (Join-Path $root 'README.md') (Join-Path $clientPackageRoot 'README.md')

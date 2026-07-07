@@ -3,6 +3,8 @@ use crate::config::AgentConfig;
 use crate::local_log::LocalLog;
 use crate::notifier;
 use crate::server_reporter::StatusReporter;
+use crate::status::AgentStatusSnapshot;
+use shared_types::WsEnvelope;
 use std::collections::HashSet;
 use std::error::Error;
 use std::sync::mpsc::{Receiver, TryRecvError};
@@ -60,6 +62,27 @@ pub fn run_monitor_until_shutdown(
         }
     }
 
+    if let Err(error) = report_offline(&config, &log) {
+        log.append_event(&format!("离线状态上报失败：{error}"))?;
+    }
+
+    Ok(())
+}
+
+pub fn report_offline(config: &AgentConfig, log: &LocalLog) -> Result<(), Box<dyn Error>> {
+    if !config.server.enabled {
+        log.append_event("Server 上报未启用，跳过离线状态上报")?;
+        return Ok(());
+    }
+
+    let status = AgentStatusSnapshot::offline(config).into_client_status();
+    let envelope = WsEnvelope::status(config.client.id.clone(), status);
+    let ack = StatusReporter::new(config.server.clone()).report_status(&envelope)?;
+    log.append_status(&envelope)?;
+    log.append_event(&format!(
+        "离线状态已上报：client_id={} message_id={} accepted={}",
+        ack.client_id, ack.message_id, ack.accepted
+    ))?;
     Ok(())
 }
 

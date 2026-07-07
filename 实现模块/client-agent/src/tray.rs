@@ -3,19 +3,28 @@ use std::io;
 use std::path::PathBuf;
 use std::process::Command;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+#[cfg(windows)]
+const DETACHED_PROCESS: u32 = 0x0000_0008;
+
 pub fn run_tray() -> io::Result<()> {
     let exe = std::env::current_exe()?;
     let script_path = write_tray_script(&exe.display().to_string())?;
-    Command::new(shell_executable())
-        .args([
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-File",
-            &script_path.display().to_string(),
-        ])
-        .spawn()
-        .map(|_| ())
+    let mut command = Command::new(shell_executable());
+    command.args([
+        "-NoProfile",
+        "-WindowStyle",
+        "Hidden",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        &script_path.display().to_string(),
+    ]);
+    spawn_hidden(command)
 }
 
 fn write_tray_script(exe_path: &str) -> io::Result<PathBuf> {
@@ -56,11 +65,21 @@ function Start-Monitor {{
   Show-Balloon 'WoW Client' 'monitor 已启动'
 }}
 
+function Report-Offline {{
+  try {{
+    Start-Process -FilePath $exe -ArgumentList '--report-offline' -WindowStyle Hidden -Wait
+  }} catch {{
+    Show-Balloon 'WoW Client' ('离线状态上报失败：' + $_.Exception.Message)
+  }}
+}}
+
 function Stop-Monitor {{
   if ($script:monitor -and -not $script:monitor.HasExited) {{
     Stop-Process -Id $script:monitor.Id -Force
+    Report-Offline
     Show-Balloon 'WoW Client' 'monitor 已停止'
   }} else {{
+    Report-Offline
     Show-Balloon 'WoW Client' 'monitor 未运行'
   }}
 }}
@@ -125,17 +144,36 @@ Start-Monitor
 }
 
 fn shell_executable() -> &'static str {
-    if Command::new("pwsh")
+    let mut command = Command::new("pwsh");
+    command
         .arg("-NoProfile")
+        .arg("-WindowStyle")
+        .arg("Hidden")
         .arg("-Command")
-        .arg("$PSVersionTable.PSVersion.ToString()")
-        .output()
-        .is_ok_and(|output| output.status.success())
-    {
+        .arg("$PSVersionTable.PSVersion.ToString()");
+    if output_hidden(command).is_ok_and(|output| output.status.success()) {
         "pwsh"
     } else {
         "powershell"
     }
+}
+
+fn spawn_hidden(mut command: Command) -> io::Result<()> {
+    #[cfg(windows)]
+    {
+        command.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+    }
+
+    command.spawn().map(|_| ())
+}
+
+fn output_hidden(mut command: Command) -> io::Result<std::process::Output> {
+    #[cfg(windows)]
+    {
+        command.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+    }
+
+    command.output()
 }
 
 fn framework_release_version() -> &'static str {

@@ -222,7 +222,11 @@ function changeView(view: string): void {
 
     <section v-else-if="activeView === 'operations'" class="content-grid">
       <div class="main-stack">
-        <ClientRemoteActions :status="selectedStatus" :server-url="serverUrl" />
+        <ClientRemoteActions
+          :status="selectedStatus"
+          :clients="clients"
+          :server-url="serverUrl"
+        />
         <ClientTable
           :clients="clients"
           :selected-client-id="selectedStatus?.client_id ?? ''"
@@ -234,7 +238,7 @@ function changeView(view: string): void {
         <MetricCard
           label="遠程目標"
           :value="selectedStatus?.client_id ?? '未選擇'"
-          note="命令会写入该 Client 队列"
+          note="操作面板可选择单台或全部 Client"
           :icon="Bolt"
         />
         <MetricCard

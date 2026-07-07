@@ -122,6 +122,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let config = AgentConfig::load_from_path(default_config_path())?;
 
+    if command == AgentCommand::ReportOffline {
+        monitor::report_offline(&config, &LocalLog::default())?;
+        return Ok(());
+    }
+
     if command == AgentCommand::Monitor {
         return monitor::run_monitor(config);
     }

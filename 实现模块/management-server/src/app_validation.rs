@@ -112,6 +112,28 @@ fn validate_config_apply_payload(payload: &serde_json::Value) -> Result<(), ApiE
         ));
     }
 
+    if patch
+        .client
+        .display_name
+        .as_deref()
+        .is_some_and(|value| value.trim().is_empty())
+    {
+        return Err(ApiError::BadRequest(
+            "client.display_name must not be empty".to_string(),
+        ));
+    }
+
+    if patch
+        .client
+        .group
+        .as_deref()
+        .is_some_and(|value| value.trim().is_empty())
+    {
+        return Err(ApiError::BadRequest(
+            "client.group must not be empty".to_string(),
+        ));
+    }
+
     Ok(())
 }
 

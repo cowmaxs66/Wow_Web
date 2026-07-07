@@ -13,6 +13,17 @@ pub struct AgentRunResult {
 }
 
 pub fn run_once(config: &AgentConfig) -> Result<AgentRunResult, Box<dyn Error>> {
+    run_once_with_report(config, true)
+}
+
+pub fn run_once_local(config: &AgentConfig) -> Result<AgentRunResult, Box<dyn Error>> {
+    run_once_with_report(config, false)
+}
+
+fn run_once_with_report(
+    config: &AgentConfig,
+    report_to_server: bool,
+) -> Result<AgentRunResult, Box<dyn Error>> {
     let script = ScriptSource::load_bootstrap(config)?;
     let report = LuaHost::new(config.clone()).run_script(&script)?;
 
@@ -25,7 +36,7 @@ pub fn run_once(config: &AgentConfig) -> Result<AgentRunResult, Box<dyn Error>> 
 
     let status = AgentStatusSnapshot::from_script_report(config, &report).into_client_status();
     let envelope = WsEnvelope::status(config.client.id.clone(), status);
-    let ack = if config.server.enabled {
+    let ack = if report_to_server && config.server.enabled {
         let ack = StatusReporter::new(config.server.clone()).report_status(&envelope)?;
         tracing::info!(
             client_id = %ack.client_id,

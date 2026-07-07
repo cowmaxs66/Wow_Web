@@ -1,10 +1,12 @@
-use crate::agent::run_once;
+use crate::agent::run_once_local;
 use crate::config::{AgentConfig, default_config_path};
 use crate::local_log::LocalLog;
 use crate::notifier;
 use crate::server_reporter::StatusReporter;
 use crate::status::AgentStatusSnapshot;
-use shared_types::{ClientCommandReceiptRequest, WsEnvelope};
+use shared_types::{
+    ClientCommand, ClientCommandReceiptRequest, ClientMessage, ClientStatus, WsEnvelope,
+};
 use std::collections::HashSet;
 use std::error::Error;
 use std::sync::mpsc::{Receiver, TryRecvError};
@@ -21,6 +23,7 @@ pub fn run_monitor_until_shutdown(
 ) -> Result<(), Box<dyn Error>> {
     let log = LocalLog::default();
     let interval = monitor_interval();
+    let max_jitter_ms = monitor_max_jitter_ms();
     let mut seen_messages = HashSet::new();
     let mut seen_commands = HashSet::new();
     let mut active_config = config;
@@ -35,7 +38,7 @@ pub fn run_monitor_until_shutdown(
 
         active_config = reload_config_or_keep(active_config, &log);
 
-        match run_once(&active_config) {
+        match run_once_local(&active_config) {
             Ok(result) => {
                 log.append_status(&result.envelope)?;
                 log.append_event(&format!(
@@ -44,11 +47,24 @@ pub fn run_monitor_until_shutdown(
                 ))?;
 
                 if active_config.server.enabled {
-                    if let Err(error) = poll_messages(&active_config, &log, &mut seen_messages) {
-                        log.append_event(&format!("轮询 Server 消息失败：{error}"))?;
-                    }
-                    if let Err(error) = poll_commands(&active_config, &log, &mut seen_commands) {
-                        log.append_event(&format!("轮询 Server 命令失败：{error}"))?;
+                    let sync_result = sync_server_roundtrip(
+                        &active_config,
+                        &log,
+                        &mut seen_messages,
+                        &mut seen_commands,
+                        &result.envelope,
+                    );
+                    if let Err(error) = sync_result {
+                        log.append_event(&format!("合并同步失败，尝试旧轮询链路：{error}"))?;
+                        if let Err(error) = legacy_server_roundtrip(
+                            &active_config,
+                            &log,
+                            &mut seen_messages,
+                            &mut seen_commands,
+                            &result.envelope,
+                        ) {
+                            log.append_event(&format!("旧轮询链路也失败：{error}"))?;
+                        }
                     }
                 }
             }
@@ -59,7 +75,10 @@ pub fn run_monitor_until_shutdown(
             }
         }
 
-        if sleep_with_shutdown(interval, shutdown.as_ref()) {
+        if sleep_with_shutdown(
+            jittered_interval(interval, max_jitter_ms),
+            shutdown.as_ref(),
+        ) {
             log.append_event("Client monitor 已收到停止信号")?;
             break;
         }
@@ -112,8 +131,15 @@ fn poll_messages(
 ) -> Result<(), Box<dyn Error>> {
     let reporter = StatusReporter::new(config.server.clone());
     let messages = reporter.fetch_messages(&config.client.id)?;
+    handle_message_items(messages.items, log, seen_messages)
+}
 
-    for message in messages.items {
+fn handle_message_items(
+    messages: Vec<ClientMessage>,
+    log: &LocalLog,
+    seen_messages: &mut HashSet<String>,
+) -> Result<(), Box<dyn Error>> {
+    for message in messages {
         if !seen_messages.insert(message.id.clone()) {
             continue;
         }
@@ -142,6 +168,81 @@ fn monitor_interval() -> Duration {
     Duration::from_secs(seconds)
 }
 
+fn monitor_max_jitter_ms() -> u64 {
+    std::env::var("CLIENT_AGENT_MONITOR_JITTER_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value <= 10_000)
+        .unwrap_or(1500)
+}
+
+fn jittered_interval(base: Duration, max_jitter_ms: u64) -> Duration {
+    if max_jitter_ms == 0 {
+        return base;
+    }
+
+    let seed = current_jitter_seed();
+    base + Duration::from_millis(seed % (max_jitter_ms + 1))
+}
+
+fn current_jitter_seed() -> u64 {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.subsec_nanos() as u64)
+        .unwrap_or_default();
+
+    // jitter 用于多机器同时启动时错开上报峰值，不需要密码学随机数。
+    // 输入：当前纳秒和进程 ID。
+    // 输出：一个轻量扰动种子。
+    // 边界：同一机器极端情况下仍可能碰撞，但足够降低批量启动时的瞬时并发。
+    nanos ^ u64::from(std::process::id())
+}
+
+fn sync_server_roundtrip(
+    config: &AgentConfig,
+    log: &LocalLog,
+    seen_messages: &mut HashSet<String>,
+    seen_commands: &mut HashSet<String>,
+    envelope: &WsEnvelope<ClientStatus>,
+) -> Result<(), Box<dyn Error>> {
+    let reporter = StatusReporter::new(config.server.clone());
+    let response = reporter.sync_client(envelope)?;
+    log.append_event(&format!(
+        "合并同步完成：client_id={} message_id={} messages={} commands={}",
+        response.ack.client_id,
+        response.ack.message_id,
+        response.messages.total,
+        response.commands.total
+    ))?;
+    handle_message_items(response.messages.items, log, seen_messages)?;
+    handle_command_items(
+        response.commands.items,
+        config,
+        log,
+        seen_commands,
+        &reporter,
+    )?;
+    Ok(())
+}
+
+fn legacy_server_roundtrip(
+    config: &AgentConfig,
+    log: &LocalLog,
+    seen_messages: &mut HashSet<String>,
+    seen_commands: &mut HashSet<String>,
+    envelope: &WsEnvelope<ClientStatus>,
+) -> Result<(), Box<dyn Error>> {
+    let reporter = StatusReporter::new(config.server.clone());
+    let ack = reporter.report_status(envelope)?;
+    log.append_event(&format!(
+        "旧轮询状态上报成功：client_id={} message_id={}",
+        ack.client_id, ack.message_id
+    ))?;
+    poll_messages(config, log, seen_messages)?;
+    poll_commands(config, log, seen_commands)?;
+    Ok(())
+}
+
 fn poll_commands(
     config: &AgentConfig,
     log: &LocalLog,
@@ -149,8 +250,17 @@ fn poll_commands(
 ) -> Result<(), Box<dyn Error>> {
     let reporter = StatusReporter::new(config.server.clone());
     let commands = reporter.fetch_commands(&config.client.id)?;
+    handle_command_items(commands.items, config, log, seen_commands, &reporter)
+}
 
-    for command in commands.items {
+fn handle_command_items(
+    commands: Vec<ClientCommand>,
+    config: &AgentConfig,
+    log: &LocalLog,
+    seen_commands: &mut HashSet<String>,
+    reporter: &StatusReporter,
+) -> Result<(), Box<dyn Error>> {
+    for command in commands {
         if !seen_commands.insert(command.id.clone()) {
             continue;
         }

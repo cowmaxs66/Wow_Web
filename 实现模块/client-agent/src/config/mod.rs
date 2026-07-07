@@ -24,6 +24,12 @@ pub struct AgentConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientConfig {
     pub id: String,
+    #[serde(default = "default_client_display_name")]
+    pub display_name: String,
+    #[serde(default = "default_client_group")]
+    pub group: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -94,6 +100,9 @@ impl AgentConfig {
     pub fn get_value(&self, key: &str) -> Option<String> {
         match key {
             "client.id" => Some(self.client.id.clone()),
+            "client.display_name" => Some(self.client.display_name.clone()),
+            "client.group" => Some(self.client.group.clone()),
+            "client.tags" => Some(self.client.tags.join(",")),
             "lua.bootstrap_name" => Some(self.lua.bootstrap_name.clone()),
             "lua.bootstrap_path" => Some(self.lua.bootstrap_path.display().to_string()),
             "script_security.enabled" => Some(self.script_security.enabled.to_string()),
@@ -109,6 +118,18 @@ impl AgentConfig {
     fn apply_env_overrides(&mut self, path: &Path) -> Result<(), ConfigError> {
         if let Ok(value) = std::env::var("CLIENT_AGENT_SERVER_ENABLED") {
             self.server.enabled = parse_bool(path, "CLIENT_AGENT_SERVER_ENABLED", &value)?;
+        }
+
+        if let Ok(value) = std::env::var("CLIENT_AGENT_DISPLAY_NAME") {
+            self.client.display_name = value;
+        }
+
+        if let Ok(value) = std::env::var("CLIENT_AGENT_GROUP") {
+            self.client.group = value;
+        }
+
+        if let Ok(value) = std::env::var("CLIENT_AGENT_TAGS") {
+            self.client.tags = parse_tags(&value);
         }
 
         if let Ok(value) = std::env::var("CLIENT_AGENT_SERVER_HOST") {
@@ -136,6 +157,18 @@ impl AgentConfig {
     fn validate(&self, path: &Path) -> Result<(), ConfigError> {
         if self.client.id.trim().is_empty() {
             return Err(ConfigError::validate(path, "client.id 不能为空"));
+        }
+
+        if self.client.display_name.trim().is_empty() {
+            return Err(ConfigError::validate(path, "client.display_name 不能为空"));
+        }
+
+        if self.client.group.trim().is_empty() {
+            return Err(ConfigError::validate(path, "client.group 不能为空"));
+        }
+
+        if self.client.tags.iter().any(|tag| tag.trim().is_empty()) {
+            return Err(ConfigError::validate(path, "client.tags 不能包含空标签"));
         }
 
         if self.lua.bootstrap_name.trim().is_empty() {
@@ -232,6 +265,23 @@ fn is_hex_with_len(value: &str, expected_len: usize) -> bool {
     value.len() == expected_len && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
+fn default_client_display_name() -> String {
+    "Local Dev Client".to_string()
+}
+
+fn default_client_group() -> String {
+    "default".to_string()
+}
+
+fn parse_tags(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|tag| !tag.is_empty())
+        .map(ToString::to_string)
+        .collect()
+}
+
 fn parse_bool(path: &Path, key: &str, value: &str) -> Result<bool, ConfigError> {
     match value.trim().to_ascii_lowercase().as_str() {
         "1" | "true" | "yes" | "on" => Ok(true),
@@ -252,6 +302,9 @@ mod tests {
         let config = AgentConfig {
             client: ClientConfig {
                 id: "local-dev-client".to_string(),
+                display_name: "Local Dev Client".to_string(),
+                group: "default".to_string(),
+                tags: vec!["local".to_string()],
             },
             lua: LuaConfig {
                 bootstrap_name: "bootstrap".to_string(),
@@ -281,6 +334,11 @@ mod tests {
             config.get_value("client.id"),
             Some("local-dev-client".to_string())
         );
+        assert_eq!(
+            config.get_value("client.group"),
+            Some("default".to_string())
+        );
+        assert_eq!(config.get_value("client.tags"), Some("local".to_string()));
         assert_eq!(
             config.get_value("lua.bootstrap_path"),
             Some("scripts/bootstrap.lua".to_string())

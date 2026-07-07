@@ -4,8 +4,9 @@
 本模块保存 Client Agent、Management Server 和 Web Admin 共同依赖的协议结构。
 
 ## 当前状态
-P26 已扩展共享协议与命令目录，当前包含：
+P30 已扩展共享协议与命令目录，当前包含：
 - 基础状态：`client_id`、`online`、`current_script`。
+- 身份信息：`display_name`、`group`、`tags`，用于多机器分组、标签检索和 Web 展示。
 - 运行详情：框架版本、操作系统、架构、进程 ID。
 - 脚本摘要：bootstrap 名称、Lua 指令上限、脚本安全门和允许权限。
 - 上报摘要：是否启用 Server 上报以及上报目标。
@@ -13,6 +14,7 @@ P26 已扩展共享协议与命令目录，当前包含：
 - 远程命令：`REMOTE_COMMAND_TYPES` 保存当前 Server/Client 共用的远程命令类型清单。
 - 远程配置：`ClientConfigPatch` 保存 `config.apply` 允许下发的 Client 配置补丁。
 - 命令回执：`ClientCommandReceipt*` 保存 Client 执行结果摘要。
+- 合并同步：`ClientSyncRequest/ClientSyncResponse` 支持 Client 一次 HTTP 完成状态上报、消息拉取和命令拉取。
 
 ## 约束
 - 字段必须来自真实配置或运行时，不在协议层制造假数据。

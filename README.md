@@ -5,8 +5,8 @@
 
 ## 当前阶段
 - 当前阶段：P28 DM 实机烟测与多机通讯规划
-- 当前版本：v1.21.0
-- 当前目标：v1.21.0 已完成本地编译包，DM smoke 实机烟测已通过，并已规划多机器管理和通讯效率优化；GitHub Release 尚未创建
+- 当前版本：v1.22.0
+- 当前目标：v1.22.0 已完成本地编译包，多机器分组/标签、批量操作确认、monitor jitter 和 `/api/client/sync` 合并同步已通过验证；GitHub Release 尚未创建
 
 ## 第一里程碑
 已完成 P0-P28 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化和 DM smoke 脚本入口：
@@ -39,6 +39,8 @@
 26. Web Admin 可对指定 Client 下发受控本机设置，Client 写回 TOML 并在 monitor 下一轮自动重载。
 27. Client 本机设置窗口已改为表单 UI，可通过输入框、复选框和权限勾选保存设置。
 28. Client 提供 `dm_smoke.lua` 实机烟测脚本，可验证 Lua、DmBridge 和大漠 COM 的最小链路；多机器管理和通讯效率优化已形成 P28 规划。
+29. Client 状态、设置窗口和 Web Admin 已支持显示名、分组和标签，批量消息/命令下发前必须显式确认。
+30. Client monitor 已支持 jitter 和 `/api/client/sync` 合并同步，减少多机器轮询请求量，并保留旧接口回退链路。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -59,4 +61,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.21.0 本地编译包与发布说明已归档到 `target/release-package/` 和 `发布归档/v1.21.0-发布说明.md`；当前远端 Release 仍为：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.19.0
+v1.22.0 本地编译包与发布说明已归档到 `target/release-package/` 和 `发布归档/v1.22.0-发布说明.md`；当前远端 Release 仍为：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.19.0

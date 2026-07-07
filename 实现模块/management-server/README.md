@@ -7,13 +7,14 @@
 - WebSocket 实时推送、命令下发与结果接收。
 
 ## 当前状态
-P26 阶段已支持 `config.apply` 远程配置命令校验。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列和命令执行回执能力。
+P30 阶段已支持 `config.apply` 远程配置命令校验和 `/api/client/sync` 合并同步。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列和命令执行回执能力。
 
 ## 当前 API
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | `GET` | `/health` | 健康检查 |
 | `POST` | `/api/client/status` | 接收 `WsEnvelope<ClientStatus>` 状态上报 |
+| `POST` | `/api/client/sync` | 接收状态上报，并返回消息列表和待执行命令 |
 | `GET` | `/api/client/status` | 查询所有 Client 最新状态 |
 | `GET` | `/api/client/status/{client_id}` | 查询指定 Client 最新状态 |
 | `GET` | `/api/client/history/{client_id}` | 查询指定 Client 最近历史状态 |
@@ -70,6 +71,12 @@ P26 阶段已支持 `config.apply` 远程配置命令校验。Server 保留 JSON
 - `POST /api/client/commands/{client_id}` 支持 `config.apply`。
 - `config.apply` payload 必须包含至少一个配置项，且 JSON 文本不超过 4000 字符。
 - Server 只校验协议形状和命令白名单，真正的本机配置合法性由 Client 写回前校验。
+
+## P29/P30 多机器与合并同步说明
+- Client 状态包含 `identity.display_name`、`identity.group` 和 `identity.tags`，用于 Web 分组展示。
+- `config.apply` 可改显示名、分组和标签，但不允许改 `client.id`。
+- `/api/client/sync` 保存 Client 状态后，返回同一 Client 的消息列表和取出的命令列表。
+- 命令在 sync 中仍保持取出即清空语义，避免重复执行。
 
 ## 验证命令
 ```powershell

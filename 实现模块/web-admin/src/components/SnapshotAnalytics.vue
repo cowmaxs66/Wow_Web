@@ -95,6 +95,23 @@ const archRows = computed(() => {
     .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
 });
 
+const groupRows = computed(() => {
+  const counts = new Map<string, number>();
+
+  for (const client of props.clients) {
+    const group = client.data.identity.group || "default";
+    counts.set(group, (counts.get(group) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([name, count]) => ({
+      name,
+      count,
+      percent: totalCount.value === 0 ? 0 : Math.round((count / totalCount.value) * 100),
+    }))
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+});
+
 const issueRows = computed(() => {
   const rows: Array<{ label: string; count: number; tone: "warning" | "danger" }> = [
     {
@@ -170,8 +187,8 @@ const issueRows = computed(() => {
 
       <div class="split-lists">
         <div class="script-list">
-          <h3>腳本分布</h3>
-          <div v-for="row in scriptRows" :key="row.name" class="script-row">
+          <h3>分組分布</h3>
+          <div v-for="row in groupRows" :key="row.name" class="script-row">
             <span>{{ row.name }}</span>
             <strong>{{ row.count }} 台</strong>
             <small>{{ row.percent }}%</small>
@@ -179,12 +196,21 @@ const issueRows = computed(() => {
         </div>
 
         <div class="script-list">
-          <h3>架構分布</h3>
-          <div v-for="row in archRows" :key="row.name" class="script-row">
+          <h3>腳本分布</h3>
+          <div v-for="row in scriptRows" :key="row.name" class="script-row">
             <span>{{ row.name }}</span>
             <strong>{{ row.count }} 台</strong>
             <small>{{ row.percent }}%</small>
           </div>
+        </div>
+      </div>
+
+      <div class="script-list">
+        <h3>架構分布</h3>
+        <div v-for="row in archRows" :key="row.name" class="script-row">
+          <span>{{ row.name }}</span>
+          <strong>{{ row.count }} 台</strong>
+          <small>{{ row.percent }}%</small>
         </div>
       </div>
 

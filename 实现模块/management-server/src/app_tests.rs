@@ -317,6 +317,94 @@ async fn client_command_can_be_created_and_taken() {
 }
 
 #[tokio::test]
+async fn client_sync_reports_status_and_returns_messages_and_commands() {
+    let app = build_router_with_web_dir(ServerState::default(), None);
+    let message_body = serde_json::to_vec(&ClientMessageRequest {
+        title: "同步消息".to_string(),
+        body: "hello sync".to_string(),
+    })
+    .expect("message request must serialize");
+    let command_body = serde_json::to_vec(&ClientCommandRequest {
+        command_type: "startup.status".to_string(),
+        payload: serde_json::json!({}),
+    })
+    .expect("command request must serialize");
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/client/messages/client-a")
+                .header("content-type", "application/json")
+                .body(Body::from(message_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/client/commands/client-a")
+                .header("content-type", "application/json")
+                .body(Body::from(command_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let mut status = ClientStatus::new("client-a");
+    status.identity.group = "raid-a".to_string();
+    let envelope = WsEnvelope::status("client-a", status);
+    let body = serde_json::to_vec(&ClientSyncRequest { status: envelope })
+        .expect("sync request must serialize");
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/client/sync")
+                .header("content-type", "application/json")
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    let sync: ClientSyncResponse =
+        serde_json::from_slice(&body).expect("sync response must deserialize");
+
+    assert!(sync.ack.accepted);
+    assert_eq!(sync.messages.total, 1);
+    assert_eq!(sync.commands.total, 1);
+    assert_eq!(sync.commands.items[0].command_type, "startup.status");
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/client/commands/client-a")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    let empty: ClientCommandList =
+        serde_json::from_slice(&body).expect("command list must deserialize");
+
+    assert_eq!(empty.total, 0);
+}
+
+#[tokio::test]
 async fn unsupported_client_command_is_rejected() {
     let app = build_router_with_web_dir(ServerState::default(), None);
     let body = serde_json::to_vec(&ClientCommandRequest {

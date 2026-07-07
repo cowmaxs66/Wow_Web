@@ -44,9 +44,34 @@ pub struct ClientStatus {
     pub client_id: String,
     pub online: bool,
     pub current_script: Option<String>,
+    #[serde(default)]
+    pub identity: ClientIdentityInfo,
     pub runtime: ClientRuntimeInfo,
     pub script: ClientScriptInfo,
     pub server: ClientServerInfo,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientIdentityInfo {
+    pub display_name: String,
+    pub group: String,
+    pub tags: Vec<String>,
+}
+
+impl Default for ClientIdentityInfo {
+    fn default() -> Self {
+        Self::unknown()
+    }
+}
+
+impl ClientIdentityInfo {
+    pub fn unknown() -> Self {
+        Self {
+            display_name: "未命名 Client".to_string(),
+            group: "default".to_string(),
+            tags: Vec::new(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -108,6 +133,7 @@ impl ClientStatus {
             client_id: client_id.into(),
             online: true,
             current_script: None,
+            identity: ClientIdentityInfo::unknown(),
             runtime: ClientRuntimeInfo::unknown(),
             script: ClientScriptInfo::unknown(),
             server: ClientServerInfo::disabled(),
@@ -316,6 +342,8 @@ impl ClientCommandList {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientConfigPatch {
     #[serde(default)]
+    pub client: ClientIdentityConfigPatch,
+    #[serde(default)]
     pub lua: ClientLuaConfigPatch,
     #[serde(default)]
     pub script_security: ClientScriptSecurityConfigPatch,
@@ -327,10 +355,24 @@ pub struct ClientConfigPatch {
 
 impl ClientConfigPatch {
     pub fn is_empty(&self) -> bool {
-        self.lua.is_empty()
+        self.client.is_empty()
+            && self.lua.is_empty()
             && self.script_security.is_empty()
             && self.dm.is_empty()
             && self.server.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientIdentityConfigPatch {
+    pub display_name: Option<String>,
+    pub group: Option<String>,
+    pub tags: Option<Vec<String>>,
+}
+
+impl ClientIdentityConfigPatch {
+    fn is_empty(&self) -> bool {
+        self.display_name.is_none() && self.group.is_none() && self.tags.is_none()
     }
 }
 
@@ -453,6 +495,32 @@ impl ClientCommandReceiptList {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientSyncRequest {
+    pub status: WsEnvelope<ClientStatus>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientSyncResponse {
+    pub ack: StatusAck,
+    pub messages: ClientMessageList,
+    pub commands: ClientCommandList,
+}
+
+impl ClientSyncResponse {
+    pub fn new(ack: StatusAck, messages: ClientMessageList, commands: ClientCommandList) -> Self {
+        // 合并同步响应只返回本轮 Client 需要立即处理的数据。
+        // 输入：状态 ACK、未清空的文本消息列表、已取出的命令列表。
+        // 输出：Client monitor 一次 HTTP 即可完成上报和拉取。
+        // 边界：命令仍保持 take 语义，避免重复执行；消息仍保留旧列表语义，避免破坏 P11。
+        Self {
+            ack,
+            messages,
+            commands,
+        }
+    }
+}
+
 fn current_timestamp_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -473,6 +541,7 @@ mod tests {
         assert_eq!(envelope.client_id, "local-dev-client");
         assert_eq!(envelope.message_type, MessageType::Status);
         assert!(envelope.data.online);
+        assert_eq!(envelope.data.identity.group, "default");
         assert_eq!(envelope.data.runtime.release_version, "unknown");
         assert!(!envelope.data.server.report_enabled);
     }
@@ -547,6 +616,16 @@ mod tests {
         assert!(ClientConfigPatch::default().is_empty());
 
         let patch = ClientConfigPatch {
+            client: ClientIdentityConfigPatch {
+                group: Some("raid-a".to_string()),
+                ..ClientIdentityConfigPatch::default()
+            },
+            ..ClientConfigPatch::default()
+        };
+
+        assert!(!patch.is_empty());
+
+        let patch = ClientConfigPatch {
             server: ClientServerConfigPatch {
                 port: Some(18081),
                 ..ClientServerConfigPatch::default()
@@ -555,6 +634,20 @@ mod tests {
         };
 
         assert!(!patch.is_empty());
+    }
+
+    #[test]
+    fn sync_response_keeps_ack_messages_and_commands() {
+        let ack = StatusAck::accepted("client-a", "msg-1");
+        let response = ClientSyncResponse::new(
+            ack,
+            ClientMessageList::new("client-a", Vec::new()),
+            ClientCommandList::new("client-a", Vec::new()),
+        );
+
+        assert!(response.ack.accepted);
+        assert_eq!(response.messages.client_id, "client-a");
+        assert_eq!(response.commands.client_id, "client-a");
     }
 
     #[test]

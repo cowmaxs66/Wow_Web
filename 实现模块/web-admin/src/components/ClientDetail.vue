@@ -30,6 +30,18 @@ defineProps<{
             <dd>{{ status.client_id }}</dd>
           </div>
           <div>
+            <dt>显示名称</dt>
+            <dd>{{ status.data.identity.display_name || "未命名 Client" }}</dd>
+          </div>
+          <div>
+            <dt>分组</dt>
+            <dd>{{ status.data.identity.group || "default" }}</dd>
+          </div>
+          <div>
+            <dt>标签</dt>
+            <dd>{{ status.data.identity.tags.join(", ") || "无" }}</dd>
+          </div>
+          <div>
             <dt>在線狀態</dt>
             <dd>
               <StatusDot

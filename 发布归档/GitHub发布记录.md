@@ -19,14 +19,15 @@
 - GitHub 自动生成源码包，并额外上传总包、Server 分包和 Client 分包。
 
 ## 待发布本地包
+
 | 项目 | 内容 |
 |------|------|
-| 版本 | v1.21.0 |
-| 范围 | DM 实机烟测与多机通讯规划 |
+| 版本 | v1.22.0 |
+| 范围 | 多机器管理与通讯效率优化 |
+| 状态 | 本地包已生成，GitHub Release 未创建 |
 | 本地路径 | `target/release-package/` |
-| 编译包 | `WoW_Framework_v1.21.0_windows.zip`、`WoW_Server_v1.21.0_windows.zip`、`WoW_Client_v1.21.0_windows.zip` |
-| 编译包 SHA-256 | 总包 `dc00902da683c924f780a77fc16220be5b234e5d923fb76f0fc485d81dff835a`；Server `17e3f015c38a7f5a7db4c25adf144531a35cda191ef198cd8b2726dba63bb6f0`；Client `6cd35dffe48a82375cab14e1340802caa5fdde8efedfe64e8346b1b6b1579d72` |
-| 当前状态 | 本地包已生成，GitHub Release 未创建 |
+| 编译包 | `WoW_Framework_v1.22.0_windows.zip`、`WoW_Server_v1.22.0_windows.zip`、`WoW_Client_v1.22.0_windows.zip` |
+| 编译包 SHA-256 | 总包 `0c5aa5df8f17fb2b99f23c37be6b489b5f22fa3b68351acd5fb41587c46c2795`；Server `cbbbffc9e925312eb27a15884f1817da9effd06bd56dc3b41ca0dba713a3c7c6`；Client `59d576f3be4fb98adcec91976366a0bda65dbae0f016abe7bd814bcac563824f` |
 
 ## 安全边界
 - 未上传 `dm.dll`。
@@ -68,4 +69,4 @@
 | v1.2.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.2.0 | `41ca63e6b29658fd572d83c4378b6980dbf0bd36` | 已完成 |
 
 ## 下一步建议
-优先进入 P29 多机器管理数据模型、Client 分组/标签和批量操作安全边界；随后进入 P30 通讯效率优化，增加轮询 jitter 和 `/api/client/sync` 合并同步接口。
+优先决定是否上传 v1.22.0 GitHub Release；下一阶段建议补 Server 状态列表分页、按分组过滤和长期审计持久化。

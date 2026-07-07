@@ -134,6 +134,9 @@ mod tests {
         AgentConfig {
             client: ClientConfig {
                 id: "remote-test-client".to_string(),
+                display_name: "Remote Test Client".to_string(),
+                group: "test".to_string(),
+                tags: Vec::new(),
             },
             lua: LuaConfig {
                 bootstrap_name: "bootstrap".to_string(),

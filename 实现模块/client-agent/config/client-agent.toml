@@ -1,5 +1,8 @@
 [client]
 id = "local-dev-client"
+display_name = "Local Dev Client"
+group = "default"
+tags = ["local", "test"]
 
 [lua]
 bootstrap_name = "bootstrap"

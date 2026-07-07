@@ -13,7 +13,8 @@ use axum::{Json, Router};
 use shared_types::{
     ClientCommand, ClientCommandList, ClientCommandReceipt, ClientCommandReceiptList,
     ClientCommandReceiptRequest, ClientCommandRequest, ClientMessage, ClientMessageList,
-    ClientMessageRequest, ClientStatus, ClientStatusHistory, HealthResponse, StatusAck, WsEnvelope,
+    ClientMessageRequest, ClientStatus, ClientStatusHistory, ClientSyncRequest, ClientSyncResponse,
+    HealthResponse, StatusAck, WsEnvelope,
 };
 use std::path::PathBuf;
 use tower_http::cors::CorsLayer;
@@ -23,6 +24,7 @@ pub fn build_router_with_web_dir(state: ServerState, web_dir: Option<PathBuf>) -
     let router = Router::new()
         .route("/health", get(health))
         .route("/api/client/status", get(list_statuses).post(report_status))
+        .route("/api/client/sync", axum::routing::post(sync_client))
         .route("/api/client/status/{client_id}", get(get_status))
         .route("/api/client/history/{client_id}", get(get_history))
         .route(
@@ -80,6 +82,30 @@ async fn report_status(
         .map_err(|error| ApiError::Internal(format!("failed to save client status: {error}")))?;
     log_status_report(&envelope, previous.as_ref());
     Ok(Json(ack))
+}
+
+async fn sync_client(
+    State(state): State<ServerState>,
+    Json(request): Json<ClientSyncRequest>,
+) -> Result<Json<ClientSyncResponse>, ApiError> {
+    validate_status_envelope(&request.status)?;
+
+    let envelope = request.status;
+    let client_id = envelope.client_id.clone();
+    let previous = state.get_status(&client_id);
+    let ack = StatusAck::accepted(client_id.clone(), envelope.message_id.clone());
+    state
+        .save_status(envelope.clone())
+        .map_err(|error| ApiError::Internal(format!("failed to save client status: {error}")))?;
+    log_status_report(&envelope, previous.as_ref());
+
+    // P30 合并同步把 monitor 的三次 HTTP 往返收敛为一次。
+    // 输入：Client 最新状态。
+    // 输出：状态 ACK、当前消息列表、取出的命令列表。
+    // 边界：消息保持旧接口 list 语义；命令保持 take 语义，避免同一命令重复执行。
+    let messages = ClientMessageList::new(client_id.clone(), state.list_messages(&client_id));
+    let commands = ClientCommandList::new(client_id.clone(), state.take_commands(&client_id));
+    Ok(Json(ClientSyncResponse::new(ack, messages, commands)))
 }
 
 async fn get_status(

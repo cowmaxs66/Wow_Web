@@ -42,6 +42,13 @@ const scriptCount = computed(
   () => props.clients.filter((client) => !!client.data.current_script).length,
 );
 
+const groupCount = computed(() => {
+  const groups = new Set(
+    props.clients.map((client) => client.data.identity.group || "default"),
+  );
+  return groups.size;
+});
+
 const filteredClients = computed(() => {
   const keyword = searchText.value.trim().toLocaleLowerCase();
 
@@ -55,11 +62,14 @@ const filteredClients = computed(() => {
     }
 
     // 搜索只匹配用户能在列表上看到的字段，避免隐藏条件造成结果难以理解。
-    // 输入：Client ID、脚本名、版本号与架构。
+    // 输入：Client ID、显示名、分组、标签、脚本名、版本号与架构。
     // 输出：符合当前筛选和关键字的客户端列表。
     // 边界：空关键字只按筛选条件返回，不做历史数据搜索。
     const haystack = [
       client.client_id,
+      client.data.identity.display_name,
+      client.data.identity.group,
+      client.data.identity.tags.join(","),
       client.data.current_script ?? "",
       client.data.runtime.release_version,
       client.data.runtime.arch,
@@ -92,6 +102,12 @@ function runtimeMode(client: ClientStatusEnvelope): string {
   const hasDm = client.data.script.allowed_permissions.includes("dm.access");
   return hasDm ? `${arch} / DM` : `${arch} / Core`;
 }
+
+function tagText(client: ClientStatusEnvelope): string {
+  return client.data.identity.tags.length > 0
+    ? client.data.identity.tags.join(", ")
+    : "無標籤";
+}
 </script>
 
 <template>
@@ -107,12 +123,13 @@ function runtimeMode(client: ClientStatusEnvelope): string {
       <div class="summary-strip" aria-label="客戶端摘要">
         <span>總數 <strong>{{ clients.length }}</strong></span>
         <span>在線 <strong>{{ onlineCount }}</strong></span>
+        <span>分組 <strong>{{ groupCount }}</strong></span>
         <span>DM <strong>{{ dmEnabledCount }}</strong></span>
         <span>腳本 <strong>{{ scriptCount }}</strong></span>
       </div>
       <label class="search-box">
         <Search :size="15" />
-        <input v-model="searchText" placeholder="搜尋 Client / 版本 / 腳本" />
+        <input v-model="searchText" placeholder="搜尋 Client / 分組 / 標籤 / 腳本" />
       </label>
     </div>
 
@@ -145,6 +162,7 @@ function runtimeMode(client: ClientStatusEnvelope): string {
         <thead>
           <tr>
             <th>Client</th>
+            <th>分組 / 標籤</th>
             <th>狀態</th>
             <th>模式</th>
             <th>腳本</th>
@@ -161,8 +179,15 @@ function runtimeMode(client: ClientStatusEnvelope): string {
           >
             <td data-label="Client">
               <button type="button">
-                {{ client.client_id }}
+                <strong>{{ client.data.identity.display_name || client.client_id }}</strong>
+                <small>{{ client.client_id }}</small>
               </button>
+            </td>
+            <td data-label="分組 / 標籤">
+              <span class="group-cell">
+                <strong>{{ client.data.identity.group || "default" }}</strong>
+                <small>{{ tagText(client) }}</small>
+              </span>
             </td>
             <td data-label="狀態">
               <StatusDot
@@ -297,7 +322,7 @@ p {
 
 table {
   width: 100%;
-  min-width: 860px;
+  min-width: 980px;
   border-collapse: collapse;
 }
 
@@ -334,12 +359,38 @@ td {
 }
 
 td button {
+  display: grid;
+  gap: 2px;
   border: 0;
   background: transparent;
   color: var(--color-accent);
   padding: 0;
   font-size: 13px;
   font-weight: 780;
+}
+
+td button strong,
+td button small,
+.group-cell strong,
+.group-cell small {
+  display: block;
+}
+
+td button small,
+.group-cell small {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.group-cell {
+  display: grid;
+  gap: 2px;
+}
+
+.group-cell strong {
+  color: var(--color-text);
+  font-size: 13px;
 }
 
 .time-cell {

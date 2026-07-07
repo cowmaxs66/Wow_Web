@@ -19,6 +19,9 @@ const emit = defineEmits<{
 }>();
 
 const selectedClientId = ref("");
+const displayName = ref("Local Dev Client");
+const clientGroup = ref("default");
+const clientTags = ref("local");
 const serverEnabled = ref(true);
 const serverHost = ref("127.0.0.1");
 const serverPort = ref(18080);
@@ -51,6 +54,8 @@ const selectedStatus = computed(() =>
 const canSubmit = computed(() => {
   return (
     !!selectedClientId.value &&
+    displayName.value.trim().length > 0 &&
+    clientGroup.value.trim().length > 0 &&
     serverHost.value.trim().length > 0 &&
     serverPort.value > 0 &&
     bootstrapName.value.trim().length > 0 &&
@@ -106,6 +111,9 @@ function applyStatusDefaults(): void {
   }
 
   bootstrapName.value = status.data.script.bootstrap_name || "bootstrap";
+  displayName.value = status.data.identity.display_name || status.client_id;
+  clientGroup.value = status.data.identity.group || "default";
+  clientTags.value = status.data.identity.tags.join(", ");
   instructionLimit.value = status.data.script.instruction_limit || 100000;
   securityEnabled.value = status.data.script.security_enabled;
   allowHostLog.value = status.data.script.allowed_permissions.includes("host.log");
@@ -152,6 +160,11 @@ function buildPatch(): ClientConfigPatch {
   }
 
   return {
+    client: {
+      display_name: displayName.value.trim(),
+      group: clientGroup.value.trim(),
+      tags: normalizedTags(),
+    },
     lua: {
       bootstrap_name: bootstrapName.value.trim(),
       bootstrap_path: bootstrapPath.value.trim(),
@@ -171,6 +184,22 @@ function buildPatch(): ClientConfigPatch {
       connect_timeout_ms: connectTimeoutMs.value,
     },
   };
+}
+
+function normalizedTags(): string[] {
+  const seen = new Set<string>();
+  const tags: string[] = [];
+
+  for (const rawTag of clientTags.value.split(",")) {
+    const tag = rawTag.trim();
+    if (!tag || seen.has(tag)) {
+      continue;
+    }
+    seen.add(tag);
+    tags.push(tag);
+  }
+
+  return tags;
 }
 
 function selectedPermissions(): string[] {
@@ -239,6 +268,27 @@ async function submitConfig(): Promise<void> {
           </option>
         </select>
       </label>
+
+      <fieldset>
+        <legend>
+          <ServerCog :size="16" />
+          <span>Client 身份</span>
+        </legend>
+        <div class="field-grid">
+          <label>
+            <span>显示名称</span>
+            <input v-model="displayName" />
+          </label>
+          <label>
+            <span>分组</span>
+            <input v-model="clientGroup" />
+          </label>
+          <label>
+            <span>标签（逗号分隔）</span>
+            <input v-model="clientTags" />
+          </label>
+        </div>
+      </fieldset>
 
       <fieldset>
         <legend>

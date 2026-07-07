@@ -55,6 +55,7 @@ const messageResult = ref("");
 const pendingCommand = ref<ClientCommandType | null>(null);
 const commandResult = ref("");
 const selectedTarget = ref("");
+const bulkConfirmed = ref(false);
 const receipts = ref<ClientCommandReceipt[]>([]);
 const receiptsLoading = ref(false);
 const receiptsError = ref("");
@@ -76,6 +77,18 @@ const targetClientIds = computed(() => {
 });
 
 const hasTarget = computed(() => targetClientIds.value.length > 0);
+
+const isBulkTarget = computed(() => targetClientIds.value.length > 1);
+
+const canOperateTarget = computed(() => hasTarget.value && (!isBulkTarget.value || bulkConfirmed.value));
+
+const canSendMessage = computed(
+  () =>
+    canOperateTarget.value &&
+    !sendingMessage.value &&
+    !!messageTitle.value.trim() &&
+    !!messageBody.value.trim(),
+);
 
 const receiptClientId = computed(() => {
   if (!selectedTarget.value || selectedTarget.value === allClientsValue) {
@@ -125,6 +138,13 @@ watch(
     void refreshReceipts();
   },
   { immediate: true },
+);
+
+watch(
+  () => selectedTarget.value,
+  () => {
+    bulkConfirmed.value = false;
+  },
 );
 
 const commandGroups: CommandGroup[] = [
@@ -293,7 +313,7 @@ async function refreshReceipts(): Promise<void> {
 
 async function submitMessage(): Promise<void> {
   const targets = targetClientIds.value;
-  if (!targets.length || !messageTitle.value.trim() || !messageBody.value.trim()) {
+  if (!canSendMessage.value || !targets.length) {
     return;
   }
 
@@ -324,7 +344,7 @@ async function submitMessage(): Promise<void> {
 
 async function submitCommand(commandType: ClientCommandType): Promise<void> {
   const targets = targetClientIds.value;
-  if (!targets.length || pendingCommand.value) {
+  if (!canOperateTarget.value || !targets.length || pendingCommand.value) {
     return;
   }
 
@@ -395,6 +415,13 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
         </select>
       </label>
 
+      <div v-if="isBulkTarget" class="bulk-guard">
+        <label>
+          <input v-model="bulkConfirmed" type="checkbox" />
+          <span>确认对 {{ targetClientIds.length }} 台 Client 批量下发。本操作会写入每台机器的队列，执行结果以回执为准。</span>
+        </label>
+      </div>
+
       <form class="message-form" @submit.prevent="submitMessage">
         <h3>Server 消息</h3>
         <label>
@@ -407,7 +434,7 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
         </label>
         <button
           type="submit"
-          :disabled="sendingMessage || !hasTarget || !messageTitle.trim() || !messageBody.trim()"
+          :disabled="!canSendMessage"
         >
           <Send :size="15" />
           <span>{{ sendingMessage ? "发送中" : "发送消息" }}</span>
@@ -429,7 +456,7 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
               :key="action.value"
               type="button"
               :data-tone="action.tone ?? 'default'"
-              :disabled="!!pendingCommand || !hasTarget"
+              :disabled="!!pendingCommand || !canOperateTarget"
               @click="submitCommand(action.value)"
             >
               <component :is="action.icon" :size="16" :stroke-width="2" />
@@ -553,6 +580,28 @@ header p,
   color: var(--color-muted);
   font-size: 12px;
   font-weight: 760;
+}
+
+.bulk-guard {
+  border: 1px solid rgba(161, 92, 7, 0.28);
+  border-radius: var(--radius-control);
+  background: #fff7ed;
+  padding: var(--space-3);
+}
+
+.bulk-guard label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--color-warning);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.5;
+}
+
+.bulk-guard input {
+  margin-top: 2px;
 }
 
 .target-select select {

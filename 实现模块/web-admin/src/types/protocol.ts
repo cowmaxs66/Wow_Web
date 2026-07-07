@@ -13,9 +13,16 @@ export interface ClientStatus {
   client_id: string;
   online: boolean;
   current_script: string | null;
+  identity: ClientIdentityInfo;
   runtime: ClientRuntimeInfo;
   script: ClientScriptInfo;
   server: ClientServerInfo;
+}
+
+export interface ClientIdentityInfo {
+  display_name: string;
+  group: string;
+  tags: string[];
 }
 
 export interface ClientRuntimeInfo {
@@ -87,10 +94,17 @@ export type ClientCommandType =
   | "tray.open";
 
 export interface ClientConfigPatch {
+  client?: ClientIdentityConfigPatch;
   lua?: ClientLuaConfigPatch;
   script_security?: ClientScriptSecurityConfigPatch;
   dm?: ClientDmConfigPatch;
   server?: ClientServerConfigPatch;
+}
+
+export interface ClientIdentityConfigPatch {
+  display_name?: string;
+  group?: string;
+  tags?: string[];
 }
 
 export interface ClientLuaConfigPatch {

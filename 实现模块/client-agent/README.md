@@ -8,7 +8,7 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P28 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回和 DM smoke 脚本样例。
+P30 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter 和合并同步接口。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -16,7 +16,7 @@ P28 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/main.rs` | 程序入口，只负责命令分发 |
 | `src/agent.rs` | 单次执行 Lua、生成状态、上报 Server |
 | `src/cli.rs` | monitor、setup、open-log、notify、startup、service、tray、settings 和 update 参数解析 |
-| `src/monitor.rs` | 常驻监控、周期上报、轮询 Server 消息和命令，并在每轮重载配置 |
+| `src/monitor.rs` | 常驻监控、jitter 周期、合并同步、旧轮询回退，并在每轮重载配置 |
 | `src/local_log.rs` | 本地事件日志和状态 JSONL |
 | `src/notifier.rs` | Windows 通知气泡 |
 | `src/startup.rs` | 当前用户开机启动查询、启用和停用 |
@@ -31,7 +31,7 @@ P28 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/lua_host.rs` | Lua 宿主和按权限注册的白名单 API |
 | `src/lua_dm.rs` | Lua `dm` 高层 API 注册，不暴露 C ABI 指针 |
 | `src/dm_bridge/` | Rust `libloading` DmBridge 安全封装 |
-| `src/server_reporter.rs` | Management Server HTTP 状态上报入口 |
+| `src/server_reporter.rs` | Management Server HTTP 状态上报、合并同步、消息/命令/回执请求入口 |
 | `src/server_reporter/error.rs` | 状态上报错误类型 |
 | `src/server_reporter/response.rs` | Server HTTP 响应解析 |
 | `src/status.rs` | Client Agent 内部状态到共享协议状态的映射 |
@@ -131,6 +131,13 @@ client-agent.exe --update-apply
 - 脚本只执行 ABI、初始化、版本、取色、错误码和关闭 Bridge，不点击、不键盘输入、不绑定窗口。
 - 运行前需在设置窗口切换 `bootstrap_name = dm-smoke`、`bootstrap_path = scripts/dm_smoke.lua`、`manifest_path = scripts/dm_smoke.manifest.json`，公钥设为 `ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c`，并勾选 `host.log` 和 `dm.access`。
 - DM smoke 仍要求本机大漠 COM 可用；项目不会提交 `dm.dll`、`RegDll.dll`、授权文件或账号资料。
+
+## P29/P30 多机器与通讯效率
+- `[client]` 新增 `display_name`、`group` 和 `tags`，用于 Web 多机器管理，不替代稳定 `client.id`。
+- `config.apply` 可远程修改显示名、分组和标签，但仍不能修改 `client.id`。
+- `--settings-window` 已提供显示名、分组和标签输入框，不需要用户直接编辑 TOML。
+- monitor 默认在基础周期上增加 0-1500ms jitter，可通过 `CLIENT_AGENT_MONITOR_JITTER_MS` 调整。
+- monitor 优先使用 `/api/client/sync` 合并状态上报、消息拉取和命令拉取；sync 失败时回退旧接口。
 
 ## 验证命令
 ```powershell

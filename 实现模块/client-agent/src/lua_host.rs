@@ -111,6 +111,9 @@ mod tests {
         AgentConfig {
             client: ClientConfig {
                 id: "lua-test-client".to_string(),
+                display_name: "Lua Test Client".to_string(),
+                group: "test".to_string(),
+                tags: Vec::new(),
             },
             lua: LuaConfig {
                 bootstrap_name: "test-bootstrap".to_string(),

@@ -83,6 +83,18 @@ function Build-PermissionsText {
   return ($items -join ', ')
 }
 
+function Build-TagsText {
+  $items = @()
+  foreach ($tag in $clientTags.Text.Split(',')) {
+    $tag = $tag.Trim()
+    if (-not [string]::IsNullOrWhiteSpace($tag)) {
+      $items += '"' + (Escape-TomlString $tag) + '"'
+    }
+  }
+
+  return ($items -join ', ')
+}
+
 function Read-IntField([System.Windows.Forms.TextBox]$box, [string]$label, [int]$minValue, [int]$maxValue) {
   $number = 0
   if (-not [int]::TryParse($box.Text.Trim(), [ref]$number)) {
@@ -112,6 +124,9 @@ function Load-FormFromConfig {
   $serverSection = Get-SectionText $text 'server'
 
   $clientId.Text = Get-ScalarValue $clientSection 'id' 'local-dev-client'
+  $clientDisplayName.Text = Get-ScalarValue $clientSection 'display_name' 'Local Dev Client'
+  $clientGroupName.Text = Get-ScalarValue $clientSection 'group' 'default'
+  $clientTags.Text = ((Get-ArrayItems $clientSection 'tags') -join ', ')
   $bootstrapName.Text = Get-ScalarValue $luaSection 'bootstrap_name' 'bootstrap'
   $bootstrapPath.Text = Get-ScalarValue $luaSection 'bootstrap_path' 'scripts/bootstrap.lua'
   $instructionLimit.Text = Get-ScalarValue $luaSection 'instruction_limit' '100000'
@@ -136,6 +151,8 @@ function Validate-Form {
   # 保存前只校验会导致 Client 启动失败或 Server 上报失败的关键字段。
   # 输入是表单控件状态；失败时抛出中文错误，成功时不返回数据。
   Ensure-Required $clientId 'Client ID'
+  Ensure-Required $clientDisplayName '显示名称'
+  Ensure-Required $clientGroupName '分组'
   Ensure-Required $bootstrapName 'Bootstrap 名称'
   Ensure-Required $bootstrapPath 'Bootstrap 路径'
   Ensure-Required $dmBridgePath 'DmBridge 路径'
@@ -158,11 +175,15 @@ function Validate-Form {
 function Build-ConfigText {
   # 输出是完整 TOML 文本。字段顺序固定，便于后续 diff、回滚和远程 config.apply 对齐。
   $permissionsText = Build-PermissionsText
+  $tagsText = Build-TagsText
   $serverEnabledText = $serverEnabled.Checked.ToString().ToLowerInvariant()
   $securityEnabledText = $securityEnabled.Checked.ToString().ToLowerInvariant()
   $config = @"
 [client]
 id = "$(Escape-TomlString ($clientId.Text.Trim()))"
+display_name = "$(Escape-TomlString ($clientDisplayName.Text.Trim()))"
+group = "$(Escape-TomlString ($clientGroupName.Text.Trim()))"
+tags = [$tagsText]
 
 [lua]
 bootstrap_name = "$(Escape-TomlString ($bootstrapName.Text.Trim()))"
@@ -235,7 +256,7 @@ function New-CheckBox([string]$text, [int]$left, [int]$top, [int]$width) {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'WoW Client 本机设置'
 $form.Width = 820
-$form.Height = 720
+$form.Height = 810
 $form.StartPosition = 'CenterScreen'
 $form.FormBorderStyle = 'FixedDialog'
 $form.MaximizeBox = $false
@@ -249,12 +270,21 @@ $clientGroup.Text = '基础'
 $clientGroup.Left = 16
 $clientGroup.Top = 42
 $clientGroup.Width = 372
-$clientGroup.Height = 88
+$clientGroup.Height = 178
 $form.Controls.Add($clientGroup)
 
 $clientGroup.Controls.Add((New-Label 'Client ID' 14 28 90))
 $clientId = New-TextBox 110 24 240
 $clientGroup.Controls.Add($clientId)
+$clientGroup.Controls.Add((New-Label '显示名称' 14 64 90))
+$clientDisplayName = New-TextBox 110 60 240
+$clientGroup.Controls.Add($clientDisplayName)
+$clientGroup.Controls.Add((New-Label '分组' 14 100 90))
+$clientGroupName = New-TextBox 110 96 240
+$clientGroup.Controls.Add($clientGroupName)
+$clientGroup.Controls.Add((New-Label '标签' 14 136 90))
+$clientTags = New-TextBox 110 132 240
+$clientGroup.Controls.Add($clientTags)
 
 $serverGroup = New-Object System.Windows.Forms.GroupBox
 $serverGroup.Text = 'Server 上报'
@@ -282,7 +312,7 @@ $serverGroup.Controls.Add($statusPath)
 $luaGroup = New-Object System.Windows.Forms.GroupBox
 $luaGroup.Text = 'Lua 脚本'
 $luaGroup.Left = 16
-$luaGroup.Top = 140
+$luaGroup.Top = 230
 $luaGroup.Width = 372
 $luaGroup.Height = 178
 $form.Controls.Add($luaGroup)
@@ -303,7 +333,7 @@ $luaGroup.Controls.Add($luaNote)
 $securityGroup = New-Object System.Windows.Forms.GroupBox
 $securityGroup.Text = '脚本安全门'
 $securityGroup.Left = 16
-$securityGroup.Top = 330
+$securityGroup.Top = 420
 $securityGroup.Width = 768
 $securityGroup.Height = 190
 $form.Controls.Add($securityGroup)
@@ -327,7 +357,7 @@ $securityGroup.Controls.Add($permDmAccess)
 $dmGroup = New-Object System.Windows.Forms.GroupBox
 $dmGroup.Text = 'DM Bridge'
 $dmGroup.Left = 16
-$dmGroup.Top = 530
+$dmGroup.Top = 620
 $dmGroup.Width = 768
 $dmGroup.Height = 74
 $form.Controls.Add($dmGroup)
@@ -338,7 +368,7 @@ $dmGroup.Controls.Add($dmBridgePath)
 
 $status = New-Object System.Windows.Forms.Label
 $status.Left = 16
-$status.Top = 616
+$status.Top = 706
 $status.Width = 460
 $status.Height = 24
 $form.Controls.Add($status)
@@ -346,7 +376,7 @@ $form.Controls.Add($status)
 $save = New-Object System.Windows.Forms.Button
 $save.Text = '保存设置'
 $save.Left = 486
-$save.Top = 612
+$save.Top = 702
 $save.Width = 92
 $save.Add_Click({ Save-Config })
 $form.Controls.Add($save)
@@ -354,7 +384,7 @@ $form.Controls.Add($save)
 $reload = New-Object System.Windows.Forms.Button
 $reload.Text = '重新读取'
 $reload.Left = 590
-$reload.Top = 612
+$reload.Top = 702
 $reload.Width = 100
 $reload.Add_Click({ Load-FormFromConfig })
 $form.Controls.Add($reload)
@@ -362,7 +392,7 @@ $form.Controls.Add($reload)
 $openFile = New-Object System.Windows.Forms.Button
 $openFile.Text = '打开配置文件'
 $openFile.Left = 702
-$openFile.Top = 612
+$openFile.Top = 702
 $openFile.Width = 82
 $openFile.Add_Click({ Start-Process -FilePath 'notepad.exe' -ArgumentList $configPath })
 $form.Controls.Add($openFile)

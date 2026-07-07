@@ -42,6 +42,8 @@
 | P26 Client 远程配置下发验证 | `config.apply`、Client 配置写回、monitor 动态重载、包内闭环 | 已通过 |
 | P27 Client 原生设置表单化验证 | 设置窗口表单脚本、Rust/Web 全量验证、本地三类包和包内烟测 | 已通过 |
 | P28 DM 实机烟测验证 | DM smoke manifest、x86 Client 分包实机烟测、多机通讯规划 | 已通过 |
+| P29 多机器管理验证 | Client 身份模型、分组/标签、远程身份配置、批量确认 | 已通过 |
+| P30 通讯效率验证 | monitor jitter、`/api/client/sync`、Client sync 优先链路、包内 sync smoke | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -424,3 +426,21 @@
   - 总包 `dc00902da683c924f780a77fc16220be5b234e5d923fb76f0fc485d81dff835a`
   - Server 分包 `17e3f015c38a7f5a7db4c25adf144531a35cda191ef198cd8b2726dba63bb6f0`
   - Client 分包 `6cd35dffe48a82375cab14e1340802caa5fdde8efedfe64e8346b1b6b1579d72`
+
+## P29/P30 多机器管理与通讯效率验证
+- `cargo fmt --all --check`：通过。
+- `cargo test --workspace`：通过，Client 48 个测试、Server 43 个测试、shared-types 9 个测试、launcher 3 个测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo build --workspace`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.22.0`。
+- `settings_window_script.ps1` PowerShell AST 解析：通过。
+- Server sync API 测试：通过，`POST /api/client/sync` 可保存状态、返回消息、取出命令并清空命令队列。
+- Client reporter 测试：通过，`sync_client` 会 POST 到 `/api/client/sync` 并解析 ACK、消息和命令。
+- Client 配置补丁测试：通过，远程 `config.apply` 可写回显示名、分组和标签，且不会修改 `client.id`。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Client 分包 smoke：通过，`bin/client-agent-core.exe --run-once` 输出 `release_version = v1.22.0`、`identity.group = default`、`tags = local,test`。
+- Server 分包 sync smoke：通过，包内 Server 临时端口 `/health` 返回 `ok`，`/api/client/sync` 返回 1 条消息和 1 条命令，随后命令队列清空。
+- 三类 zip SHA-256：
+  - 总包 `0c5aa5df8f17fb2b99f23c37be6b489b5f22fa3b68351acd5fb41587c46c2795`
+  - Server 分包 `cbbbffc9e925312eb27a15884f1817da9effd06bd56dc3b41ca0dba713a3c7c6`
+  - Client 分包 `59d576f3be4fb98adcec91976366a0bda65dbae0f016abe7bd814bcac563824f`

@@ -1,5 +1,5 @@
 use super::{AgentConfig, ConfigError, default_config_path, ensure_config_exists};
-use shared_types::{ClientConfigPatch, ClientScriptSecurityConfigPatch};
+use shared_types::{ClientConfigPatch, ClientIdentityConfigPatch, ClientScriptSecurityConfigPatch};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -58,6 +58,8 @@ fn apply_patch(
     patch: ClientConfigPatch,
     changes: &mut Vec<String>,
 ) -> Result<(), ConfigPatchError> {
+    apply_client_identity_patch(config, patch.client, changes);
+
     if let Some(value) = patch.lua.bootstrap_name {
         config.lua.bootstrap_name = value.trim().to_string();
         changes.push("lua.bootstrap_name".to_string());
@@ -108,6 +110,27 @@ fn apply_patch(
     Ok(())
 }
 
+fn apply_client_identity_patch(
+    config: &mut AgentConfig,
+    patch: ClientIdentityConfigPatch,
+    changes: &mut Vec<String>,
+) {
+    if let Some(value) = patch.display_name {
+        config.client.display_name = value.trim().to_string();
+        changes.push("client.display_name".to_string());
+    }
+
+    if let Some(value) = patch.group {
+        config.client.group = value.trim().to_string();
+        changes.push("client.group".to_string());
+    }
+
+    if let Some(value) = patch.tags {
+        config.client.tags = normalize_tags(value);
+        changes.push("client.tags".to_string());
+    }
+}
+
 fn apply_script_security_patch(
     config: &mut AgentConfig,
     patch: ClientScriptSecurityConfigPatch,
@@ -134,6 +157,25 @@ fn apply_script_security_patch(
     }
 
     Ok(())
+}
+
+fn normalize_tags(tags: Vec<String>) -> Vec<String> {
+    let mut normalized = BTreeSet::new();
+
+    for tag in tags {
+        let tag = tag.trim().to_string();
+        if tag.is_empty() {
+            continue;
+        }
+
+        // 远程标签只作为分组检索和 UI 展示数据，不参与权限判断。
+        // 输入：Server 下发的 client.tags。
+        // 输出：去空、去重、稳定排序后的标签列表，便于配置文件 diff。
+        // 边界：client.id 不在补丁模型中，避免远程重写身份。
+        normalized.insert(tag);
+    }
+
+    normalized.into_iter().collect()
 }
 
 fn normalize_permissions(permissions: Vec<String>) -> Result<Vec<String>, ConfigPatchError> {
@@ -204,6 +246,11 @@ mod tests {
 
         let mut config = AgentConfig::load_file_from_path(&path).expect("config must load");
         let patch = serde_json::json!({
+            "client": {
+                "display_name": "Raid 主机 01",
+                "group": "raid-a",
+                "tags": ["dm", "farm", "dm"]
+            },
             "lua": {
                 "instruction_limit": 200000
             },
@@ -226,6 +273,13 @@ mod tests {
         config.save_to_path(&path).expect("config must save");
         let saved = AgentConfig::load_file_from_path(&path).expect("saved config must load");
 
+        assert_eq!(saved.client.id, "local-dev-client");
+        assert_eq!(saved.client.display_name, "Raid 主机 01");
+        assert_eq!(saved.client.group, "raid-a");
+        assert_eq!(
+            saved.client.tags,
+            vec!["dm".to_string(), "farm".to_string()]
+        );
         assert_eq!(saved.lua.instruction_limit, 200000);
         assert_eq!(
             saved.script_security.allowed_permissions,
@@ -240,6 +294,7 @@ mod tests {
             PathBuf::from("dm-bridge/DmBridge.dll")
         );
         assert_eq!(saved.server.port, 18180);
+        assert!(changes.contains(&"client.group".to_string()));
         assert!(changes.contains(&"server.enabled".to_string()));
 
         let _ = fs::remove_dir_all(dir);

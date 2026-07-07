@@ -161,6 +161,9 @@ fn test_config_with_name(
     AgentConfig {
         client: ClientConfig {
             id: "script-test-client".to_string(),
+            display_name: "Script Test Client".to_string(),
+            group: "test".to_string(),
+            tags: Vec::new(),
         },
         lua: LuaConfig {
             bootstrap_name: bootstrap_name.to_string(),

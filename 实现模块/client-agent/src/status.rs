@@ -1,12 +1,16 @@
 use crate::config::AgentConfig;
 use crate::lua_host::ScriptRunReport;
-use shared_types::{ClientRuntimeInfo, ClientScriptInfo, ClientServerInfo, ClientStatus};
+use shared_types::{
+    ClientIdentityInfo, ClientRuntimeInfo, ClientScriptInfo, ClientServerInfo, ClientStatus,
+};
+use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AgentStatusSnapshot {
     client_id: String,
     online: bool,
     current_script: Option<String>,
+    identity: ClientIdentityInfo,
     runtime: ClientRuntimeInfo,
     script: ClientScriptInfo,
     server: ClientServerInfo,
@@ -22,6 +26,7 @@ impl AgentStatusSnapshot {
             client_id: config.client.id.clone(),
             online: true,
             current_script: Some(report.script_name.clone()),
+            identity: identity_info(config),
             runtime: runtime_info(),
             script: script_info(config, report.instruction_limit),
             server: server_info(config),
@@ -37,6 +42,7 @@ impl AgentStatusSnapshot {
             client_id: config.client.id.clone(),
             online: false,
             current_script: None,
+            identity: identity_info(config),
             runtime: runtime_info(),
             script: script_info(config, config.lua.instruction_limit),
             server: server_info(config),
@@ -47,11 +53,40 @@ impl AgentStatusSnapshot {
         let mut status = ClientStatus::new(self.client_id);
         status.online = self.online;
         status.current_script = self.current_script;
+        status.identity = self.identity;
         status.runtime = self.runtime;
         status.script = self.script;
         status.server = self.server;
         status
     }
+}
+
+fn identity_info(config: &AgentConfig) -> ClientIdentityInfo {
+    ClientIdentityInfo {
+        display_name: config.client.display_name.trim().to_string(),
+        group: config.client.group.trim().to_string(),
+        tags: normalize_tags(&config.client.tags),
+    }
+}
+
+fn normalize_tags(tags: &[String]) -> Vec<String> {
+    let mut seen = BTreeSet::new();
+    let mut normalized = Vec::new();
+
+    for tag in tags {
+        let tag = tag.trim();
+        if tag.is_empty() || !seen.insert(tag.to_string()) {
+            continue;
+        }
+
+        // 标签顺序来自用户配置，去重只防止 Web 过滤和远程配置重复展示。
+        // 输入：client.tags 字符串数组。
+        // 输出：去空、去重、保持原顺序的标签列表。
+        // 边界：这里只清理展示和上报数据，不修改磁盘配置文件。
+        normalized.push(tag.to_string());
+    }
+
+    normalized
 }
 
 fn framework_release_version() -> String {
@@ -107,6 +142,9 @@ mod tests {
         let config = AgentConfig {
             client: ClientConfig {
                 id: "client-a".to_string(),
+                display_name: "主控一号".to_string(),
+                group: "raid-a".to_string(),
+                tags: vec!["dm".to_string(), "dm".to_string(), "test".to_string()],
             },
             lua: LuaConfig {
                 bootstrap_name: "bootstrap".to_string(),
@@ -141,6 +179,12 @@ mod tests {
         let status = AgentStatusSnapshot::from_script_report(&config, &report).into_client_status();
 
         assert_eq!(status.client_id, "client-a");
+        assert_eq!(status.identity.display_name, "主控一号");
+        assert_eq!(status.identity.group, "raid-a");
+        assert_eq!(
+            status.identity.tags,
+            vec!["dm".to_string(), "test".to_string()]
+        );
         assert_eq!(status.current_script, Some("bootstrap".to_string()));
         assert_eq!(status.runtime.release_version, framework_release_version());
         assert_eq!(status.script.bootstrap_name, "bootstrap");
@@ -161,6 +205,9 @@ mod tests {
         let config = AgentConfig {
             client: ClientConfig {
                 id: "client-a".to_string(),
+                display_name: "离线测试机".to_string(),
+                group: "default".to_string(),
+                tags: Vec::new(),
             },
             lua: LuaConfig {
                 bootstrap_name: "bootstrap".to_string(),
@@ -190,6 +237,7 @@ mod tests {
 
         assert_eq!(status.client_id, "client-a");
         assert!(!status.online);
+        assert_eq!(status.identity.display_name, "离线测试机");
         assert_eq!(status.current_script, None);
         assert_eq!(status.script.bootstrap_name, "bootstrap");
         assert_eq!(

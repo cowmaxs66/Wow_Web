@@ -76,6 +76,9 @@ mod tests {
         let script = settings_script_template("C:\\config\\client-agent.toml");
 
         assert!(script.contains("Server 上报"));
+        assert!(script.contains("显示名称"));
+        assert!(script.contains("分组"));
+        assert!(script.contains("标签"));
         assert!(script.contains("Lua 脚本"));
         assert!(script.contains("脚本安全门"));
         assert!(script.contains("保存设置"));

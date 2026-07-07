@@ -38,7 +38,11 @@ try {
         }
     }
 
-    & $serverExe
+    if ($OpenBrowser) {
+        & $serverExe --open-browser
+    } else {
+        & $serverExe --no-open-browser
+    }
 } finally {
     Remove-Item Env:\MANAGEMENT_SERVER_BIND -ErrorAction SilentlyContinue
     Remove-Item Env:\MANAGEMENT_SERVER_HISTORY_PATH -ErrorAction SilentlyContinue

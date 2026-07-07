@@ -1,6 +1,6 @@
 # 工具脚本说明
 
-本目录保存 P10-P13 一键运行脚本。目录名使用 ASCII，避免 Windows PowerShell 在中文路径下出现 `-File` 解析问题。
+本目录保存 P10-P14 一键运行和维护脚本。P14 起普通用户优先直接双击根目录 `management-server.exe` 和 `client-agent.exe`，本目录脚本主要用于源码开发、自动化和维护。
 
 ## 脚本清单
 | 文件 | 职责 |
@@ -10,7 +10,7 @@
 | `start-client.ps1` | 运行 Client Agent，可执行 monitor、tray、settings、service、update 和开机启动设置 |
 | `start-server.cmd` | Windows 双击入口，调用 `start-server.ps1` |
 | `start-client.cmd` | Windows 双击入口，调用 `start-client.ps1` |
-| `run-local.cmd` | Windows 双击入口，启动 Server 后启动 Client monitor |
+| `run-local.cmd` | Windows 双击入口，启动 Server 后启动 Client 托盘 |
 
 ## 源码目录使用
 ```powershell
@@ -22,8 +22,9 @@
 .\tools\run-local.cmd
 ```
 
-## Client monitor
+## Client 维护入口
 ```powershell
+.\tools\start-client.ps1 -RunOnce
 .\tools\start-client.ps1 -Monitor
 .\tools\start-client.ps1 -OpenLog
 .\tools\start-client.ps1 -Setup

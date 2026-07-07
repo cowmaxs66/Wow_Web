@@ -66,6 +66,7 @@ P13 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 ## P11 Client 入口
 ```powershell
 client-agent.exe
+client-agent.exe --run-once
 client-agent.exe --monitor
 client-agent.exe --setup
 client-agent.exe --open-log
@@ -84,7 +85,8 @@ client-agent.exe --update-check
 client-agent.exe --update-download
 ```
 
-- 默认模式执行一次并输出状态 JSON。
+- 默认模式启动托盘常驻 UI，并由托盘拉起 monitor。
+- `--run-once` 执行一次并输出状态 JSON，供测试和维护使用。
 - `--monitor` 常驻运行，周期上报状态、轮询 Server 消息、写入本地日志并弹出通知。
 - `--setup` 打开本机配置文件。
 - `--open-log` 打开 `logs/client-agent.log`。
@@ -92,7 +94,7 @@ client-agent.exe --update-download
 
 ## P12 开机启动入口
 - `--startup-status` 查询当前用户开机启动状态。
-- `--enable-startup` 写入 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`，启动命令为当前 `client-agent.exe --monitor`。
+- `--enable-startup` 写入 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`，启动命令为当前 `client-agent.exe`。
 - `--disable-startup` 删除同名当前用户开机启动项。
 - 移动发布包目录后需要重新执行 `--enable-startup`。
 

@@ -19,3 +19,4 @@
 | `单exe与客户端监控设计.md` | 记录 P11 Server 单 exe、Client monitor、Server 消息、本地日志和通知边界 |
 | `客户端本机设置与开机启动设计.md` | 记录 P12 Client 当前用户开机启动与本机设置命令边界 |
 | `正式运行基础设计.md` | 记录 P13 Windows Service、托盘、设置窗口、更新器和远程命令边界 |
+| `双击正式入口设计.md` | 记录 P14 Server/Client 常规 exe 双击默认行为 |

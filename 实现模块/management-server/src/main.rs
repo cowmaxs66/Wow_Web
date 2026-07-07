@@ -14,7 +14,13 @@ use tokio::net::TcpListener;
 async fn main() -> Result<(), Box<dyn Error>> {
     init_logging();
 
-    let open_browser = std::env::args().any(|arg| arg == "--open-browser");
+    let launch = parse_launch_args(std::env::args())
+        .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidInput, message))?;
+    if launch.help {
+        println!("{}", help_text());
+        return Ok(());
+    }
+
     let config = ServerConfig::from_env()?;
     let state = match config.history_path.clone() {
         Some(path) => state::ServerState::with_persistence(path)?,
@@ -29,7 +35,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         embedded_web_assets = embedded_web::asset_count(),
         "Management Server 已启动"
     );
-    if open_browser {
+    if launch.open_browser {
         open_browser_to(&format!("http://{}", config.bind_addr));
     }
 
@@ -39,6 +45,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct LaunchOptions {
+    open_browser: bool,
+    help: bool,
+}
+
+fn parse_launch_args(args: impl IntoIterator<Item = String>) -> Result<LaunchOptions, String> {
+    let mut options = LaunchOptions {
+        open_browser: true,
+        help: false,
+    };
+
+    for arg in args.into_iter().skip(1) {
+        match arg.as_str() {
+            "--open-browser" => options.open_browser = true,
+            "--no-open-browser" | "--api-only" => options.open_browser = false,
+            "--help" | "-h" => options.help = true,
+            unknown => return Err(format!("未知参数：{unknown}\n\n{}", help_text())),
+        }
+    }
+
+    Ok(options)
+}
+
+fn help_text() -> &'static str {
+    "management-server 用法：\n  management-server.exe                    启动 Server 并打开 Web 管理页\n  management-server.exe --open-browser     启动 Server 并打开 Web 管理页\n  management-server.exe --no-open-browser  只启动 API / Web 服务，不自动打开浏览器\n  management-server.exe --api-only         同 --no-open-browser"
 }
 
 fn init_logging() {
@@ -60,5 +94,35 @@ fn open_browser_to(url: &str) {
     #[cfg(not(windows))]
     {
         let _ = url;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_args_opens_browser_by_default() {
+        let options =
+            parse_launch_args(["management-server".to_string()]).expect("args must parse");
+
+        assert_eq!(
+            options,
+            LaunchOptions {
+                open_browser: true,
+                help: false
+            }
+        );
+    }
+
+    #[test]
+    fn api_only_disables_browser_open() {
+        let options = parse_launch_args([
+            "management-server".to_string(),
+            "--no-open-browser".to_string(),
+        ])
+        .expect("args must parse");
+
+        assert!(!options.open_browser);
     }
 }

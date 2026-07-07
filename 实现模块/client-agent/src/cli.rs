@@ -1,5 +1,6 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AgentCommand {
+    Tray,
     RunOnce { notify: bool },
     Monitor,
     Setup,
@@ -13,7 +14,6 @@ pub enum AgentCommand {
     ServiceStart,
     ServiceStop,
     ServiceStatus,
-    Tray,
     SettingsWindow,
     UpdateCheck,
     UpdateDownload,
@@ -21,10 +21,11 @@ pub enum AgentCommand {
 }
 
 pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<AgentCommand, String> {
-    let mut command = AgentCommand::RunOnce { notify: false };
+    let mut command = AgentCommand::Tray;
 
     for arg in args.into_iter().skip(1) {
         match arg.as_str() {
+            "--run-once" => command = AgentCommand::RunOnce { notify: false },
             "--monitor" => command = AgentCommand::Monitor,
             "--setup" => command = AgentCommand::Setup,
             "--open-log" => command = AgentCommand::OpenLog,
@@ -51,7 +52,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<AgentCommand
 }
 
 pub fn help_text() -> &'static str {
-    "client-agent 用法：\n  client-agent.exe                     执行一次并输出状态 JSON\n  client-agent.exe --monitor           常驻监控、上报状态、轮询 Server 消息和命令\n  client-agent.exe --tray              启动托盘常驻 UI，并拉起 monitor\n  client-agent.exe --settings-window   打开原生设置窗口\n  client-agent.exe --open-log          打开本机日志文件\n  client-agent.exe --startup-status    查看当前用户开机启动状态\n  client-agent.exe --enable-startup    写入当前用户开机启动项\n  client-agent.exe --disable-startup   删除当前用户开机启动项\n  client-agent.exe --service-install   安装 Windows Service\n  client-agent.exe --service-uninstall 卸载 Windows Service\n  client-agent.exe --service-start     启动 Windows Service\n  client-agent.exe --service-stop      停止 Windows Service\n  client-agent.exe --service-status    查看 Windows Service 状态\n  client-agent.exe --update-check      检查 GitHub 最新版本\n  client-agent.exe --update-download   下载 GitHub 最新发布包"
+    "client-agent 用法：\n  client-agent.exe                     启动托盘常驻 UI，并拉起 monitor\n  client-agent.exe --tray              启动托盘常驻 UI，并拉起 monitor\n  client-agent.exe --run-once          执行一次并输出状态 JSON\n  client-agent.exe --monitor           常驻监控、上报状态、轮询 Server 消息和命令\n  client-agent.exe --settings-window   打开原生设置窗口\n  client-agent.exe --open-log          打开本机日志文件\n  client-agent.exe --startup-status    查看当前用户开机启动状态\n  client-agent.exe --enable-startup    写入当前用户开机启动项\n  client-agent.exe --disable-startup   删除当前用户开机启动项\n  client-agent.exe --service-install   安装 Windows Service\n  client-agent.exe --service-uninstall 卸载 Windows Service\n  client-agent.exe --service-start     启动 Windows Service\n  client-agent.exe --service-stop      停止 Windows Service\n  client-agent.exe --service-status    查看 Windows Service 状态\n  client-agent.exe --update-check      检查 GitHub 最新版本\n  client-agent.exe --update-download   下载 GitHub 最新发布包"
 }
 
 #[cfg(test)]
@@ -64,6 +65,21 @@ mod tests {
             .expect("monitor command must parse");
 
         assert_eq!(command, AgentCommand::Monitor);
+    }
+
+    #[test]
+    fn parse_no_args_starts_tray() {
+        let command = parse_args(["client-agent".to_string()]).expect("default command must parse");
+
+        assert_eq!(command, AgentCommand::Tray);
+    }
+
+    #[test]
+    fn parse_run_once_command() {
+        let command = parse_args(["client-agent".to_string(), "--run-once".to_string()])
+            .expect("run once command must parse");
+
+        assert_eq!(command, AgentCommand::RunOnce { notify: false });
     }
 
     #[test]

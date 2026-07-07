@@ -5,6 +5,7 @@ param(
     [string]$ClientArch = 'x86',
     [string]$DmBridgePath = 'dm-bridge/Win32/DmBridge.dll',
     [switch]$DisableReport,
+    [switch]$RunOnce,
     [switch]$Monitor,
     [switch]$Notify,
     [switch]$OpenLog,
@@ -44,7 +45,9 @@ try {
     }
 
     $arguments = @()
-    if ($Monitor) {
+    if ($RunOnce) {
+        $arguments += '--run-once'
+    } elseif ($Monitor) {
         $arguments += '--monitor'
     } elseif ($Setup) {
         $arguments += '--setup'

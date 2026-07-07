@@ -36,7 +36,7 @@ impl StartupStatus {
 }
 
 pub fn startup_status() -> io::Result<StartupStatus> {
-    let expected_command = expected_monitor_command()?;
+    let expected_command = expected_tray_command()?;
     let registered_command = read_registered_command()?;
     let enabled = registered_command
         .as_deref()
@@ -51,7 +51,7 @@ pub fn startup_status() -> io::Result<StartupStatus> {
 }
 
 pub fn enable_startup() -> io::Result<StartupStatus> {
-    let command = expected_monitor_command()?;
+    let command = expected_tray_command()?;
     let output = run_reg([
         "add", RUN_KEY, "/v", VALUE_NAME, "/t", "REG_SZ", "/d", &command, "/f",
     ])?;
@@ -69,9 +69,9 @@ pub fn disable_startup() -> io::Result<StartupStatus> {
     startup_status()
 }
 
-fn expected_monitor_command() -> io::Result<String> {
+fn expected_tray_command() -> io::Result<String> {
     let exe = env::current_exe()?;
-    build_monitor_command(&exe)
+    build_tray_command(&exe)
 }
 
 fn read_registered_command() -> io::Result<Option<String>> {
@@ -107,7 +107,7 @@ fn ensure_reg_success(output: Output, action: &str) -> io::Result<()> {
     )))
 }
 
-fn build_monitor_command(exe_path: &Path) -> io::Result<String> {
+fn build_tray_command(exe_path: &Path) -> io::Result<String> {
     let exe = exe_path.display().to_string();
     if exe.contains('"') {
         return Err(io::Error::new(
@@ -116,11 +116,11 @@ fn build_monitor_command(exe_path: &Path) -> io::Result<String> {
         ));
     }
 
-    // 开机启动只写入当前 exe 的 monitor 模式。
+    // P14 起，开机启动使用正式托盘入口，而不是隐藏 monitor 命令。
     // 输入：当前运行的 client-agent.exe 路径。
     // 输出：HKCU Run 使用的命令字符串。
     // 边界：Server 地址、脚本路径和大漠路径仍由本机配置文件/env 管理，避免把私有配置写进注册表。
-    Ok(format!("\"{exe}\" --monitor"))
+    Ok(format!("\"{exe}\""))
 }
 
 fn parse_reg_query_output(output: &str, value_name: &str) -> Option<String> {
@@ -145,27 +145,23 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn build_monitor_command_quotes_exe_path() {
-        let command =
-            build_monitor_command(&PathBuf::from(r"C:\Program Files\WoW\client-agent.exe"))
-                .expect("path without quotes must format");
+    fn build_tray_command_quotes_exe_path() {
+        let command = build_tray_command(&PathBuf::from(r"C:\Program Files\WoW\client-agent.exe"))
+            .expect("path without quotes must format");
 
-        assert_eq!(
-            command,
-            r#""C:\Program Files\WoW\client-agent.exe" --monitor"#
-        );
+        assert_eq!(command, r#""C:\Program Files\WoW\client-agent.exe""#);
     }
 
     #[test]
     fn parse_reg_query_output_reads_reg_sz_value() {
         let output = r#"
 HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run
-    WoW Client Agent    REG_SZ    "C:\WoW\client-agent.exe" --monitor
+    WoW Client Agent    REG_SZ    "C:\WoW\client-agent.exe"
 "#;
 
         assert_eq!(
             parse_reg_query_output(output, VALUE_NAME),
-            Some(r#""C:\WoW\client-agent.exe" --monitor"#.to_string())
+            Some(r#""C:\WoW\client-agent.exe""#.to_string())
         );
     }
 

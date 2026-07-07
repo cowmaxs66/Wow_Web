@@ -183,3 +183,14 @@
 - v1.7.0 编译包包内烟测：通过，根目录 `management-server.exe` 内嵌 Web HTTP 200，x86 `client-agent.exe --monitor` 可上报 `v1.7.0` 并执行 `startup.status` 远程命令。
 - 包内 `client-agent.exe --service-status`：通过，只读查询输出 `WoWClientAgent` 未安装或不可查询，未修改系统服务表。
 - 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。
+
+## P14 双击正式入口验证
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 35 项测试、management-server 25 项测试、shared-types 5 项测试通过。
+- `npm run build`：通过，Web Admin 版本为 `1.8.0`。
+- `cargo run -p client-agent -- --run-once`：通过，维护入口仍输出 `release_version = v1.8.0`、`client_id = local-dev-client`、`current_script = bootstrap`。
+- Server `--no-open-browser` 烟测：通过，临时端口 `/health` 返回 `ok`，用于验证自动化场景不弹浏览器。
+- CLI 单元测试：通过，`client-agent.exe` 无参数解析为托盘入口，`management-server.exe` 无参数解析为打开浏览器。
+- v1.8.0 编译包包内烟测：通过，`management-server.exe --no-open-browser` 内嵌 Web HTTP 200，x86 `client-agent.exe --run-once` 输出 `v1.8.0`，`client-agent.exe --startup-status` 的期望命令不再包含 `--monitor`。
+- 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。

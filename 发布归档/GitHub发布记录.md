@@ -3,19 +3,19 @@
 ## 当前发布
 | 项目 | 内容 |
 |------|------|
-| Release | v1.13.1 - Client 正式直启热修复 |
+| Release | v1.14.0 - Server 托盘与双端图标 |
 | 发布日期 | 2026-07-07 |
-| Git tag | `v1.13.1` |
-| 指向提交 | `3adecdb363931daf39067e1e604c90641461eef6` |
-| Release URL | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.13.1 |
-| Release ID | `350055233` |
-| 编译包 | `WoW_Framework_v1.13.1_windows.zip`、`WoW_Server_v1.13.1_windows.zip`、`WoW_Client_v1.13.1_windows.zip` |
-| 编译包 SHA-256 | 总包 `3ece2cafba9063ff122a5393179b8fe5cdaf8b7c25a431ff3653cfe3ccaf137a`；Server `00b63001a781d6c19bc9ef85b47c03677a803574081d7a74939296ea0667e6f3`；Client `85206e3bcf2079f75443794bff7685a9660159017ec0218bfeb42ad4d4dfa292` |
+| Git tag | `v1.14.0` |
+| 指向提交 | `80c1a0c5542422e010cf3fa49494cb56b2263f4a` |
+| Release URL | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.14.0 |
+| Release ID | `350062376` |
+| 编译包 | `WoW_Framework_v1.14.0_windows.zip`、`WoW_Server_v1.14.0_windows.zip`、`WoW_Client_v1.14.0_windows.zip` |
+| 编译包 SHA-256 | 总包 `2bea315e31595fa4df8c1e54e459b175524085ed7901f990af6520f6e204a942`；Server `fa5a85231e01a83fd5dadc9d49aa202a08fddb8f715a79b6f48b65e8bb8c4236`；Client `73130bf34be397a911d08b2dc332392d4e1f48bfc375332f68dd373cc2b56bd1` |
 | 当前状态 | 已完成 |
 
 ## 发布范围
-- 发布 P20 已验证源码状态：Client 根目录 exe 真实直启、PowerShell UTF-8 BOM、STA 托盘宿主、隐藏启动链路和发布脚本编码修复。
-- Release 内容使用 `发布归档/v1.13.1-发布说明.md`。
+- 发布 P21 已验证源码状态：Server 托盘、右键快捷操作、双端图标资源、Server/Client 分包真实入口烟测。
+- Release 内容使用 `发布归档/v1.14.0-发布说明.md`。
 - GitHub 自动生成源码包，并额外上传总包、Server 分包和 Client 分包。
 
 ## 安全边界
@@ -27,17 +27,18 @@
 - 本次 Release 是本机试运行编译包发布，不代表完整生产部署完成。
 
 ## 验证记录
-- 远端 `main` 发布前指向 `3adecdb363931daf39067e1e604c90641461eef6`。
-- 远端 `v1.13.1` tag 已推送。
+- 远端 `main` 发布前指向 `80c1a0c5542422e010cf3fa49494cb56b2263f4a`。
+- 远端 `v1.14.0` tag 已推送。
 - GitHub Release 已通过 API 创建。
-- 总包 asset ID 为 `468875009`，大小 `4161562` bytes，digest 为 `sha256:3ece2cafba9063ff122a5393179b8fe5cdaf8b7c25a431ff3653cfe3ccaf137a`。
-- Server 分包 asset ID 为 `468875061`，大小 `1343782` bytes，digest 为 `sha256:00b63001a781d6c19bc9ef85b47c03677a803574081d7a74939296ea0667e6f3`。
-- Client 分包 asset ID 为 `468875090`，大小 `2581890` bytes，digest 为 `sha256:85206e3bcf2079f75443794bff7685a9660159017ec0218bfeb42ad4d4dfa292`。
-- P20 功能验证沿用 `发布归档/v1.13.1-发布说明.md` 中记录的最终验证结果。
+- 总包 asset ID 为 `468891511`，大小 `4173263` bytes，digest 为 `sha256:2bea315e31595fa4df8c1e54e459b175524085ed7901f990af6520f6e204a942`。
+- Server 分包 asset ID 为 `468891567`，大小 `1350968` bytes，digest 为 `sha256:fa5a85231e01a83fd5dadc9d49aa202a08fddb8f715a79b6f48b65e8bb8c4236`。
+- Client 分包 asset ID 为 `468891619`，大小 `2586249` bytes，digest 为 `sha256:73130bf34be397a911d08b2dc332392d4e1f48bfc375332f68dd373cc2b56bd1`。
+- P21 功能验证沿用 `发布归档/v1.14.0-发布说明.md` 中记录的最终验证结果。
 
 ## 历史发布
 | 版本 | Release | 指向提交 | 状态 |
 |------|---------|----------|------|
+| v1.13.1 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.13.1 | `3adecdb363931daf39067e1e604c90641461eef6` | 已完成 |
 | v1.13.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.13.0 | `8e4230aede57f4546cf8b1b6c135740d398154ff` | 已完成 |
 | v1.12.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.12.0 | `a2ce7b5f0e10d7ac9241fe5158952556e9d1b4cf` | 已完成 |
 | v1.11.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.11.0 | `0f6cc6420be98de52a4eef983f038216165a8193` | 已完成 |
@@ -52,4 +53,4 @@
 | v1.2.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.2.0 | `41ca63e6b29658fd572d83c4378b6980dbf0bd36` | 已完成 |
 
 ## 下一步建议
-进入 P21 前先确认优先方向：命令执行回执、远程命令鉴权审计、发布包签名验证、MSI/MSIX 安装器或 Client 任务策略。
+进入 P22 前先确认优先方向：Server Windows Service 化、命令执行回执、远程命令鉴权审计、发布包签名验证、MSI/MSIX 安装器或 Client 任务策略。

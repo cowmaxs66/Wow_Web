@@ -194,3 +194,17 @@
 - CLI 单元测试：通过，`client-agent.exe` 无参数解析为托盘入口，`management-server.exe` 无参数解析为打开浏览器。
 - v1.8.0 编译包包内烟测：通过，`management-server.exe --no-open-browser` 内嵌 Web HTTP 200，x86 `client-agent.exe --run-once` 输出 `v1.8.0`，`client-agent.exe --startup-status` 的期望命令不再包含 `--monitor`。
 - 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。
+
+## P15 无控制台正式入口与安装器验证
+- `cargo fmt --all`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 36 项测试、management-server 25 项测试、shared-types 5 项测试、wow-launcher 3 项测试通过。
+- `npm run build`：通过，Web Admin 版本为 `1.9.0`。
+- `tools/package-release.ps1`：通过，生成 `WoW_Framework_v1.9.0_windows.zip`。
+- DmBridge Win32 编译：通过，生成 `target/dm-bridge/Win32/DmBridge.dll`。
+- PE 子系统检查：通过，根目录 `management-server.exe`、`client-agent.exe`、`WoW-Manager.exe`、`WoW-Remove.exe` 均为 GUI 子系统，`bin/*-core.exe` 为 Console 子系统。
+- Client core 包内烟测：通过，`bin/client-agent-core.exe --run-once` 输出 `v1.9.0` 和 `local-dev-client`。
+- 开机启动期望命令烟测：通过，`bin/client-agent-core.exe --startup-status` 的期望命令指向根目录 `client-agent.exe` launcher。
+- Server core 包内烟测：通过，`bin/management-server-core.exe --no-open-browser` 临时端口 `/health` 返回 `ok`，内嵌 Web HTTP 200。
+- 安装/卸载脚本语法检查：通过，`install-current-user.ps1` 和 `uninstall-current-user.ps1` 解析错误数为 0。
+- 编译包敏感文件检查：通过，zip 内未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。

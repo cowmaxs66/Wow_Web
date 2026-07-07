@@ -4,6 +4,7 @@ members = [
     "实现模块/shared-types",
     "实现模块/client-agent",
     "实现模块/management-server",
+    "实现模块/wow-launcher",
 ]
 
 [workspace.package]

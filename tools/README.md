@@ -1,6 +1,6 @@
 # 工具脚本说明
 
-本目录保存 P10-P14 一键运行和维护脚本。P14 起普通用户优先直接双击根目录 `management-server.exe` 和 `client-agent.exe`，本目录脚本主要用于源码开发、自动化和维护。
+本目录保存 P10-P15 一键运行、维护和打包脚本。P15 起普通用户优先直接双击根目录 GUI 入口，核心维护 exe 放入发布包 `bin` 目录。
 
 ## 脚本清单
 | 文件 | 职责 |
@@ -11,6 +11,8 @@
 | `start-server.cmd` | Windows 双击入口，调用 `start-server.ps1` |
 | `start-client.cmd` | Windows 双击入口，调用 `start-client.ps1` |
 | `run-local.cmd` | Windows 双击入口，启动 Server 后启动 Client 托盘 |
+| `package-release.ps1` | 生成正式发布包，根目录放 GUI launcher，`bin` 放 core exe |
+| `installer/` | 当前用户安装和卸载脚本 |
 
 ## 源码目录使用
 ```powershell
@@ -19,8 +21,12 @@
 
 ## 发布包使用
 ```powershell
-.\tools\run-local.cmd
+.\management-server.exe
+.\client-agent.exe
+.\WoW-Manager.exe
 ```
+
+P15 发布包中，脚本会优先调用 `bin\management-server-core.exe`、`bin\client-agent-core.exe`，避免维护参数传给 GUI launcher。
 
 ## Client 维护入口
 ```powershell
@@ -37,6 +43,15 @@
 .\tools\start-client.ps1 -ServiceStatus
 .\tools\start-client.ps1 -UpdateCheck
 ```
+
+## 正式打包
+```powershell
+pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\package-release.ps1
+```
+
+说明：
+- 打包脚本需要处理中文源码目录，使用 PowerShell 7 (`pwsh`) 执行。
+- 发布包内安装/卸载脚本为 ASCII，可由 Windows PowerShell 直接运行。
 
 ## DM 说明
 - x64 Client 只能用于基础 Client、Server、Web Admin 和 JSONL 持久化。

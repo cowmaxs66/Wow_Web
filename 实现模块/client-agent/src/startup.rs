@@ -1,6 +1,6 @@
 use std::env;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
 const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
@@ -71,7 +71,8 @@ pub fn disable_startup() -> io::Result<StartupStatus> {
 
 fn expected_tray_command() -> io::Result<String> {
     let exe = env::current_exe()?;
-    build_tray_command(&exe)
+    let startup_exe = resolve_formal_startup_exe(&exe);
+    build_tray_command(&startup_exe)
 }
 
 fn read_registered_command() -> io::Result<Option<String>> {
@@ -117,10 +118,40 @@ fn build_tray_command(exe_path: &Path) -> io::Result<String> {
     }
 
     // P14 起，开机启动使用正式托盘入口，而不是隐藏 monitor 命令。
+    // P15 起，发布包内 core exe 位于 bin 下时，优先写入根目录 launcher。
     // 输入：当前运行的 client-agent.exe 路径。
     // 输出：HKCU Run 使用的命令字符串。
     // 边界：Server 地址、脚本路径和大漠路径仍由本机配置文件/env 管理，避免把私有配置写进注册表。
     Ok(format!("\"{exe}\""))
+}
+
+fn resolve_formal_startup_exe(current_exe: &Path) -> PathBuf {
+    if !current_exe
+        .file_name()
+        .is_some_and(|name| name.eq_ignore_ascii_case("client-agent-core.exe"))
+    {
+        return current_exe.to_path_buf();
+    }
+
+    let Some(bin_dir) = current_exe.parent() else {
+        return current_exe.to_path_buf();
+    };
+    if !bin_dir
+        .file_name()
+        .is_some_and(|name| name.eq_ignore_ascii_case("bin"))
+    {
+        return current_exe.to_path_buf();
+    }
+
+    let Some(package_root) = bin_dir.parent() else {
+        return current_exe.to_path_buf();
+    };
+    let launcher = package_root.join("client-agent.exe");
+    if launcher.exists() {
+        launcher
+    } else {
+        current_exe.to_path_buf()
+    }
 }
 
 fn parse_reg_query_output(output: &str, value_name: &str) -> Option<String> {
@@ -150,6 +181,20 @@ mod tests {
             .expect("path without quotes must format");
 
         assert_eq!(command, r#""C:\Program Files\WoW\client-agent.exe""#);
+    }
+
+    #[test]
+    fn core_exe_startup_prefers_package_launcher() {
+        let root =
+            std::env::temp_dir().join(format!("wow-startup-launcher-{}", std::process::id()));
+        let bin = root.join("bin");
+        std::fs::create_dir_all(&bin).expect("bin dir must be created");
+        let launcher = root.join("client-agent.exe");
+        std::fs::write(&launcher, b"").expect("launcher placeholder must be created");
+        let core = bin.join("client-agent-core.exe");
+
+        assert_eq!(resolve_formal_startup_exe(&core), launcher);
+        let _ = std::fs::remove_dir_all(root);
     }
 
     #[test]

@@ -24,6 +24,7 @@ function Resolve-ServerExe {
     }
 
     $candidates = @(
+        (Join-Path $Root 'bin\management-server-core.exe'),
         (Join-Path $Root 'management-server.exe'),
         (Join-Path $Root 'bin\management-server.exe'),
         (Join-Path $Root 'target\debug\management-server.exe'),
@@ -47,6 +48,7 @@ function Resolve-ClientExe {
     )
 
     $packageName = if ($Arch -eq 'x86') { 'client-agent.exe' } else { 'client-agent-x64.exe' }
+    $coreName = if ($Arch -eq 'x86') { 'client-agent-core.exe' } else { 'client-agent-x64-core.exe' }
     $targetPath = if ($Arch -eq 'x86') {
         Join-Path $Root 'target\i686-pc-windows-msvc\debug\client-agent.exe'
     } else {
@@ -75,6 +77,7 @@ function Resolve-ClientExe {
     }
 
     $candidates = @(
+        (Join-Path $Root "bin\$coreName"),
         (Join-Path $Root $packageName),
         (Join-Path $Root "bin\$packageName"),
         (Join-Path $Root 'bin\client-agent.exe'),

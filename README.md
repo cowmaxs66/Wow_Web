@@ -48,4 +48,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.11.0 发布资料准备中，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.11.0
+v1.11.0 发布资料已归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.11.0

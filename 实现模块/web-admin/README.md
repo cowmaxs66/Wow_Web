@@ -8,7 +8,7 @@ Web 管理端，后续负责：
 - 脚本库、版本和指派管理。
 
 ## 当前状态
-P23 阶段已完成 Web 使用体验与 DM/Lua 操作流收敛。当前页面可读取 Management Server 健康状态、Client 最新状态、短期历史、快照分析、Agent 运行详情、脚本安全配置、本地连接设置，可发送 Server 消息，可下发白名单本机操作，并可通过 `script.run_bootstrap` 让 Client 重新执行本机 Lua bootstrap。
+P26 阶段已完成 Web 使用体验、DM/Lua 操作流、命令回执可视化和 Client 远程配置下发。当前页面可读取 Management Server 健康状态、Client 最新状态、短期历史、快照分析、Agent 运行详情、脚本安全配置、本地连接设置，可发送 Server 消息，可下发白名单本机操作，可查看命令回执，并可通过 `config.apply` 套用指定 Client 的本机设置。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -23,6 +23,7 @@ P23 阶段已完成 Web 使用体验与 DM/Lua 操作流收敛。当前页面可
 | `src/components/HistoryTrendPanel.vue` | 基于真实历史状态展示样本数、在线样本、趋势线和最近记录 |
 | `src/components/ClientDetail.vue` | 展示选中 Client 的基础状态、运行详情、脚本设置和 Server 上报 |
 | `src/components/ClientSettingsPanel.vue` | 管理 Web Admin 本地 Server URL 和查询 Client ID |
+| `src/components/ClientConfigApplyPanel.vue` | 对指定 Client 下发受控本机配置补丁 |
 | `src/components/DmLuaGuidePanel.vue` | 展示 Client 如何使用 Lua、manifest、安全门和 DM 权限 |
 | `src/components/` | App Shell、指标、列表、详情、分析和设置组件 |
 | `src/styles/` | 设计 tokens 与全局样式 |
@@ -41,6 +42,7 @@ P23 阶段已完成 Web 使用体验与 DM/Lua 操作流收敛。当前页面可
 - 支持解释 Lua bootstrap、manifest、签名、hash、权限白名单和 `dm.access` 如何套用。
 - 支持在 Client 详情中发送 Server 消息，供 `client-agent --monitor` 轮询、记录日志和弹出通知。
 - 支持在 Client 详情中下发白名单本机操作：script、startup、service、update、settings、log、tray。
+- 支持在设置页对单台 Client 下发 Server 上报、Lua bootstrap、安全门权限和 DmBridge 路径配置。
 
 ## P10 首次设置向导
 - 向导配置只保存在浏览器 `localStorage`，不上传到 Server。

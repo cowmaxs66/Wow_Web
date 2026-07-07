@@ -1,16 +1,18 @@
 use crate::config::AgentConfig;
 use crate::local_log::LocalLog;
 use shared_types::{
-    REMOTE_COMMAND_LOG_OPEN, REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP, REMOTE_COMMAND_SERVICE_INSTALL,
-    REMOTE_COMMAND_SERVICE_START, REMOTE_COMMAND_SERVICE_STATUS, REMOTE_COMMAND_SERVICE_STOP,
-    REMOTE_COMMAND_SETTINGS_OPEN, REMOTE_COMMAND_STARTUP_DISABLE, REMOTE_COMMAND_STARTUP_ENABLE,
-    REMOTE_COMMAND_STARTUP_STATUS, REMOTE_COMMAND_TRAY_OPEN, REMOTE_COMMAND_UPDATE_APPLY,
-    REMOTE_COMMAND_UPDATE_CHECK, REMOTE_COMMAND_UPDATE_DOWNLOAD, is_supported_remote_command,
+    REMOTE_COMMAND_CONFIG_APPLY, REMOTE_COMMAND_LOG_OPEN, REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP,
+    REMOTE_COMMAND_SERVICE_INSTALL, REMOTE_COMMAND_SERVICE_START, REMOTE_COMMAND_SERVICE_STATUS,
+    REMOTE_COMMAND_SERVICE_STOP, REMOTE_COMMAND_SETTINGS_OPEN, REMOTE_COMMAND_STARTUP_DISABLE,
+    REMOTE_COMMAND_STARTUP_ENABLE, REMOTE_COMMAND_STARTUP_STATUS, REMOTE_COMMAND_TRAY_OPEN,
+    REMOTE_COMMAND_UPDATE_APPLY, REMOTE_COMMAND_UPDATE_CHECK, REMOTE_COMMAND_UPDATE_DOWNLOAD,
+    is_supported_remote_command,
 };
 use thiserror::Error;
 
 pub fn execute_remote_command(
     command_type: &str,
+    payload: &serde_json::Value,
     config: &AgentConfig,
 ) -> Result<String, RemoteCommandError> {
     if !is_supported_remote_command(command_type) {
@@ -45,6 +47,8 @@ pub fn execute_remote_command(
         // 输出：检查 GitHub Release、下载新版包、启动独立替换脚本后的 JSON 摘要。
         // 边界：替换脚本可能停止当前 monitor，执行过程会写入本机 update-apply.log。
         REMOTE_COMMAND_UPDATE_APPLY => crate::updater::apply_update()
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_CONFIG_APPLY => crate::config::apply_remote_patch(payload)
             .map_err(|error| RemoteCommandError::execute(command_type, error)),
         REMOTE_COMMAND_SETTINGS_OPEN => {
             crate::settings_window::open_settings_window()
@@ -117,8 +121,9 @@ mod tests {
 
     #[test]
     fn unsupported_remote_command_is_rejected() {
-        let error = super::execute_remote_command("shell.exec", &test_config())
-            .expect_err("must reject shell");
+        let error =
+            super::execute_remote_command("shell.exec", &serde_json::json!({}), &test_config())
+                .expect_err("must reject shell");
         assert_eq!(
             error,
             super::RemoteCommandError::Unsupported("shell.exec".to_string())

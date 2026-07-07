@@ -4,12 +4,12 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P25 工程化地基修补
-- 当前版本：v1.18.0
-- 当前目标：v1.18.0 已发布，完成共享命令清单、Client 命令错误类型、Server app 拆分和 GitHub Actions CI
+- 当前阶段：P26 Client 远程配置下发
+- 当前版本：v1.19.0
+- 当前目标：v1.19.0 进行中，完成 `config.apply`、Client 配置写回、monitor 动态重载和 Web 远程配置面板
 
 ## 第一里程碑
-已完成 P0-P25 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执和工程化地基修补：
+已完成 P0-P26 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补和 Client 远程配置下发：
 
 1. Client Agent 能执行 Lua bootstrap。
 2. DmBridge 能通过 Rust/Lua 调用大漠最小链路。
@@ -36,6 +36,7 @@
 23. Web Admin 已增强 Client 列表、快照分析、设置向导、DM/Lua 面板和 `script.run_bootstrap` 远程白名单命令。
 24. 远程白名单命令执行后，Client 会向 Server 回传成功或失败回执，Web Admin 可查看单台 Client 最近执行结果。
 25. 远程命令清单已收敛到 `shared-types`，Server app 主文件已拆分，Client 命令错误已类型化，并新增 GitHub Actions CI。
+26. Web Admin 可对指定 Client 下发受控本机设置，Client 写回 TOML 并在 monitor 下一轮自动重载。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -56,4 +57,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.18.0 发布资料已归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.18.0
+v1.19.0 发布资料待归档；上一版 Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.18.0

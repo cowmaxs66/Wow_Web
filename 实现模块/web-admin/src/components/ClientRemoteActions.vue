@@ -243,6 +243,10 @@ const commandGroups: CommandGroup[] = [
 ];
 
 function commandLabel(commandType: ClientCommandType): string {
+  if (commandType === "config.apply") {
+    return "套用 Client 设置";
+  }
+
   for (const group of commandGroups) {
     const action = group.actions.find((item) => item.value === commandType);
     if (action) {

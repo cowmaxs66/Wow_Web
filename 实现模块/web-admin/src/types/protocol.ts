@@ -81,13 +81,46 @@ export type ClientCommandType =
   | "update.check"
   | "update.download"
   | "update.apply"
+  | "config.apply"
   | "settings.open"
   | "log.open"
   | "tray.open";
 
+export interface ClientConfigPatch {
+  lua?: ClientLuaConfigPatch;
+  script_security?: ClientScriptSecurityConfigPatch;
+  dm?: ClientDmConfigPatch;
+  server?: ClientServerConfigPatch;
+}
+
+export interface ClientLuaConfigPatch {
+  bootstrap_name?: string;
+  bootstrap_path?: string;
+  instruction_limit?: number;
+}
+
+export interface ClientScriptSecurityConfigPatch {
+  enabled?: boolean;
+  manifest_path?: string;
+  trusted_signer_public_key?: string;
+  allowed_permissions?: string[];
+}
+
+export interface ClientDmConfigPatch {
+  bridge_path?: string;
+}
+
+export interface ClientServerConfigPatch {
+  enabled?: boolean;
+  host?: string;
+  port?: number;
+  status_path?: string;
+  connect_timeout_ms?: number;
+}
+
 export interface ClientCommandRequest {
   command_type: ClientCommandType;
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> | ClientConfigPatch;
 }
 
 export interface ClientCommand {
@@ -95,7 +128,7 @@ export interface ClientCommand {
   client_id: string;
   timestamp_ms: number;
   command_type: ClientCommandType;
-  payload: Record<string, unknown>;
+  payload: Record<string, unknown> | ClientConfigPatch;
 }
 
 export interface ClientCommandList {

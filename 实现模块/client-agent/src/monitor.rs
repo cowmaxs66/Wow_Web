@@ -1,5 +1,5 @@
 use crate::agent::run_once;
-use crate::config::AgentConfig;
+use crate::config::{AgentConfig, default_config_path};
 use crate::local_log::LocalLog;
 use crate::notifier;
 use crate::server_reporter::StatusReporter;
@@ -23,6 +23,7 @@ pub fn run_monitor_until_shutdown(
     let interval = monitor_interval();
     let mut seen_messages = HashSet::new();
     let mut seen_commands = HashSet::new();
+    let mut active_config = config;
     log.append_event("Client monitor 已启动")?;
     let _ = notifier::notify("WoW Client", "客户端监控已启动");
 
@@ -32,7 +33,9 @@ pub fn run_monitor_until_shutdown(
             break;
         }
 
-        match run_once(&config) {
+        active_config = reload_config_or_keep(active_config, &log);
+
+        match run_once(&active_config) {
             Ok(result) => {
                 log.append_status(&result.envelope)?;
                 log.append_event(&format!(
@@ -40,11 +43,11 @@ pub fn run_monitor_until_shutdown(
                     result.envelope.client_id, result.envelope.message_id
                 ))?;
 
-                if config.server.enabled {
-                    if let Err(error) = poll_messages(&config, &log, &mut seen_messages) {
+                if active_config.server.enabled {
+                    if let Err(error) = poll_messages(&active_config, &log, &mut seen_messages) {
                         log.append_event(&format!("轮询 Server 消息失败：{error}"))?;
                     }
-                    if let Err(error) = poll_commands(&config, &log, &mut seen_commands) {
+                    if let Err(error) = poll_commands(&active_config, &log, &mut seen_commands) {
                         log.append_event(&format!("轮询 Server 命令失败：{error}"))?;
                     }
                 }
@@ -62,11 +65,27 @@ pub fn run_monitor_until_shutdown(
         }
     }
 
-    if let Err(error) = report_offline(&config, &log) {
+    if let Err(error) = report_offline(&active_config, &log) {
         log.append_event(&format!("离线状态上报失败：{error}"))?;
     }
 
     Ok(())
+}
+
+fn reload_config_or_keep(current: AgentConfig, log: &LocalLog) -> AgentConfig {
+    let config_path = default_config_path();
+
+    match AgentConfig::load_from_path(&config_path) {
+        Ok(config) => config,
+        Err(error) => {
+            // monitor 是正式常驻链路，配置被用户或 Server 写错时不能直接退出。
+            // 输入：默认配置文件路径。
+            // 输出：新配置或上一轮已验证配置。
+            // 边界：错误会写本机日志，用户修正 TOML 后下一轮会自动恢复。
+            let _ = log.append_event(&format!("重新读取配置失败，继续使用上一轮配置：{error}"));
+            current
+        }
+    }
 }
 
 pub fn report_offline(config: &AgentConfig, log: &LocalLog) -> Result<(), Box<dyn Error>> {
@@ -136,7 +155,11 @@ fn poll_commands(
             continue;
         }
 
-        let result = crate::remote_command::execute_remote_command(&command.command_type, config);
+        let result = crate::remote_command::execute_remote_command(
+            &command.command_type,
+            &command.payload,
+            config,
+        );
         let (success, summary) = match result {
             Ok(summary) => {
                 log.append_event(&format!(

@@ -1,14 +1,18 @@
 mod error;
+mod patch;
 mod path;
 
 pub use error::ConfigError;
+pub(crate) use patch::apply_remote_patch;
 pub use path::{current_exe_dir, default_config_path};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+const DEFAULT_CONFIG_TEMPLATE: &str = include_str!("../../config/client-agent.toml");
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AgentConfig {
     pub client: ClientConfig,
     pub lua: LuaConfig,
@@ -17,19 +21,19 @@ pub struct AgentConfig {
     pub server: ServerConfig,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientConfig {
     pub id: String,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LuaConfig {
     pub bootstrap_name: String,
     pub bootstrap_path: PathBuf,
     pub instruction_limit: u32,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ScriptSecurityConfig {
     pub enabled: bool,
     pub manifest_path: PathBuf,
@@ -37,12 +41,12 @@ pub struct ScriptSecurityConfig {
     pub allowed_permissions: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DmConfig {
     pub bridge_path: PathBuf,
 }
 
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ServerConfig {
     pub enabled: bool,
     pub host: String,
@@ -54,17 +58,37 @@ pub struct ServerConfig {
 impl AgentConfig {
     pub fn load_from_path(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
         let path = path.as_ref();
+        let mut config = Self::load_file_from_path(path)?;
+        config.apply_env_overrides(path)?;
+        config.validate(path)?;
+        Ok(config)
+    }
+
+    pub fn load_file_from_path(path: impl AsRef<Path>) -> Result<Self, ConfigError> {
+        let path = path.as_ref();
         let content = fs::read_to_string(path).map_err(|error| ConfigError::read(path, error))?;
 
         // 使用 TOML 只承载开发期必要配置，避免一开始引入复杂配置层级。
         // 输入：client-agent.toml 文本内容。
         // 输出：强类型 AgentConfig。
         // 边界：配置结构不匹配时立即失败，不生成隐式默认值。
-        let mut config: Self =
+        let config: Self =
             toml::from_str(&content).map_err(|error| ConfigError::parse(path, error))?;
-        config.apply_env_overrides(path)?;
         config.validate(path)?;
         Ok(config)
+    }
+
+    pub fn save_to_path(&self, path: impl AsRef<Path>) -> Result<(), ConfigError> {
+        let path = path.as_ref();
+        self.validate(path)?;
+        let content =
+            toml::to_string_pretty(self).map_err(|error| ConfigError::serialize(path, error))?;
+
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).map_err(|error| ConfigError::write(path, error))?;
+        }
+
+        fs::write(path, content).map_err(|error| ConfigError::write(path, error))
     }
 
     pub fn get_value(&self, key: &str) -> Option<String> {
@@ -189,6 +213,19 @@ impl AgentConfig {
 
         Ok(())
     }
+}
+
+pub fn ensure_config_exists(path: impl AsRef<Path>) -> Result<(), ConfigError> {
+    let path = path.as_ref();
+    if path.exists() {
+        return Ok(());
+    }
+
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|error| ConfigError::write(path, error))?;
+    }
+
+    fs::write(path, DEFAULT_CONFIG_TEMPLATE).map_err(|error| ConfigError::write(path, error))
 }
 
 fn is_hex_with_len(value: &str, expected_len: usize) -> bool {

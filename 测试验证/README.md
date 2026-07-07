@@ -371,3 +371,21 @@
   - 总包 `0a266237a70a88583d9d01bc13b75cc9a62d93405202e832304c5bb4c1a761f1`
   - Server 分包 `1ea56c01b1115109ed6b8c2b07584b8371b1ebecce293e942611ea2c2e7813a7`
   - Client 分包 `6e4a926e0f081eb7f20822bdb8f73a50861f7c4c9d0c8c4f56494d2674eb6762`
+
+## P26 Client 远程配置下发验证
+- `cargo fmt --all --check`：通过。
+- `cargo test --workspace`：通过，Client 45 个测试、Server 42 个测试、shared-types 8 个测试、launcher 3 个测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo build --workspace`：通过，已刷新普通 debug exe，避免复用旧版本二进制。
+- `npm run build`：通过，Web Admin 版本为 `1.19.0`。
+- 共享协议测试：通过，`config.apply` 纳入 `REMOTE_COMMAND_TYPES`，`ClientConfigPatch` 能识别空 payload。
+- Server API 测试：通过，`config.apply` 空 payload 被拒绝，合法配置补丁可写入命令队列。
+- Client 配置补丁测试：通过，权限去重排序、未知权限拒绝、配置写回后可重新加载。
+- 临时目录闭环烟测：通过，Server 临时端口 `/health` 返回 `ok`，Client monitor 上报在线，Server 下发 `config.apply`，Client 写回 TOML 并上报成功回执。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- 包内闭环烟测：通过，Server 分包临时端口 `/health` 返回 `ok`，Client 分包 monitor 上线，Server 下发 `config.apply`，Client 日志记录执行成功和回执成功，下一轮状态刷新后配置生效。
+- 三类 zip 敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、PDB、DCU、MAP。
+- 三类 zip SHA-256：
+  - 总包 `0b03a0790d240e6b9fdac4b26e2a61c7c8f10094d06087b88b352afe897cbdbd`
+  - Server 分包 `29ebe747062e59f7b6895297725ad6db8a27ca92a6aaed516c2984de65ef2ea6`
+  - Client 分包 `26341adb915672640a10f75ac5ef01469b7cdcbfeafa48f50e406cc154698755`

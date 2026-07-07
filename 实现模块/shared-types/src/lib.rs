@@ -237,6 +237,7 @@ pub const REMOTE_COMMAND_SERVICE_STOP: &str = "service.stop";
 pub const REMOTE_COMMAND_UPDATE_CHECK: &str = "update.check";
 pub const REMOTE_COMMAND_UPDATE_DOWNLOAD: &str = "update.download";
 pub const REMOTE_COMMAND_UPDATE_APPLY: &str = "update.apply";
+pub const REMOTE_COMMAND_CONFIG_APPLY: &str = "config.apply";
 pub const REMOTE_COMMAND_SETTINGS_OPEN: &str = "settings.open";
 pub const REMOTE_COMMAND_LOG_OPEN: &str = "log.open";
 pub const REMOTE_COMMAND_TRAY_OPEN: &str = "tray.open";
@@ -253,6 +254,7 @@ pub const REMOTE_COMMAND_TYPES: &[&str] = &[
     REMOTE_COMMAND_UPDATE_CHECK,
     REMOTE_COMMAND_UPDATE_DOWNLOAD,
     REMOTE_COMMAND_UPDATE_APPLY,
+    REMOTE_COMMAND_CONFIG_APPLY,
     REMOTE_COMMAND_SETTINGS_OPEN,
     REMOTE_COMMAND_LOG_OPEN,
     REMOTE_COMMAND_TRAY_OPEN,
@@ -308,6 +310,89 @@ impl ClientCommandList {
             total: items.len(),
             items,
         }
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientConfigPatch {
+    #[serde(default)]
+    pub lua: ClientLuaConfigPatch,
+    #[serde(default)]
+    pub script_security: ClientScriptSecurityConfigPatch,
+    #[serde(default)]
+    pub dm: ClientDmConfigPatch,
+    #[serde(default)]
+    pub server: ClientServerConfigPatch,
+}
+
+impl ClientConfigPatch {
+    pub fn is_empty(&self) -> bool {
+        self.lua.is_empty()
+            && self.script_security.is_empty()
+            && self.dm.is_empty()
+            && self.server.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientLuaConfigPatch {
+    pub bootstrap_name: Option<String>,
+    pub bootstrap_path: Option<String>,
+    pub instruction_limit: Option<u32>,
+}
+
+impl ClientLuaConfigPatch {
+    fn is_empty(&self) -> bool {
+        self.bootstrap_name.is_none()
+            && self.bootstrap_path.is_none()
+            && self.instruction_limit.is_none()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientScriptSecurityConfigPatch {
+    pub enabled: Option<bool>,
+    pub manifest_path: Option<String>,
+    pub trusted_signer_public_key: Option<String>,
+    pub allowed_permissions: Option<Vec<String>>,
+}
+
+impl ClientScriptSecurityConfigPatch {
+    fn is_empty(&self) -> bool {
+        self.enabled.is_none()
+            && self.manifest_path.is_none()
+            && self.trusted_signer_public_key.is_none()
+            && self.allowed_permissions.is_none()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientDmConfigPatch {
+    pub bridge_path: Option<String>,
+}
+
+impl ClientDmConfigPatch {
+    fn is_empty(&self) -> bool {
+        self.bridge_path.is_none()
+    }
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientServerConfigPatch {
+    pub enabled: Option<bool>,
+    pub host: Option<String>,
+    pub port: Option<u16>,
+    pub status_path: Option<String>,
+    pub connect_timeout_ms: Option<u64>,
+}
+
+impl ClientServerConfigPatch {
+    fn is_empty(&self) -> bool {
+        self.enabled.is_none()
+            && self.host.is_none()
+            && self.port.is_none()
+            && self.status_path.is_none()
+            && self.connect_timeout_ms.is_none()
     }
 }
 
@@ -450,10 +535,26 @@ mod tests {
     fn remote_command_catalog_accepts_only_known_types() {
         assert!(is_supported_remote_command(REMOTE_COMMAND_STARTUP_STATUS));
         assert!(is_supported_remote_command(REMOTE_COMMAND_UPDATE_APPLY));
+        assert!(is_supported_remote_command(REMOTE_COMMAND_CONFIG_APPLY));
         assert!(is_supported_remote_command(
             REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP
         ));
         assert!(!is_supported_remote_command("shell.exec"));
+    }
+
+    #[test]
+    fn client_config_patch_reports_empty_payload() {
+        assert!(ClientConfigPatch::default().is_empty());
+
+        let patch = ClientConfigPatch {
+            server: ClientServerConfigPatch {
+                port: Some(18081),
+                ..ClientServerConfigPatch::default()
+            },
+            ..ClientConfigPatch::default()
+        };
+
+        assert!(!patch.is_empty());
     }
 
     #[test]

@@ -30,3 +30,4 @@
 | `Web使用体验与DMLua操作流设计.md` | 记录 P23 Web 易用性、Client 列表、仪表盘、DM/Lua 操作流和远程重跑脚本边界 |
 | `命令执行回执与审计设计.md` | 记录 P24 远程命令执行回执、Server API、Client 上报和 Web 展示边界 |
 | `工程化地基修补设计.md` | 记录 P25 命令清单单一来源、Server app 拆分、错误类型和 CI 边界 |
+| `Client远程配置下发设计.md` | 记录 P26 `config.apply`、Client 配置补丁、monitor 动态重载和 Web 设置面板边界 |

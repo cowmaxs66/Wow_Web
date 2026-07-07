@@ -1,8 +1,11 @@
 use crate::error::ApiError;
 use shared_types::{
-    ClientCommandReceiptRequest, ClientCommandRequest, ClientMessageRequest, ClientStatus,
-    MessageType, WsEnvelope, is_supported_remote_command,
+    ClientCommandReceiptRequest, ClientCommandRequest, ClientConfigPatch, ClientMessageRequest,
+    ClientStatus, MessageType, REMOTE_COMMAND_CONFIG_APPLY, WsEnvelope,
+    is_supported_remote_command,
 };
+
+const CONFIG_APPLY_PAYLOAD_LIMIT: usize = 4_000;
 
 pub(super) fn validate_status_envelope(
     envelope: &WsEnvelope<ClientStatus>,
@@ -82,6 +85,31 @@ pub(super) fn validate_command_request(
             "unsupported command_type: {}",
             request.command_type
         )));
+    }
+
+    if request.command_type == REMOTE_COMMAND_CONFIG_APPLY {
+        validate_config_apply_payload(&request.payload)?;
+    }
+
+    Ok(())
+}
+
+fn validate_config_apply_payload(payload: &serde_json::Value) -> Result<(), ApiError> {
+    let payload_len = payload.to_string().chars().count();
+    if payload_len > CONFIG_APPLY_PAYLOAD_LIMIT {
+        return Err(ApiError::BadRequest(
+            "config.apply payload must be 4000 chars or fewer".to_string(),
+        ));
+    }
+
+    let patch: ClientConfigPatch = serde_json::from_value(payload.clone()).map_err(|error| {
+        ApiError::BadRequest(format!("config.apply payload is invalid: {error}"))
+    })?;
+
+    if patch.is_empty() {
+        return Err(ApiError::BadRequest(
+            "config.apply payload must contain at least one setting".to_string(),
+        ));
     }
 
     Ok(())

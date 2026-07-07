@@ -1,4 +1,4 @@
-use crate::config::default_config_path;
+use crate::config::{default_config_path, ensure_config_exists};
 use crate::ps_script;
 use std::fs;
 use std::io;
@@ -13,7 +13,7 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 pub fn open_settings_window() -> io::Result<()> {
     let config_path = default_config_path();
-    ensure_config_exists(&config_path)?;
+    ensure_settings_config_exists(&config_path)?;
     let script_path = write_settings_script(&config_path)?;
 
     let mut command = Command::new(shell_executable());
@@ -34,16 +34,8 @@ pub fn open_settings_window() -> io::Result<()> {
     command.spawn().map(|_| ())
 }
 
-fn ensure_config_exists(config_path: &Path) -> io::Result<()> {
-    if config_path.exists() {
-        return Ok(());
-    }
-
-    if let Some(parent) = config_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    fs::write(config_path, include_str!("../config/client-agent.toml"))
+fn ensure_settings_config_exists(config_path: &Path) -> io::Result<()> {
+    ensure_config_exists(config_path).map_err(io::Error::other)
 }
 
 fn write_settings_script(config_path: &Path) -> io::Result<PathBuf> {

@@ -8,7 +8,7 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P16 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、设置窗口、更新检查/下载/自替换和远程命令入口。
+P26 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、设置窗口、更新检查/下载/自替换、远程命令入口和 `config.apply` 受控配置写回。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -16,7 +16,7 @@ P16 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/main.rs` | 程序入口，只负责命令分发 |
 | `src/agent.rs` | 单次执行 Lua、生成状态、上报 Server |
 | `src/cli.rs` | monitor、setup、open-log、notify、startup、service、tray、settings 和 update 参数解析 |
-| `src/monitor.rs` | 常驻监控、周期上报、轮询 Server 消息 |
+| `src/monitor.rs` | 常驻监控、周期上报、轮询 Server 消息和命令，并在每轮重载配置 |
 | `src/local_log.rs` | 本地事件日志和状态 JSONL |
 | `src/notifier.rs` | Windows 通知气泡 |
 | `src/startup.rs` | 当前用户开机启动查询、启用和停用 |
@@ -25,7 +25,7 @@ P16 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/settings_window.rs` | WinForms 本机设置窗口 |
 | `src/updater.rs` | GitHub Release 检查、下载和自替换更新 |
 | `src/remote_command.rs` | Server 白名单命令执行分发 |
-| `src/config/` | 配置读取、错误类型、默认路径解析 |
+| `src/config/` | 配置读取、错误类型、默认路径解析和远程配置补丁写回 |
 | `src/script/` | Lua 脚本文件加载、manifest、签名、hash 和权限校验 |
 | `src/lua_host.rs` | Lua 宿主和按权限注册的白名单 API |
 | `src/lua_dm.rs` | Lua `dm` 高层 API 注册，不暴露 C ABI 指针 |
@@ -108,6 +108,12 @@ client-agent.exe --update-apply
 - `--update-download` 下载最新发布包到 `%LOCALAPPDATA%\WoWFramework\updates`。
 - `--update-apply` 检查新版、下载发布包，并安排独立 updater 在进程退出后替换安装目录。
 - Service 不打开交互窗口；托盘和设置窗口必须运行在当前用户 Session。
+
+## P26 远程配置下发
+- `config.apply` 只允许写回 Server 上报、Lua bootstrap、脚本安全门权限和 DmBridge 路径。
+- 远程配置不允许修改 `client.id`，避免 Client 历史状态和命令回执断裂。
+- monitor 每轮都会重新读取默认配置；如果 TOML 被写错，会继续使用上一轮有效配置并写入本地日志。
+- `script_security.allowed_permissions` 远程下发只接受 `host.log`、`config.read` 和 `dm.access`。
 
 ## 验证命令
 ```powershell

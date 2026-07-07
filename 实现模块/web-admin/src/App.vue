@@ -11,6 +11,7 @@ import {
 } from "@lucide/vue";
 import { computed, ref } from "vue";
 import AppShell from "./components/AppShell.vue";
+import ClientConfigApplyPanel from "./components/ClientConfigApplyPanel.vue";
 import ClientDetail from "./components/ClientDetail.vue";
 import ClientRemoteActions from "./components/ClientRemoteActions.vue";
 import ClientSettingsPanel from "./components/ClientSettingsPanel.vue";
@@ -259,6 +260,12 @@ function changeView(view: string): void {
           v-model:server-url="serverUrl"
           v-model:client-id="clientId"
           @apply="refreshDashboard"
+        />
+        <ClientConfigApplyPanel
+          :status="selectedStatus"
+          :clients="clients"
+          :server-url="serverUrl"
+          @refresh="refreshDashboard"
         />
         <ClientSettingsPanel
           v-model:server-url="serverUrl"

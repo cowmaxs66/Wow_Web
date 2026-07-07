@@ -7,7 +7,7 @@
 - WebSocket 实时推送、命令下发与结果接收。
 
 ## 当前状态
-P25 阶段已将 `app.rs` 拆分为路由处理、请求校验和测试三个文件。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列和命令执行回执能力。
+P26 阶段已支持 `config.apply` 远程配置命令校验。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列和命令执行回执能力。
 
 ## 当前 API
 | 方法 | 路径 | 说明 |
@@ -65,6 +65,11 @@ P25 阶段已将 `app.rs` 拆分为路由处理、请求校验和测试三个文
 - `management-server.exe` 无参数启动 Server 并打开 Web 管理页。
 - `--open-browser` 保留兼容旧脚本。
 - `--no-open-browser` 或 `--api-only` 用于自动化、服务化或测试场景，不弹出浏览器。
+
+## P26 远程配置说明
+- `POST /api/client/commands/{client_id}` 支持 `config.apply`。
+- `config.apply` payload 必须包含至少一个配置项，且 JSON 文本不超过 4000 字符。
+- Server 只校验协议形状和命令白名单，真正的本机配置合法性由 Client 写回前校验。
 
 ## 验证命令
 ```powershell

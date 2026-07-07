@@ -2,9 +2,13 @@ param(
     [string]$ServerHost = '127.0.0.1',
     [int]$ServerPort = 18080,
     [ValidateSet('x64', 'x86')]
-    [string]$ClientArch = 'x64',
+    [string]$ClientArch = 'x86',
     [string]$DmBridgePath = 'dm-bridge/Win32/DmBridge.dll',
-    [switch]$DisableReport
+    [switch]$DisableReport,
+    [switch]$Monitor,
+    [switch]$Notify,
+    [switch]$OpenLog,
+    [switch]$Setup
 )
 
 Set-StrictMode -Version Latest
@@ -27,7 +31,18 @@ try {
         Write-Host 'Client 模式：x64 核心。不会直接加载 32 位大漠 DLL。'
     }
 
-    & $clientExe
+    $arguments = @()
+    if ($Monitor) {
+        $arguments += '--monitor'
+    } elseif ($Setup) {
+        $arguments += '--setup'
+    } elseif ($OpenLog) {
+        $arguments += '--open-log'
+    } elseif ($Notify) {
+        $arguments += '--notify'
+    }
+
+    & $clientExe @arguments
 } finally {
     Remove-Item Env:\CLIENT_AGENT_SERVER_ENABLED -ErrorAction SilentlyContinue
     Remove-Item Env:\CLIENT_AGENT_SERVER_HOST -ErrorAction SilentlyContinue

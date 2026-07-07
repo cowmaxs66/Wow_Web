@@ -168,6 +168,57 @@ impl ClientStatusHistory {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientMessageRequest {
+    pub title: String,
+    pub body: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientMessage {
+    pub id: String,
+    pub client_id: String,
+    pub timestamp_ms: u128,
+    pub title: String,
+    pub body: String,
+}
+
+impl ClientMessage {
+    pub fn new(client_id: impl Into<String>, request: ClientMessageRequest) -> Self {
+        let client_id = client_id.into();
+        let timestamp_ms = current_timestamp_ms();
+
+        // P11 消息 ID 使用 client_id 和毫秒时间组合，保证本机试运行可追踪。
+        // 输入：目标 Client ID 与消息正文。
+        // 输出：可被 Client 轮询、日志记录和通知展示的消息。
+        // 边界：生产环境需要改为 Server 侧强唯一 ID 和持久化队列。
+        Self {
+            id: format!("{client_id}-message-{timestamp_ms}"),
+            client_id,
+            timestamp_ms,
+            title: request.title,
+            body: request.body,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientMessageList {
+    pub client_id: String,
+    pub total: usize,
+    pub items: Vec<ClientMessage>,
+}
+
+impl ClientMessageList {
+    pub fn new(client_id: impl Into<String>, items: Vec<ClientMessage>) -> Self {
+        Self {
+            client_id: client_id.into(),
+            total: items.len(),
+            items,
+        }
+    }
+}
+
 fn current_timestamp_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -209,5 +260,22 @@ mod tests {
         assert_eq!(history.client_id, "client-a");
         assert_eq!(history.limit, 50);
         assert_eq!(history.total, 1);
+    }
+
+    #[test]
+    fn client_message_keeps_target_identity() {
+        let message = ClientMessage::new(
+            "client-a",
+            ClientMessageRequest {
+                title: "测试消息".to_string(),
+                body: "hello".to_string(),
+            },
+        );
+        let list = ClientMessageList::new("client-a", vec![message.clone()]);
+
+        assert_eq!(message.client_id, "client-a");
+        assert!(message.id.starts_with("client-a-message-"));
+        assert_eq!(message.title, "测试消息");
+        assert_eq!(list.total, 1);
     }
 }

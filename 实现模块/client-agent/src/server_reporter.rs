@@ -3,8 +3,8 @@ mod error;
 mod response;
 
 pub use error::ServerReportError;
-use response::parse_status_ack;
-use shared_types::{ClientStatus, StatusAck, WsEnvelope};
+use response::{parse_json_response, parse_status_ack};
+use shared_types::{ClientMessageList, ClientStatus, StatusAck, WsEnvelope};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
@@ -24,11 +24,22 @@ impl StatusReporter {
     ) -> Result<StatusAck, ServerReportError> {
         let body = serde_json::to_string(envelope)
             .map_err(|error| ServerReportError::SerializeFailed(error.to_string()))?;
-        let response = self.post_json(&body)?;
+        let response = self.send_http("POST", &self.config.status_path, Some(&body))?;
         parse_status_ack(&response)
     }
 
-    fn post_json(&self, body: &str) -> Result<String, ServerReportError> {
+    pub fn fetch_messages(&self, client_id: &str) -> Result<ClientMessageList, ServerReportError> {
+        let path = format!("/api/client/messages/{client_id}");
+        let response = self.send_http("GET", &path, None)?;
+        parse_json_response(&response)
+    }
+
+    fn send_http(
+        &self,
+        method: &str,
+        path: &str,
+        body: Option<&str>,
+    ) -> Result<String, ServerReportError> {
         let addr = format!("{}:{}", self.config.host, self.config.port);
         let target = addr
             .to_socket_addrs()
@@ -46,13 +57,17 @@ impl StatusReporter {
         // 输入：WsEnvelope<ClientStatus> JSON。
         // 输出：Server 返回的 HTTP 响应文本。
         // 边界：仅支持本机明文 HTTP，HTTPS/代理/鉴权后续阶段再做。
-        let request = format!(
-            "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-            self.config.status_path,
-            addr,
-            body.len(),
-            body
-        );
+        let body = body.unwrap_or("");
+        let request = if body.is_empty() {
+            format!(
+                "GET {path} HTTP/1.1\r\nHost: {addr}\r\nAccept: application/json\r\nConnection: close\r\n\r\n"
+            )
+        } else {
+            format!(
+                "{method} {path} HTTP/1.1\r\nHost: {addr}\r\nContent-Type: application/json\r\nAccept: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            )
+        };
         stream
             .write_all(request.as_bytes())
             .map_err(|error| ServerReportError::IoFailed(error.to_string()))?;

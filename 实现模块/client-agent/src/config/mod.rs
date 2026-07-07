@@ -2,7 +2,7 @@ mod error;
 mod path;
 
 pub use error::ConfigError;
-pub use path::default_config_path;
+pub use path::{current_exe_dir, default_config_path};
 
 use serde::Deserialize;
 use std::fs;

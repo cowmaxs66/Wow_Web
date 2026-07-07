@@ -130,7 +130,7 @@ const {
           :loading="loading"
           @refresh="refreshDashboard"
         />
-        <ClientDetail :status="selectedStatus" />
+        <ClientDetail :status="selectedStatus" :server-url="serverUrl" />
       </aside>
     </section>
   </AppShell>

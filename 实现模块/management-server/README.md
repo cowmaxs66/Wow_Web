@@ -7,7 +7,7 @@
 - WebSocket 实时推送、命令下发与结果接收。
 
 ## 当前状态
-P10 阶段已完成 Web Admin 静态文件托管入口。Server 仍保留 P9 的 JSONL 历史持久化能力，并可通过环境变量挂载 Web Admin 编译产物，支持一键运行后直接访问管理页面。
+P11 阶段已完成 Web Admin 内嵌入口和 Client 消息队列 API。Server 仍保留 P9 的 JSONL 历史持久化能力，并可通过环境变量挂载外部 Web Admin 编译产物覆盖内嵌资源。
 
 ## 当前 API
 | 方法 | 路径 | 说明 |
@@ -17,6 +17,8 @@ P10 阶段已完成 Web Admin 静态文件托管入口。Server 仍保留 P9 的
 | `GET` | `/api/client/status` | 查询所有 Client 最新状态 |
 | `GET` | `/api/client/status/{client_id}` | 查询指定 Client 最新状态 |
 | `GET` | `/api/client/history/{client_id}` | 查询指定 Client 最近历史状态 |
+| `POST` | `/api/client/messages/{client_id}` | 给指定 Client 写入一条 Server 消息 |
+| `GET` | `/api/client/messages/{client_id}` | 查询指定 Client 当前内存消息队列 |
 
 ## 当前目录
 | 路径 | 职责 |
@@ -26,7 +28,9 @@ P10 阶段已完成 Web Admin 静态文件托管入口。Server 仍保留 P9 的
 | `src/state.rs` | Client 最新状态、短期历史和启动回放 |
 | `src/persistence.rs` | JSONL 历史持久化读写 |
 | `src/error.rs` | API 错误响应 |
+| `src/embedded_web.rs` | 编译期内嵌 Web Admin 资源响应 |
 | `src/app.rs` | Axum Router、handler 和 Web Admin 静态文件 fallback |
+| `build.rs` | release 构建时读取 `web-admin/dist` 并生成内嵌资源表 |
 
 ## P4 说明
 - 当前 CORS 使用开发期宽松配置，方便 `web-admin` 本地 Vite 调试。
@@ -43,6 +47,13 @@ P10 阶段已完成 Web Admin 静态文件托管入口。Server 仍保留 P9 的
 - 配置 `MANAGEMENT_SERVER_WEB_DIR` 后，Server 会从该目录提供 Web Admin 静态文件。
 - 未匹配到 API 路由时会回退到 `index.html`，保证前端路由刷新时仍可打开页面。
 - Web 静态目录只接收编译后的 `dist` 内容，不在 Server 内部执行前端构建。
+
+## P11 单 exe 说明
+- 构建前若 `实现模块/web-admin/dist` 存在，`build.rs` 会将其内嵌进 `management-server.exe`。
+- 不配置 `MANAGEMENT_SERVER_WEB_DIR` 时，Server 会使用内嵌 Web Admin。
+- 配置 `MANAGEMENT_SERVER_WEB_DIR` 时，外部目录优先，方便开发调试。
+- `--open-browser` 可在启动后打开浏览器。
+- Client 消息队列当前只在内存中保存，Server 重启后丢失。
 
 ## 验证命令
 ```powershell

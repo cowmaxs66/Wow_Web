@@ -24,6 +24,7 @@
 | P8 历史趋势验证 | 历史 API、Web 趋势面板、浏览器桌面/移动烟测 | 已通过 |
 | P9 持久化与编译包验证 | JSONL 重启恢复、release build、普通编译包包内烟测 | 已通过 |
 | P10 一键运行与首次设置向导验证 | tools 脚本、Web 托管、向导联动、x86/x64 包内烟测 | 已通过 |
+| P11 单 exe 与客户端监控验证 | 内嵌 Web、Server 消息、Client monitor、日志和浏览器烟测 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -138,4 +139,18 @@
 - 首次设置向导联动：通过，端口从 `18080` 改为 `18130` 后点击 `套用並完成`，看板自动刷新并显示 `local-dev-client`、`1/1`、`v1.4.0`。
 - v1.4.0 编译包包内烟测：通过，包内脚本启动 Server，x64 Client 上报成功，历史文件写入 1 行。
 - x86 Client 包内烟测：通过，`tools/start-client.ps1 -ClientArch x86 -DisableReport` 输出 `arch = x86`、`release_version = v1.4.0`。
+- 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、`.env`、JSONL、PDB、DCU 和 MAP 文件。
+
+## P11 验证记录
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 22 项测试、management-server 20 项测试、shared-types 4 项测试通过。
+- `npm run build`：通过，Web Admin 版本为 `1.5.0`。
+- Server 内嵌 Web 烟测：通过，不设置 `MANAGEMENT_SERVER_WEB_DIR` 时，`management-server.exe` 首页 HTTP 200。
+- Server 消息 API 烟测：通过，`POST /api/client/messages/local-dev-client` 创建消息，`GET` 返回 `total = 1`。
+- Client monitor 烟测：通过，`client-agent.exe --monitor` 周期上报状态并写入 `logs/status-history.jsonl`。
+- Client 消息日志烟测：通过，monitor 收到 Server 消息后写入 `logs/client-agent.log`。
+- Playwright fallback 桌面视口：1440x1000，通过，页面显示 `Server 消息` 表单、`local-dev-client`、`v1.5.0`，无横向溢出。
+- Playwright fallback 移动视口：390x920，通过，消息表单和详情面板单列展示，无横向溢出。
+- v1.5.0 编译包包内烟测：通过，根目录 `management-server.exe` 和 x86 `client-agent.exe --monitor` 可联动，Client 日志包含 `package message works`。
 - 编译包敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、`.env`、JSONL、PDB、DCU 和 MAP 文件。

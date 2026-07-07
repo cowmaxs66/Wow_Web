@@ -26,11 +26,16 @@ try {
     Write-Host "History: $HistoryPath"
     if ($webDir) {
         Write-Host "Web Admin: $url"
+        Write-Host "Web Mode: external dist"
         if ($OpenBrowser) {
             Start-Process $url
         }
     } else {
-        Write-Host 'Web Admin dist 未找到，只启动 API。'
+        Write-Host "Web Admin: $url"
+        Write-Host 'Web Mode: embedded if compiled into management-server.exe, otherwise API-only.'
+        if ($OpenBrowser) {
+            Start-Process $url
+        }
     }
 
     & $serverExe

@@ -2,6 +2,13 @@ use super::ServerReportError;
 use shared_types::StatusAck;
 
 pub fn parse_status_ack(response: &str) -> Result<StatusAck, ServerReportError> {
+    parse_json_response(response)
+}
+
+pub fn parse_json_response<T>(response: &str) -> Result<T, ServerReportError>
+where
+    T: serde::de::DeserializeOwned,
+{
     let (head, body) = split_http_response(response)?;
     let status_line = head
         .lines()

@@ -1,16 +1,18 @@
 use crate::persistence::{HistoryPersistence, PersistenceError};
-use shared_types::{ClientStatus, WsEnvelope};
+use shared_types::{ClientMessage, ClientMessageRequest, ClientStatus, WsEnvelope};
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 pub const CLIENT_HISTORY_LIMIT: usize = 50;
+pub const CLIENT_MESSAGE_LIMIT: usize = 100;
 
 #[derive(Debug, Clone, Default)]
 pub struct ServerState {
     clients: Arc<RwLock<HashMap<String, WsEnvelope<ClientStatus>>>>,
     histories: Arc<RwLock<HashMap<String, VecDeque<WsEnvelope<ClientStatus>>>>>,
+    messages: Arc<RwLock<HashMap<String, VecDeque<ClientMessage>>>>,
     persistence: Option<HistoryPersistence>,
 }
 
@@ -87,6 +89,32 @@ impl ServerState {
             .expect("client history lock poisoned")
             .get(client_id)
             .map(|history| history.iter().cloned().collect())
+            .unwrap_or_default()
+    }
+
+    pub fn push_message(&self, client_id: &str, request: ClientMessageRequest) -> ClientMessage {
+        let message = ClientMessage::new(client_id.to_string(), request);
+        let mut messages = self.messages.write().expect("client message lock poisoned");
+        let queue = messages.entry(client_id.to_string()).or_default();
+
+        // P11 消息队列只做本机试运行内存队列。
+        // 输入：Server 创建的 ClientMessage。
+        // 输出：每个 Client 最近 100 条消息。
+        // 边界：Server 重启后消息丢失；生产持久化和确认机制后续阶段单独设计。
+        queue.push_back(message.clone());
+        while queue.len() > CLIENT_MESSAGE_LIMIT {
+            queue.pop_front();
+        }
+
+        message
+    }
+
+    pub fn list_messages(&self, client_id: &str) -> Vec<ClientMessage> {
+        self.messages
+            .read()
+            .expect("client message lock poisoned")
+            .get(client_id)
+            .map(|messages| messages.iter().cloned().collect())
             .unwrap_or_default()
     }
 }
@@ -183,6 +211,27 @@ mod tests {
         );
 
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn state_keeps_bounded_client_messages() {
+        let state = ServerState::default();
+
+        for index in 0..(CLIENT_MESSAGE_LIMIT + 2) {
+            state.push_message(
+                "client-a",
+                ClientMessageRequest {
+                    title: format!("title-{index}"),
+                    body: "body".to_string(),
+                },
+            );
+        }
+
+        let messages = state.list_messages("client-a");
+
+        assert_eq!(messages.len(), CLIENT_MESSAGE_LIMIT);
+        assert_eq!(messages[0].title, "title-2");
+        assert!(state.list_messages("missing").is_empty());
     }
 
     fn unique_temp_dir(name: &str) -> PathBuf {

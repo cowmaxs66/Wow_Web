@@ -1,44 +1,66 @@
+mod agent;
+mod cli;
 mod config;
 mod dm_bridge;
+mod local_log;
 mod logging;
 mod lua_dm;
 mod lua_host;
+mod monitor;
+mod notifier;
 mod script;
 mod server_reporter;
 mod status;
 
+use agent::run_once;
+use cli::{AgentCommand, help_text, parse_args};
 use config::{AgentConfig, default_config_path};
-use lua_host::LuaHost;
-use script::ScriptSource;
-use server_reporter::StatusReporter;
-use shared_types::WsEnvelope;
-use status::AgentStatusSnapshot;
+use local_log::{LocalLog, open_path};
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     logging::init();
 
+    let command = parse_args(std::env::args()).map_err(|message| {
+        eprintln!("{message}\n\n{}", help_text());
+        message
+    })?;
+    if command == AgentCommand::Help {
+        println!("{}", help_text());
+        return Ok(());
+    }
+
+    let config_path = default_config_path();
+    if command == AgentCommand::Setup {
+        open_path(&config_path)?;
+        return Ok(());
+    }
+
+    if command == AgentCommand::OpenLog {
+        LocalLog::default().open_event_log()?;
+        return Ok(());
+    }
+
     let config = AgentConfig::load_from_path(default_config_path())?;
-    let script = ScriptSource::load_bootstrap(&config)?;
-    let report = LuaHost::new(config.clone()).run_script(&script)?;
 
-    tracing::info!(
-        script = %report.script_name,
-        path = %report.script_path.display(),
-        result = %report.result,
-        "Lua bootstrap 执行完成"
-    );
+    if command == AgentCommand::Monitor {
+        return monitor::run_monitor(config);
+    }
 
-    let status = AgentStatusSnapshot::from_script_report(&config, &report).into_client_status();
-    let envelope = WsEnvelope::status(config.client.id.clone(), status);
+    let result = run_once(&config)?;
+    let log = LocalLog::default();
+    let _ = log.append_status(&result.envelope);
+    if let Some(ack) = &result.ack {
+        let _ = log.append_event(&format!(
+            "状态上报成功：client_id={} message_id={}",
+            ack.client_id, ack.message_id
+        ));
+    }
 
-    if config.server.enabled {
-        let ack = StatusReporter::new(config.server.clone()).report_status(&envelope)?;
-        tracing::info!(
-            client_id = %ack.client_id,
-            message_id = %ack.message_id,
-            accepted = ack.accepted,
-            "Client 状态已上报 Management Server"
+    if command == (AgentCommand::RunOnce { notify: true }) {
+        let _ = notifier::notify(
+            "WoW Client 状态",
+            &format!("{} 已完成一次状态刷新", result.envelope.client_id),
         );
     }
 
@@ -46,7 +68,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     // 输入：本地 TOML 配置和 bootstrap Lua 文件。
     // 输出：包含 client_id 与当前脚本名的状态消息。
     // 边界：真实 WebSocket 上报在 P2/P3 接入，这里只输出可验证 JSON。
-    let json = serde_json::to_string_pretty(&envelope).expect("status envelope must serialize");
+    let json =
+        serde_json::to_string_pretty(&result.envelope).expect("status envelope must serialize");
     println!("{json}");
 
     Ok(())

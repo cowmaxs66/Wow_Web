@@ -1,4 +1,6 @@
 import type {
+  ClientMessage,
+  ClientMessageRequest,
   ClientStatusHistory,
   ClientStatusEnvelope,
   HealthResponse,
@@ -44,6 +46,18 @@ export async function fetchClientHistory(
   );
 }
 
+export async function sendClientMessage(
+  baseUrl: string,
+  clientId: string,
+  request: ClientMessageRequest,
+): Promise<ClientMessage> {
+  return writeJson<ClientMessage>(
+    baseUrl,
+    `/api/client/messages/${encodeURIComponent(clientId)}`,
+    request,
+  );
+}
+
 function normalizeBaseUrl(baseUrl: string): string {
   const normalized = baseUrl.trim().replace(/\/+$/, "");
 
@@ -70,6 +84,39 @@ async function readJson<T>(baseUrl: string, path: string): Promise<T> {
   try {
     response = await fetch(url, {
       headers: { Accept: "application/json" },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new ManagementServerError(`连接 Management Server 失败：${message}`);
+  }
+
+  if (!response.ok) {
+    throw new ManagementServerError(
+      `Management Server 返回 HTTP ${response.status}`,
+      response.status,
+    );
+  }
+
+  try {
+    return (await response.json()) as T;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new ManagementServerError(`解析 Server JSON 失败：${message}`);
+  }
+}
+
+async function writeJson<T>(baseUrl: string, path: string, body: unknown): Promise<T> {
+  const url = `${normalizeBaseUrl(baseUrl)}${path}`;
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

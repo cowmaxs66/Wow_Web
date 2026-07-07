@@ -8,12 +8,17 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P10 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容，并提供 x64/x86 两种 Client 发布产物。
+P11 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容，并新增 monitor、setup、open-log 和 notify 入口。
 
 ## 当前目录
 | 路径 | 职责 |
 |------|------|
-| `src/main.rs` | 程序入口，只负责串接配置、Lua 宿主和状态输出 |
+| `src/main.rs` | 程序入口，只负责命令分发 |
+| `src/agent.rs` | 单次执行 Lua、生成状态、上报 Server |
+| `src/cli.rs` | `--monitor`、`--setup`、`--open-log`、`--notify` 参数解析 |
+| `src/monitor.rs` | 常驻监控、周期上报、轮询 Server 消息 |
+| `src/local_log.rs` | 本地事件日志和状态 JSONL |
+| `src/notifier.rs` | Windows 通知气泡 |
 | `src/config/` | 配置读取、错误类型、默认路径解析 |
 | `src/script/` | Lua 脚本文件加载、manifest、签名、hash 和权限校验 |
 | `src/lua_host.rs` | Lua 宿主和按权限注册的白名单 API |
@@ -51,6 +56,21 @@ P10 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 - `bin/client-agent-x86.exe` 是 x86 Client，用于后续加载 Win32 DmBridge 与 32 位大漠环境。
 - x64 Management Server 可以接收 x86 Client 上报。
 - 32 位大漠 `dm.dll` 不能直接放入 x64 Client 进程；必须使用 x86 Client 路径。
+
+## P11 Client 入口
+```powershell
+client-agent.exe
+client-agent.exe --monitor
+client-agent.exe --setup
+client-agent.exe --open-log
+client-agent.exe --notify
+```
+
+- 默认模式执行一次并输出状态 JSON。
+- `--monitor` 常驻运行，周期上报状态、轮询 Server 消息、写入本地日志并弹出通知。
+- `--setup` 打开本机配置文件。
+- `--open-log` 打开 `logs/client-agent.log`。
+- `--notify` 执行一次后弹出状态通知。
 
 ## 验证命令
 ```powershell

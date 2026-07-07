@@ -50,6 +50,25 @@ export interface ClientStatusHistory {
   items: ClientStatusEnvelope[];
 }
 
+export interface ClientMessageRequest {
+  title: string;
+  body: string;
+}
+
+export interface ClientMessage {
+  id: string;
+  client_id: string;
+  timestamp_ms: number;
+  title: string;
+  body: string;
+}
+
+export interface ClientMessageList {
+  client_id: string;
+  total: number;
+  items: ClientMessage[];
+}
+
 export function formatTimestamp(timestampMs: number): string {
   if (!Number.isFinite(timestampMs) || timestampMs <= 0) {
     return "無資料";

@@ -1,12 +1,43 @@
 <script setup lang="ts">
-import { FileJson2 } from "@lucide/vue";
+import { FileJson2, Send } from "@lucide/vue";
+import { ref } from "vue";
+import { sendClientMessage } from "../api/managementServer";
 import type { ClientStatusEnvelope } from "../types/protocol";
 import { formatFullTimestamp, formatRelativeAge } from "../types/protocol";
 import StatusDot from "./StatusDot.vue";
 
-defineProps<{
+const props = defineProps<{
   status: ClientStatusEnvelope | null;
+  serverUrl: string;
 }>();
+
+const messageTitle = ref("服务端消息");
+const messageBody = ref("");
+const sendingMessage = ref(false);
+const messageResult = ref("");
+
+async function submitMessage(): Promise<void> {
+  if (!props.status || !messageTitle.value.trim() || !messageBody.value.trim()) {
+    return;
+  }
+
+  sendingMessage.value = true;
+  messageResult.value = "";
+
+  try {
+    const message = await sendClientMessage(props.serverUrl, props.status.client_id, {
+      title: messageTitle.value.trim(),
+      body: messageBody.value.trim(),
+    });
+    messageResult.value = `已写入消息队列：${message.id}`;
+    messageBody.value = "";
+  } catch (error) {
+    messageResult.value =
+      error instanceof Error ? error.message : `发送失败：${String(error)}`;
+  } finally {
+    sendingMessage.value = false;
+  }
+}
 </script>
 
 <template>
@@ -110,6 +141,28 @@ defineProps<{
           </div>
         </dl>
       </section>
+
+      <section>
+        <h3>Server 消息</h3>
+        <form class="message-form" @submit.prevent="submitMessage">
+          <label>
+            <span>标题</span>
+            <input v-model="messageTitle" maxlength="80" />
+          </label>
+          <label>
+            <span>内容</span>
+            <textarea v-model="messageBody" maxlength="1000" rows="4" />
+          </label>
+          <button
+            type="submit"
+            :disabled="sendingMessage || !messageTitle.trim() || !messageBody.trim()"
+          >
+            <Send :size="15" />
+            <span>{{ sendingMessage ? "发送中" : "发送消息" }}</span>
+          </button>
+          <p v-if="messageResult">{{ messageResult }}</p>
+        </form>
+      </section>
     </div>
 
     <pre v-if="status">{{ JSON.stringify(status.data, null, 2) }}</pre>
@@ -190,6 +243,64 @@ pre {
   padding: var(--space-4);
   font-size: 12px;
   line-height: 1.55;
+}
+
+.message-form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.message-form label {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.message-form span {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.message-form input,
+.message-form textarea {
+  width: 100%;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--color-text);
+  padding: 9px var(--space-3);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.message-form textarea {
+  resize: vertical;
+}
+
+.message-form button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: #ffffff;
+  padding: 9px var(--space-3);
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.message-form button:disabled {
+  background: var(--color-border-strong);
+}
+
+.message-form p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .empty-detail {

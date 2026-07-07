@@ -10,6 +10,7 @@ pub use permissions::{
 };
 
 use crate::config::AgentConfig;
+use crate::config::current_exe_dir;
 use hash::sha256_hex;
 use manifest::ScriptManifest;
 use signature::verify_manifest_signature;
@@ -92,8 +93,15 @@ fn resolve_module_path(path: &PathBuf) -> PathBuf {
         return fs::canonicalize(&cwd_path).unwrap_or(cwd_path);
     }
 
+    if let Some(exe_dir) = current_exe_dir() {
+        let exe_path = exe_dir.join(path);
+        if exe_path.exists() {
+            return fs::canonicalize(&exe_path).unwrap_or(exe_path);
+        }
+    }
+
     // 发布包从包根目录运行时，`scripts/bootstrap.lua` 会位于当前目录下。
-    // 开发期从 workspace 根目录运行时当前目录通常没有该文件，所以回退到编译期模块目录。
+    // 直接双击 exe 时，优先从 exe 所在目录读取脚本；开发期再回退到编译期模块目录。
     // 输入：配置中的相对脚本路径。
     // 输出：优先适配发布包，其次适配源码开发目录的实际脚本路径。
     // 边界：后续接入 CLI 参数后，应由用户显式传入脚本根目录。

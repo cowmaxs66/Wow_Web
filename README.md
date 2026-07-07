@@ -4,12 +4,12 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P10 一键运行与首次设置向导
-- 当前版本：v1.4.0
-- 当前目标：让本机发布包能一键启动 Server、Client 和 Web Admin，并提供首次设置向导
+- 当前阶段：P11 单 exe 与客户端监控基础
+- 当前版本：v1.5.0
+- 当前目标：让 Server/Client 形成更接近真实产品的双 exe 试运行形态，并支持 Server 消息、Client 日志和通知
 
 ## 第一里程碑
-已完成 P0-P10 第一轮源码、Web 信息扩展、短期历史分析、持久化与一键运行闭环：
+已完成 P0-P11 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行与客户端监控闭环：
 
 1. Client Agent 能执行 Lua bootstrap。
 2. DmBridge 能通过 Rust/Lua 调用大漠最小链路。
@@ -21,6 +21,7 @@
 8. Management Server 能保存短期状态历史，Web Admin 能展示真实历史趋势。
 9. Management Server 可选启用 JSONL 历史持久化，重启后可恢复最新状态和短期历史。
 10. Management Server 可托管 Web Admin，工具脚本可一键启动本机 Server/Client，Web Admin 提供首次设置向导。
+11. Management Server 可内嵌 Web Admin，Client Agent 可常驻监控、记录日志、轮询 Server 消息并弹出通知。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -41,4 +42,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.4.0 发布资料见：`发布归档/README.md`。
+v1.5.0 发布资料见：`发布归档/README.md`。

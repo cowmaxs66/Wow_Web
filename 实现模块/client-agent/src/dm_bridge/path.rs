@@ -1,4 +1,5 @@
 use super::error::DmBridgeError;
+use crate::config::current_exe_dir;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -8,6 +9,18 @@ const IMAGE_FILE_MACHINE_AMD64: u16 = 0x8664;
 pub fn resolve_bridge_path(path: &Path) -> PathBuf {
     if path.is_absolute() {
         return path.to_path_buf();
+    }
+
+    let cwd_path = path.to_path_buf();
+    if cwd_path.exists() {
+        return fs::canonicalize(&cwd_path).unwrap_or(cwd_path);
+    }
+
+    if let Some(exe_dir) = current_exe_dir() {
+        let exe_path = exe_dir.join(path);
+        if exe_path.exists() {
+            return fs::canonicalize(&exe_path).unwrap_or(exe_path);
+        }
     }
 
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(path)

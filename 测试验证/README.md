@@ -35,6 +35,7 @@
 | P19 客户端直启与远程目标选择修正验证 | Client 分包默认上报、离线上报、Web 目标选择、三类 zip 安全检查 | 已通过 |
 | P20 Client 正式直启热修复验证 | 根目录 `client-agent.exe` 真实直启、PowerShell 编码、STA 和隐藏启动链路 | 已通过 |
 | P21 Server 托盘与双端图标验证 | Server 托盘真实入口、Client 托盘图标回归、三类 zip 图标资源 | 已通过 |
+| P22 产品化控制中心与安装体验验证 | `WoW-Manager.exe` 控制中心入口、脚本语法、三类 zip 生成 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -305,3 +306,18 @@
   - 总包 `2bea315e31595fa4df8c1e54e459b175524085ed7901f990af6520f6e204a942`
   - Server 分包 `fa5a85231e01a83fd5dadc9d49aa202a08fddb8f715a79b6f48b65e8bb8c4236`
   - Client 分包 `73130bf34be397a911d08b2dc332392d4e1f48bfc375332f68dd373cc2b56bd1`
+
+## P22 产品化控制中心与安装体验验证
+- `cargo fmt --all --check`：通过。
+- `cargo test --workspace`：通过，wow-launcher Manager 脚本启动计划测试通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.15.0`。
+- PowerShell 脚本语法检查：通过，`manager-current-user.ps1`、安装脚本、卸载脚本、打包脚本和 Server 启动脚本均 0 语法错误。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- 控制中心入口烟测：通过，`WoW-Manager.exe` 启动 `powershell.exe -STA ... manager-current-user.ps1 -ShowMessage`。
+- 控制中心入口错误日志：通过，`launcher-error.log` 未生成错误内容。
+- 总包 `RUNNING.md`：通过，已说明 `WoW-Manager.exe` 是 control center。
+- 三类 zip SHA-256：
+  - 总包 `58cbf6ec1c84a2a7760b0a90ebdc28bc7a91d14addb2d0630e18f5917a8427fd`
+  - Server 分包 `67bcf1a6f193c7b29dacc7230699030eeccdd16a7f14100a94fbfca695d9c097`
+  - Client 分包 `74099573c2226b423ec7457095ad28211a301fe54ade8fb615b6a4e29262ba22`

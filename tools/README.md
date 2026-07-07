@@ -1,6 +1,6 @@
 # 工具脚本说明
 
-本目录保存一键运行、维护和打包脚本。P15 起普通用户优先直接双击根目录 GUI 入口，核心维护 exe 放入发布包 `bin` 目录；P18 起打包脚本同时输出总包、Server 分包和 Client 分包；P21 起 Server 和 Client 都提供托盘入口。
+本目录保存一键运行、维护和打包脚本。P15 起普通用户优先直接双击根目录 GUI 入口，核心维护 exe 放入发布包 `bin` 目录；P18 起打包脚本同时输出总包、Server 分包和 Client 分包；P21 起 Server 和 Client 都提供托盘入口；P22 起 `WoW-Manager.exe` 打开本机控制中心。
 
 ## 脚本清单
 | 文件 | 职责 |
@@ -26,7 +26,7 @@
 .\WoW-Manager.exe
 ```
 
-P21 发布包中，脚本会优先调用 `bin\management-server-core.exe`、`bin\client-agent-core.exe`，避免维护参数传给 GUI launcher。
+P22 发布包中，`WoW-Manager.exe` 是本机控制中心，可安装/修复、启动双端、打开 Web、打开日志和卸载。脚本会优先调用 `bin\management-server-core.exe`、`bin\client-agent-core.exe`，避免维护参数传给 GUI launcher。
 
 ## Server 维护入口
 ```powershell

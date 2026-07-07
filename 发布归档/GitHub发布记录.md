@@ -53,4 +53,4 @@
 | v1.2.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.2.0 | `41ca63e6b29658fd572d83c4378b6980dbf0bd36` | 已完成 |
 
 ## 下一步建议
-进入 P22 前先确认优先方向：Server Windows Service 化、命令执行回执、远程命令鉴权审计、发布包签名验证、MSI/MSIX 安装器或 Client 任务策略。
+进入 P23 前先确认优先方向：Server Windows Service 化、命令执行回执、远程命令鉴权审计、发布包签名验证、MSI/MSIX 安装器或 Client 任务策略。

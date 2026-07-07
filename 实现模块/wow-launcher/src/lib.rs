@@ -53,9 +53,11 @@ pub fn build_plan(target: LaunchTarget, launcher_dir: &Path) -> io::Result<Launc
             &["--tray"],
             "Client Agent 核心程序",
         ),
-        LaunchTarget::Installer => {
-            script_plan(launcher_dir, "install-current-user.ps1", "当前用户安装脚本")
-        }
+        LaunchTarget::Installer => script_plan(
+            launcher_dir,
+            "manager-current-user.ps1",
+            "当前用户控制中心脚本",
+        ),
         LaunchTarget::Uninstaller => script_plan(
             launcher_dir,
             "uninstall-current-user.ps1",
@@ -107,6 +109,7 @@ fn script_plan(
     Ok(LaunchPlan {
         program: powershell_exe(),
         args: vec![
+            "-STA".to_string(),
             "-NoProfile".to_string(),
             "-ExecutionPolicy".to_string(),
             "Bypass".to_string(),
@@ -210,20 +213,21 @@ mod tests {
     }
 
     #[test]
-    fn installer_launcher_calls_packaged_script() {
+    fn manager_launcher_calls_packaged_script() {
         let root = unique_temp_root("installer");
         let installer = root.join("installer");
         fs::create_dir_all(&installer).expect("installer dir must be created");
-        fs::write(installer.join("install-current-user.ps1"), b"").expect("script must exist");
+        fs::write(installer.join("manager-current-user.ps1"), b"").expect("script must exist");
 
-        let plan = build_plan(LaunchTarget::Installer, &root).expect("installer plan must build");
+        let plan = build_plan(LaunchTarget::Installer, &root).expect("manager plan must build");
 
         assert_eq!(plan.program, PathBuf::from("powershell.exe"));
         assert!(
             plan.args
                 .iter()
-                .any(|arg| arg.ends_with("install-current-user.ps1"))
+                .any(|arg| arg.ends_with("manager-current-user.ps1"))
         );
+        assert!(plan.args.iter().any(|arg| arg == "-STA"));
         assert_eq!(plan.working_dir, root);
     }
 

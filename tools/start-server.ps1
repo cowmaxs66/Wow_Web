@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$HostAddress = '127.0.0.1',
     [int]$Port = 18080,
     [string]$HistoryPath = 'data/status-history.jsonl',

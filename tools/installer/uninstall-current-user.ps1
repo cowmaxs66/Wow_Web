@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$ShowMessage
 )
 
@@ -29,6 +29,7 @@ function Remove-IfExists {
 
 Remove-IfExists (Join-Path $desktopDir 'WoW Server.lnk')
 Remove-IfExists (Join-Path $desktopDir 'WoW Client.lnk')
+Remove-IfExists (Join-Path $desktopDir 'WoW Framework.lnk')
 Remove-IfExists $programsDir
 
 if (Test-Path -LiteralPath $installRoot) {

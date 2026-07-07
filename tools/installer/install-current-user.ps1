@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$ShowMessage
 )
 
@@ -24,6 +24,17 @@ function Copy-InstallItem {
     param([System.IO.FileSystemInfo]$Item)
 
     $destination = Join-Path $installRoot $Item.Name
+    $sourceFull = [System.IO.Path]::GetFullPath($Item.FullName)
+    $destinationFull = [System.IO.Path]::GetFullPath($destination)
+
+    # 控制中心允许从已安装目录再次执行“安装 / 修复”。
+    # 输入：当前发布包条目。
+    # 输出：复制到当前用户安装目录。
+    # 边界：源路径和目标路径相同时必须跳过，否则会先删除自身再复制。
+    if ([string]::Equals($sourceFull, $destinationFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return
+    }
+
     if (Test-Path -LiteralPath $destination) {
         Remove-Item -LiteralPath $destination -Recurse -Force
     }
@@ -34,7 +45,8 @@ function New-AppShortcut {
     param(
         [string]$ShortcutPath,
         [string]$TargetPath,
-        [string]$Description
+        [string]$Description,
+        [string]$IconPath = ''
     )
 
     $shell = New-Object -ComObject WScript.Shell
@@ -42,6 +54,9 @@ function New-AppShortcut {
     $shortcut.TargetPath = $TargetPath
     $shortcut.WorkingDirectory = $installRoot
     $shortcut.Description = $Description
+    if (-not [string]::IsNullOrWhiteSpace($IconPath) -and (Test-Path -LiteralPath $IconPath)) {
+        $shortcut.IconLocation = $IconPath
+    }
     $shortcut.Save()
 }
 
@@ -57,12 +72,17 @@ foreach ($item in $packageItems) {
 
 $serverExe = Join-Path $installRoot 'management-server.exe'
 $clientExe = Join-Path $installRoot 'client-agent.exe'
+$managerExe = Join-Path $installRoot 'WoW-Manager.exe'
 $uninstallExe = Join-Path $installRoot 'WoW-Remove.exe'
+$serverIcon = Join-Path $installRoot 'assets\icons\server.ico'
+$clientIcon = Join-Path $installRoot 'assets\icons\client.ico'
 
-New-AppShortcut (Join-Path $desktopDir 'WoW Server.lnk') $serverExe 'Start WoW Management Server'
-New-AppShortcut (Join-Path $desktopDir 'WoW Client.lnk') $clientExe 'Start WoW Client Agent'
-New-AppShortcut (Join-Path $programsDir 'WoW Server.lnk') $serverExe 'Start WoW Management Server'
-New-AppShortcut (Join-Path $programsDir 'WoW Client.lnk') $clientExe 'Start WoW Client Agent'
+New-AppShortcut (Join-Path $desktopDir 'WoW Framework.lnk') $managerExe 'Open WoW Framework Control Center' $serverIcon
+New-AppShortcut (Join-Path $desktopDir 'WoW Server.lnk') $serverExe 'Start WoW Management Server' $serverIcon
+New-AppShortcut (Join-Path $desktopDir 'WoW Client.lnk') $clientExe 'Start WoW Client Agent' $clientIcon
+New-AppShortcut (Join-Path $programsDir 'WoW Framework.lnk') $managerExe 'Open WoW Framework Control Center' $serverIcon
+New-AppShortcut (Join-Path $programsDir 'WoW Server.lnk') $serverExe 'Start WoW Management Server' $serverIcon
+New-AppShortcut (Join-Path $programsDir 'WoW Client.lnk') $clientExe 'Start WoW Client Agent' $clientIcon
 New-AppShortcut (Join-Path $programsDir 'Remove WoW Framework.lnk') $uninstallExe 'Remove WoW Framework'
 
 Show-Info "Install complete.`n`nInstall directory: $installRoot`nDesktop and Start Menu shortcuts were created."

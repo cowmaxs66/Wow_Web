@@ -241,7 +241,7 @@ function Write-PackageReadme {
         '## Main entry points',
         '- Double-click `management-server.exe` to start the Server tray UI. The tray starts Server and opens Web Admin.',
         '- Double-click `client-agent.exe` to start Client tray UI.',
-        '- Double-click `WoW-Manager.exe` to install for current user and create shortcuts.',
+        '- Double-click `WoW-Manager.exe` to open the local control center. It can install/repair, start Server, start Client, open logs, and uninstall.',
         '- Double-click `WoW-Remove.exe` to remove current-user program files and shortcuts.',
         '',
         '## Maintenance entry points',

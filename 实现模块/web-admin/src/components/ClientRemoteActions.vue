@@ -98,6 +98,17 @@ watch(
 
 const commandGroups: CommandGroup[] = [
   {
+    title: "Lua 脚本",
+    actions: [
+      {
+        value: "script.run_bootstrap",
+        label: "重新执行 Lua",
+        note: "让 Client 重新执行本机 bootstrap.lua，并按安全门校验。",
+        icon: FileText,
+      },
+    ],
+  },
+  {
     title: "更新",
     actions: [
       {
@@ -322,7 +333,7 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
       </form>
 
       <div class="command-section">
-        <h3>本机命令</h3>
+        <h3>客户端白名单命令</h3>
         <div
           v-for="group in commandGroups"
           :key="group.title"

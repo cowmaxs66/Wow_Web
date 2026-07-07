@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { FileCode2, ShieldCheck } from "@lucide/vue";
+import { computed, ref } from "vue";
 import type { ClientStatusEnvelope } from "../types/protocol";
 
-defineProps<{
+const props = defineProps<{
   status: ClientStatusEnvelope | null;
 }>();
+
+const showRaw = ref(false);
+
+const hasDmAccess = computed(() => {
+  return props.status?.data.script.allowed_permissions.includes("dm.access") ?? false;
+});
 </script>
 
 <template>
@@ -36,6 +43,10 @@ defineProps<{
           <span>指令上限</span>
           <strong>{{ status.data.script.instruction_limit }}</strong>
         </div>
+        <div>
+          <span>DM 權限</span>
+          <strong>{{ hasDmAccess ? "已允許" : "未允許" }}</strong>
+        </div>
       </div>
 
       <div class="security-row">
@@ -64,7 +75,10 @@ defineProps<{
         <p v-else>未上报任何允许权限。</p>
       </section>
 
-      <pre>{{ JSON.stringify(status.data.script, null, 2) }}</pre>
+      <button class="raw-toggle" type="button" @click="showRaw = !showRaw">
+        {{ showRaw ? "隱藏原始資料" : "查看原始資料" }}
+      </button>
+      <pre v-if="showRaw">{{ JSON.stringify(status.data.script, null, 2) }}</pre>
     </div>
   </section>
 </template>
@@ -117,7 +131,7 @@ header p,
 
 .summary-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
@@ -175,6 +189,17 @@ h3 {
   background: #ffffff;
   color: var(--color-text);
   padding: 6px var(--space-2);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.raw-toggle {
+  justify-self: start;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--color-text);
+  padding: 8px var(--space-3);
   font-size: 12px;
   font-weight: 760;
 }

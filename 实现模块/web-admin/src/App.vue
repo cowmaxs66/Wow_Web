@@ -15,6 +15,7 @@ import ClientDetail from "./components/ClientDetail.vue";
 import ClientRemoteActions from "./components/ClientRemoteActions.vue";
 import ClientSettingsPanel from "./components/ClientSettingsPanel.vue";
 import ClientTable from "./components/ClientTable.vue";
+import DmLuaGuidePanel from "./components/DmLuaGuidePanel.vue";
 import HistoryTrendPanel from "./components/HistoryTrendPanel.vue";
 import MetricCard from "./components/MetricCard.vue";
 import ScriptPanel from "./components/ScriptPanel.vue";
@@ -66,7 +67,7 @@ const viewMeta = computed(() => {
     case "scripts":
       return {
         title: "腳本配置",
-        description: "檢查 Client Agent 上報的 Lua 宿主、安全門與權限配置。",
+        description: "查看 Client 如何執行 Lua、如何套用 DM 權限，以及如何遠程重跑 bootstrap。",
       };
     case "operations":
       return {
@@ -195,6 +196,7 @@ function changeView(view: string): void {
 
     <section v-else-if="activeView === 'scripts'" class="content-grid">
       <div class="main-stack">
+        <DmLuaGuidePanel :status="selectedStatus" />
         <ScriptPanel :status="selectedStatus" />
         <ClientTable
           :clients="clients"
@@ -265,6 +267,7 @@ function changeView(view: string): void {
           :loading="loading"
           @refresh="refreshDashboard"
         />
+        <DmLuaGuidePanel :status="selectedStatus" />
       </div>
       <aside class="side-stack">
         <MetricCard
@@ -371,7 +374,7 @@ h1 {
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1380px) {
   .content-grid {
     grid-template-columns: 1fr;
   }

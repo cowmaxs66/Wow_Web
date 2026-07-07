@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { MonitorCheck } from "@lucide/vue";
+import { computed, ref } from "vue";
+import { MonitorCheck, Search } from "@lucide/vue";
 import type { ClientStatusEnvelope } from "../types/protocol";
-import { formatTimestamp } from "../types/protocol";
+import { formatRelativeAge, formatTimestamp } from "../types/protocol";
 import StatusDot from "./StatusDot.vue";
 
-defineProps<{
+const props = defineProps<{
   clients: ClientStatusEnvelope[];
   selectedClientId: string;
   loading: boolean;
@@ -13,6 +14,84 @@ defineProps<{
 defineEmits<{
   select: [clientId: string];
 }>();
+
+type ClientFilter = "all" | "online" | "offline" | "dm" | "script";
+
+const searchText = ref("");
+const activeFilter = ref<ClientFilter>("all");
+
+const filterOptions: Array<{ value: ClientFilter; label: string }> = [
+  { value: "all", label: "全部" },
+  { value: "online", label: "在線" },
+  { value: "offline", label: "離線" },
+  { value: "dm", label: "DM 權限" },
+  { value: "script", label: "有腳本" },
+];
+
+const onlineCount = computed(() =>
+  props.clients.filter((client) => client.data.online).length,
+);
+
+const dmEnabledCount = computed(() =>
+  props.clients.filter((client) =>
+    client.data.script.allowed_permissions.includes("dm.access"),
+  ).length,
+);
+
+const scriptCount = computed(
+  () => props.clients.filter((client) => !!client.data.current_script).length,
+);
+
+const filteredClients = computed(() => {
+  const keyword = searchText.value.trim().toLocaleLowerCase();
+
+  return props.clients.filter((client) => {
+    if (!matchesFilter(client, activeFilter.value)) {
+      return false;
+    }
+
+    if (!keyword) {
+      return true;
+    }
+
+    // 搜索只匹配用户能在列表上看到的字段，避免隐藏条件造成结果难以理解。
+    // 输入：Client ID、脚本名、版本号与架构。
+    // 输出：符合当前筛选和关键字的客户端列表。
+    // 边界：空关键字只按筛选条件返回，不做历史数据搜索。
+    const haystack = [
+      client.client_id,
+      client.data.current_script ?? "",
+      client.data.runtime.release_version,
+      client.data.runtime.arch,
+      client.data.server.report_target,
+    ]
+      .join("\n")
+      .toLocaleLowerCase();
+
+    return haystack.includes(keyword);
+  });
+});
+
+function matchesFilter(client: ClientStatusEnvelope, filter: ClientFilter): boolean {
+  switch (filter) {
+    case "online":
+      return client.data.online;
+    case "offline":
+      return !client.data.online;
+    case "dm":
+      return client.data.script.allowed_permissions.includes("dm.access");
+    case "script":
+      return !!client.data.current_script;
+    default:
+      return true;
+  }
+}
+
+function runtimeMode(client: ClientStatusEnvelope): string {
+  const arch = client.data.runtime.arch || "unknown";
+  const hasDm = client.data.script.allowed_permissions.includes("dm.access");
+  return hasDm ? `${arch} / DM` : `${arch} / Core`;
+}
 </script>
 
 <template>
@@ -20,14 +99,45 @@ defineEmits<{
     <header>
       <div>
         <h2>客戶端列表</h2>
-        <p>顯示 Server 目前保存的最新狀態。</p>
+        <p>先選 Client，再查看腳本、DM 權限與遠程操作。</p>
       </div>
     </header>
+
+    <div class="list-toolbar">
+      <div class="summary-strip" aria-label="客戶端摘要">
+        <span>總數 <strong>{{ clients.length }}</strong></span>
+        <span>在線 <strong>{{ onlineCount }}</strong></span>
+        <span>DM <strong>{{ dmEnabledCount }}</strong></span>
+        <span>腳本 <strong>{{ scriptCount }}</strong></span>
+      </div>
+      <label class="search-box">
+        <Search :size="15" />
+        <input v-model="searchText" placeholder="搜尋 Client / 版本 / 腳本" />
+      </label>
+    </div>
+
+    <div class="filter-row" aria-label="客戶端篩選">
+      <button
+        v-for="option in filterOptions"
+        :key="option.value"
+        type="button"
+        :class="{ active: activeFilter === option.value }"
+        @click="activeFilter = option.value"
+      >
+        {{ option.label }}
+      </button>
+    </div>
 
     <div v-if="clients.length === 0" class="empty-state">
       <MonitorCheck :size="34" :stroke-width="1.8" />
       <strong>{{ loading ? "正在讀取狀態" : "尚無 Client 上報" }}</strong>
       <span>啟動 Client Agent 並開啟 Server 上報後，這裡會顯示最新狀態。</span>
+    </div>
+
+    <div v-else-if="filteredClients.length === 0" class="empty-state">
+      <MonitorCheck :size="34" :stroke-width="1.8" />
+      <strong>沒有符合條件的 Client</strong>
+      <span>清除搜尋字或切換篩選條件後再查看。</span>
     </div>
 
     <div v-else class="table-wrap">
@@ -36,14 +146,15 @@ defineEmits<{
           <tr>
             <th>Client</th>
             <th>狀態</th>
+            <th>模式</th>
             <th>腳本</th>
-            <th>消息</th>
+            <th>版本</th>
             <th>最近上報</th>
           </tr>
         </thead>
         <tbody>
           <tr
-            v-for="client in clients"
+            v-for="client in filteredClients"
             :key="client.client_id"
             :class="{ selected: client.client_id === selectedClientId }"
             @click="$emit('select', client.client_id)"
@@ -59,9 +170,15 @@ defineEmits<{
                 :label="client.data.online ? '在線' : '離線'"
               />
             </td>
+            <td data-label="模式">{{ runtimeMode(client) }}</td>
             <td data-label="腳本">{{ client.data.current_script ?? "無" }}</td>
-            <td data-label="消息">{{ client.message_type }}</td>
-            <td data-label="最近上報">{{ formatTimestamp(client.timestamp_ms) }}</td>
+            <td data-label="版本">{{ client.data.runtime.release_version }}</td>
+            <td data-label="最近上報">
+              <span class="time-cell">
+                <strong>{{ formatRelativeAge(client.timestamp_ms) }}</strong>
+                <small>{{ formatTimestamp(client.timestamp_ms) }}</small>
+              </span>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -81,6 +198,82 @@ defineEmits<{
 header {
   border-bottom: 1px solid var(--color-border);
   padding: var(--space-5);
+}
+
+.list-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  align-items: center;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-5);
+}
+
+.summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.summary-strip span {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-page);
+  color: var(--color-muted);
+  padding: 6px var(--space-2);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.summary-strip strong {
+  color: var(--color-text);
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--color-muted);
+  padding: 0 var(--space-3);
+}
+
+.search-box input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  padding: 9px 0;
+  font-size: 13px;
+  outline: none;
+}
+
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-5);
+}
+
+.filter-row button {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--color-muted);
+  padding: 7px var(--space-3);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.filter-row button.active,
+.filter-row button:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
 }
 
 h2,
@@ -104,7 +297,7 @@ p {
 
 table {
   width: 100%;
-  min-width: 720px;
+  min-width: 860px;
   border-collapse: collapse;
 }
 
@@ -149,6 +342,26 @@ td button {
   font-weight: 780;
 }
 
+.time-cell {
+  display: grid;
+  gap: 2px;
+}
+
+.time-cell strong,
+.time-cell small {
+  display: block;
+}
+
+.time-cell strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.time-cell small {
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
 .empty-state {
   display: grid;
   min-height: 260px;
@@ -172,6 +385,15 @@ td button {
 }
 
 @media (max-width: 720px) {
+  .list-toolbar {
+    grid-template-columns: 1fr;
+    padding: var(--space-3);
+  }
+
+  .filter-row {
+    padding: var(--space-3);
+  }
+
   .table-wrap {
     overflow: visible;
     padding: var(--space-3);

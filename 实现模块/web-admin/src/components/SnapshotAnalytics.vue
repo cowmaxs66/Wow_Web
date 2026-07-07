@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BarChart3, Clock3, ShieldCheck } from "@lucide/vue";
+import { BarChart3, Clock3, Cpu, ShieldCheck, TriangleAlert } from "@lucide/vue";
 import { computed } from "vue";
 import type { ClientStatusEnvelope } from "../types/protocol";
 import { formatRelativeAge } from "../types/protocol";
@@ -52,6 +52,70 @@ const latestClient = computed(() => {
 const securityEnabledCount = computed(() => {
   return props.clients.filter((client) => client.data.script.security_enabled).length;
 });
+
+const dmAccessCount = computed(() => {
+  return props.clients.filter((client) =>
+    client.data.script.allowed_permissions.includes("dm.access"),
+  ).length;
+});
+
+const reportEnabledCount = computed(() => {
+  return props.clients.filter((client) => client.data.server.report_enabled).length;
+});
+
+const readinessScore = computed(() => {
+  if (totalCount.value === 0) {
+    return 0;
+  }
+
+  // 健康分只用于管理端快速扫描，不替代真实监控告警。
+  // 输入：在线、安全门、上报开关三个当前快照指标。
+  // 输出：0-100 的粗略成熟度分数。
+  // 边界：没有历史失败率、CPU、内存数据时，不把它解释为生产 SLA。
+  const online = props.onlineCount / totalCount.value;
+  const secure = securityEnabledCount.value / totalCount.value;
+  const reporting = reportEnabledCount.value / totalCount.value;
+  return Math.round((online * 0.45 + secure * 0.3 + reporting * 0.25) * 100);
+});
+
+const archRows = computed(() => {
+  const counts = new Map<string, number>();
+
+  for (const client of props.clients) {
+    const arch = client.data.runtime.arch || "unknown";
+    counts.set(arch, (counts.get(arch) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([name, count]) => ({
+      name,
+      count,
+      percent: totalCount.value === 0 ? 0 : Math.round((count / totalCount.value) * 100),
+    }))
+    .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name));
+});
+
+const issueRows = computed(() => {
+  const rows: Array<{ label: string; count: number; tone: "warning" | "danger" }> = [
+    {
+      label: "離線 Client",
+      count: props.offlineCount,
+      tone: props.offlineCount > 0 ? "danger" : "warning",
+    },
+    {
+      label: "未開安全門",
+      count: totalCount.value - securityEnabledCount.value,
+      tone: "warning",
+    },
+    {
+      label: "未開上報",
+      count: totalCount.value - reportEnabledCount.value,
+      tone: "warning",
+    },
+  ];
+
+  return rows.filter((row) => row.count > 0);
+});
 </script>
 
 <template>
@@ -84,23 +148,58 @@ const securityEnabledCount = computed(() => {
       <div class="summary-grid">
         <div>
           <ShieldCheck :size="16" />
-          <span>安全門</span>
-          <strong>{{ securityEnabledCount }}/{{ totalCount }}</strong>
+          <span>健康分</span>
+          <strong>{{ readinessScore }}</strong>
         </div>
         <div>
           <Clock3 :size="16" />
           <span>最新上報</span>
           <strong>{{ latestClient ? formatRelativeAge(latestClient.timestamp_ms) : "無資料" }}</strong>
         </div>
+        <div>
+          <ShieldCheck :size="16" />
+          <span>安全門</span>
+          <strong>{{ securityEnabledCount }}/{{ totalCount }}</strong>
+        </div>
+        <div>
+          <Cpu :size="16" />
+          <span>DM 權限</span>
+          <strong>{{ dmAccessCount }}/{{ totalCount }}</strong>
+        </div>
       </div>
 
-      <div class="script-list">
-        <h3>腳本分布</h3>
-        <div v-for="row in scriptRows" :key="row.name" class="script-row">
-          <span>{{ row.name }}</span>
-          <strong>{{ row.count }} 台</strong>
-          <small>{{ row.percent }}%</small>
+      <div class="split-lists">
+        <div class="script-list">
+          <h3>腳本分布</h3>
+          <div v-for="row in scriptRows" :key="row.name" class="script-row">
+            <span>{{ row.name }}</span>
+            <strong>{{ row.count }} 台</strong>
+            <small>{{ row.percent }}%</small>
+          </div>
         </div>
+
+        <div class="script-list">
+          <h3>架構分布</h3>
+          <div v-for="row in archRows" :key="row.name" class="script-row">
+            <span>{{ row.name }}</span>
+            <strong>{{ row.count }} 台</strong>
+            <small>{{ row.percent }}%</small>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="issueRows.length > 0" class="issue-list">
+        <h3>
+          <TriangleAlert :size="15" />
+          需要處理
+        </h3>
+        <span
+          v-for="issue in issueRows"
+          :key="issue.label"
+          :data-tone="issue.tone"
+        >
+          {{ issue.label }}：{{ issue.count }}
+        </span>
       </div>
     </div>
   </section>
@@ -195,7 +294,7 @@ p {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-3);
 }
 
@@ -220,6 +319,12 @@ p {
 .script-list {
   display: grid;
   gap: var(--space-2);
+}
+
+.split-lists {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
 }
 
 .script-row {
@@ -258,8 +363,41 @@ p {
   font-size: 14px;
 }
 
+.issue-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.issue-list h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: var(--space-1);
+}
+
+.issue-list span {
+  border: 1px solid rgba(161, 92, 7, 0.25);
+  border-radius: var(--radius-control);
+  background: #fff7ed;
+  color: var(--color-warning);
+  padding: 6px var(--space-2);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.issue-list span[data-tone="danger"] {
+  border-color: rgba(180, 35, 24, 0.25);
+  background: #fff1f0;
+  color: var(--color-danger);
+}
+
 @media (max-width: 640px) {
-  .summary-grid {
+  .summary-grid,
+  .split-lists {
     grid-template-columns: 1fr;
   }
 }

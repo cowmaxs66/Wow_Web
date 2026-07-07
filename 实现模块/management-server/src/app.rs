@@ -219,7 +219,8 @@ fn validate_command_request(
 fn is_allowed_command(command_type: &str) -> bool {
     matches!(
         command_type,
-        "startup.status"
+        "script.run_bootstrap"
+            | "startup.status"
             | "startup.enable"
             | "startup.disable"
             | "service.status"
@@ -664,6 +665,48 @@ mod tests {
 
         assert_eq!(commands.total, 1);
         assert_eq!(commands.items[0].command_type, "update.apply");
+    }
+
+    #[tokio::test]
+    async fn script_run_bootstrap_client_command_is_allowed() {
+        let app = build_router_with_web_dir(ServerState::default(), None);
+        let body = serde_json::to_vec(&ClientCommandRequest {
+            command_type: "script.run_bootstrap".to_string(),
+            payload: serde_json::json!({}),
+        })
+        .expect("command request must serialize");
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/client/commands/client-a")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/api/client/commands/client-a")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let commands: ClientCommandList =
+            serde_json::from_slice(&body).expect("command list must deserialize");
+
+        assert_eq!(commands.total, 1);
+        assert_eq!(commands.items[0].command_type, "script.run_bootstrap");
     }
 
     #[test]

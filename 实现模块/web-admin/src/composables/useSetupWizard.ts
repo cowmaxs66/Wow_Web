@@ -44,8 +44,22 @@ export function useSetupWizard() {
     return fallbackText(profile.value.serverPort, defaultProfile.serverPort);
   });
 
+  const browserHost = computed(() => {
+    const host = fallbackText(profile.value.serverHost, defaultProfile.serverHost);
+
+    // 0.0.0.0 是服务端监听地址，浏览器不能把它当成目标主机访问。
+    // 输入：向导里的 Server Host。
+    // 输出：Web 控制台实际 fetch 使用的地址。
+    // 边界：只有通配监听地址会转成本机地址，局域网 IP 与域名保持用户输入。
+    if (host === "0.0.0.0" || host === "::") {
+      return "127.0.0.1";
+    }
+
+    return host;
+  });
+
   const serverUrl = computed(() => {
-    return `http://${fallbackText(profile.value.serverHost, defaultProfile.serverHost)}:${normalizedPort.value}`;
+    return `http://${browserHost.value}:${normalizedPort.value}`;
   });
 
   const isCompleted = computed(() => {
@@ -138,7 +152,7 @@ export function useSetupWizard() {
       "-ClientArch",
       quotePowerShellValue(arch),
       "-ServerHost",
-      quotePowerShellValue(fallbackText(profile.value.serverHost, defaultProfile.serverHost)),
+      quotePowerShellValue(browserHost.value),
       "-ServerPort",
       normalizedPort.value,
     ];
@@ -164,6 +178,7 @@ export function useSetupWizard() {
     profile,
     copiedTarget,
     serverUrl,
+    browserHost,
     isCompleted,
     architectureLabel,
     architectureNote,

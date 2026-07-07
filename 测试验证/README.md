@@ -36,6 +36,7 @@
 | P20 Client 正式直启热修复验证 | 根目录 `client-agent.exe` 真实直启、PowerShell 编码、STA 和隐藏启动链路 | 已通过 |
 | P21 Server 托盘与双端图标验证 | Server 托盘真实入口、Client 托盘图标回归、三类 zip 图标资源 | 已通过 |
 | P22 产品化控制中心与安装体验验证 | `WoW-Manager.exe` 控制中心入口、脚本语法、三类 zip 生成 | 已通过 |
+| P23 Web 使用体验与 DM/Lua 操作流验证 | Client 列表、仪表盘、设置向导、DM/Lua 面板、`script.run_bootstrap` 和三类 zip | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -321,3 +322,18 @@
   - 总包 `58cbf6ec1c84a2a7760b0a90ebdc28bc7a91d14addb2d0630e18f5917a8427fd`
   - Server 分包 `67bcf1a6f193c7b29dacc7230699030eeccdd16a7f14100a94fbfca695d9c097`
   - Client 分包 `74099573c2226b423ec7457095ad28211a301fe54ade8fb615b6a4e29262ba22`
+
+## P23 Web 使用体验与 DM/Lua 操作流验证
+- `cargo fmt --all --check`：通过。
+- `cargo test --workspace`：通过，Client、Server、shared-types、launcher 共 86 个测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.16.0`。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- 浏览器桌面验证：通过，Client 列表、脚本页、设置页、筛选和进阶排错折叠正常，控制台无错误。
+- 浏览器移动端验证：通过，Client 列表卡片布局和设置页无横向溢出，控制台无错误。
+- Server 分包烟测：通过，临时端口 `/health` 返回 `ok`，内嵌 Web HTTP 200，`script.run_bootstrap` 可写入并取出命令队列。
+- Client 分包烟测：通过，`client-agent-core.exe --run-once` 能执行本机 Lua bootstrap，输出 `release_version = v1.16.0`、`current_script = bootstrap`。
+- 三类 zip SHA-256：
+  - 总包 `1e9c5e8d3355f9ad072a50ce9eb47a5f0607d91136e705bff2717d0d0769078d`
+  - Server 分包 `7e5b720eeb476ded8ac112de92f1289a221cce12e1b320ab70dc109b734b9edb`
+  - Client 分包 `399d325a437f029d4c315bbfd141018be5ea86f4166e586a00528a4604dd2930`

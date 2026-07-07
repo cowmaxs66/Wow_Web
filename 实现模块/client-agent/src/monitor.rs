@@ -136,7 +136,7 @@ fn poll_commands(
             continue;
         }
 
-        let result = crate::remote_command::execute_remote_command(&command.command_type);
+        let result = crate::remote_command::execute_remote_command(&command.command_type, config);
         match result {
             Ok(summary) => {
                 log.append_event(&format!(

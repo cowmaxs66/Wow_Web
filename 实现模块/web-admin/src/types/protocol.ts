@@ -70,6 +70,7 @@ export interface ClientMessageList {
 }
 
 export type ClientCommandType =
+  | "script.run_bootstrap"
   | "startup.status"
   | "startup.enable"
   | "startup.disable"

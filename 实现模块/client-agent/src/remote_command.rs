@@ -1,8 +1,13 @@
+use crate::config::AgentConfig;
 use crate::local_log::LocalLog;
 use std::error::Error;
 
-pub fn execute_remote_command(command_type: &str) -> Result<String, Box<dyn Error>> {
+pub fn execute_remote_command(
+    command_type: &str,
+    config: &AgentConfig,
+) -> Result<String, Box<dyn Error>> {
     match command_type {
+        "script.run_bootstrap" => run_bootstrap_command(config),
         "startup.status" => Ok(crate::startup::startup_status()?.summary()),
         "startup.enable" => Ok(crate::startup::enable_startup()?.summary()),
         "startup.disable" => Ok(crate::startup::disable_startup()?.summary()),
@@ -33,11 +38,68 @@ pub fn execute_remote_command(command_type: &str) -> Result<String, Box<dyn Erro
     }
 }
 
+fn run_bootstrap_command(config: &AgentConfig) -> Result<String, Box<dyn Error>> {
+    let result = crate::agent::run_once(config)?;
+    let log = LocalLog::default();
+    let _ = log.append_status(&result.envelope);
+
+    // 远程脚本命令只重新执行当前本机已配置并通过安全校验的 bootstrap。
+    // 输入：Client 本机 client-agent.toml、manifest 与 Lua 文件。
+    // 输出：新的状态上报和本机日志摘要。
+    // 边界：Server 不直接传入任意 Lua 文本，避免把远程命令变成任意代码执行入口。
+    let script = result
+        .envelope
+        .data
+        .current_script
+        .as_deref()
+        .unwrap_or("无");
+    Ok(format!(
+        "Lua bootstrap 已执行：client_id={} script={} message_id={}",
+        result.envelope.client_id, script, result.envelope.message_id
+    ))
+}
+
 #[cfg(test)]
 mod tests {
+    use crate::config::{
+        AgentConfig, ClientConfig, DmConfig, LuaConfig, ScriptSecurityConfig, ServerConfig,
+    };
+    use std::path::PathBuf;
+
     #[test]
     fn unsupported_remote_command_is_rejected() {
-        let error = super::execute_remote_command("shell.exec").expect_err("must reject shell");
+        let error = super::execute_remote_command("shell.exec", &test_config())
+            .expect_err("must reject shell");
         assert!(error.to_string().contains("不支持"));
+    }
+
+    fn test_config() -> AgentConfig {
+        AgentConfig {
+            client: ClientConfig {
+                id: "remote-test-client".to_string(),
+            },
+            lua: LuaConfig {
+                bootstrap_name: "bootstrap".to_string(),
+                bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
+                instruction_limit: 10_000,
+            },
+            script_security: ScriptSecurityConfig {
+                enabled: false,
+                manifest_path: PathBuf::from("scripts/bootstrap.manifest.json"),
+                trusted_signer_public_key:
+                    "1111111111111111111111111111111111111111111111111111111111111111".to_string(),
+                allowed_permissions: vec!["host.log".to_string()],
+            },
+            dm: DmConfig {
+                bridge_path: PathBuf::from("missing/DmBridge.dll"),
+            },
+            server: ServerConfig {
+                enabled: false,
+                host: "127.0.0.1".to_string(),
+                port: 18080,
+                status_path: "/api/client/status".to_string(),
+                connect_timeout_ms: 3000,
+            },
+        }
     }
 }

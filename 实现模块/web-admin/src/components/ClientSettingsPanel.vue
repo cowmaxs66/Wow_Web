@@ -19,7 +19,10 @@ defineEmits<{
   <section class="settings-panel">
     <header>
       <Settings :size="18" />
-      <h2>本地設定</h2>
+      <div>
+        <h2>Web 看板設定</h2>
+        <p>这里只保存浏览器连接目标，不直接修改 Client 本机配置。</p>
+      </div>
     </header>
 
     <label>
@@ -49,7 +52,7 @@ defineEmits<{
       </div>
       <div>
         <dt>設定範圍</dt>
-        <dd>瀏覽器本地</dd>
+        <dd>瀏覽器本地；Client 設定請用客戶端托盤或 config/client-agent.toml</dd>
       </div>
     </dl>
 
@@ -82,6 +85,13 @@ h2 {
   color: var(--color-text);
   font-size: 16px;
   line-height: 1.3;
+}
+
+p {
+  margin: var(--space-1) 0 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 label {

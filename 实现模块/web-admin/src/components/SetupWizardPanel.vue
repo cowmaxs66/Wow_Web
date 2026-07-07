@@ -2,9 +2,14 @@
 import {
   CheckCircle2,
   Clipboard,
+  FileCode2,
   MonitorCog,
+  Network,
+  PlayCircle,
   RotateCcw,
   Settings2,
+  ShieldCheck,
+  Terminal,
 } from "@lucide/vue";
 import { ref } from "vue";
 import { useSetupWizard } from "../composables/useSetupWizard";
@@ -24,6 +29,7 @@ const {
   profile,
   copiedTarget,
   serverUrl: wizardServerUrl,
+  browserHost,
   isCompleted,
   architectureLabel,
   architectureNote,
@@ -39,6 +45,7 @@ const {
 } = useSetupWizard();
 
 const expanded = ref(!isCompleted.value);
+const showAdvancedCommands = ref(false);
 
 function syncFromDashboard(): void {
   applyDashboardDefaults(props.serverUrl, props.clientId);
@@ -74,9 +81,36 @@ function completeSetup(): void {
     </header>
 
     <div v-if="expanded" class="setup-body">
+      <div class="simple-flow" aria-label="標準操作流程">
+        <article>
+          <PlayCircle :size="18" />
+          <div>
+            <strong>1. 打開 WoW-Manager.exe</strong>
+            <span>在控制中心點擊啟動 Server 與 Client，不需要手動敲命令。</span>
+          </div>
+        </article>
+        <article>
+          <Network :size="18" />
+          <div>
+            <strong>2. Web 連線到 {{ wizardServerUrl }}</strong>
+            <span v-if="profile.serverHost === '0.0.0.0'">
+              Server 仍監聽 0.0.0.0，但瀏覽器會改用 {{ browserHost }} 連線。
+            </span>
+            <span v-else>Server 地址會同步到左側看板與 Client 上報設定。</span>
+          </div>
+        </article>
+        <article>
+          <ShieldCheck :size="18" />
+          <div>
+            <strong>3. DM/Lua 由 Client 本機套用</strong>
+            <span>Client 啟動後讀取 config/client-agent.toml，再執行 scripts/bootstrap.lua。</span>
+          </div>
+        </article>
+      </div>
+
       <div class="form-grid">
         <label>
-          <span>Server Host</span>
+          <span>Server 監聽地址</span>
           <input v-model="profile.serverHost" autocomplete="off" spellcheck="false" />
         </label>
         <label>
@@ -84,7 +118,7 @@ function completeSetup(): void {
           <input v-model="profile.serverPort" inputmode="numeric" autocomplete="off" />
         </label>
         <label>
-          <span>Client ID</span>
+          <span>預設 Client ID</span>
           <input v-model="profile.clientId" autocomplete="off" spellcheck="false" />
         </label>
         <label>
@@ -96,7 +130,7 @@ function completeSetup(): void {
           <input v-model="profile.webDir" autocomplete="off" spellcheck="false" />
         </label>
         <label>
-          <span>Client 模式</span>
+          <span>Client 運行模式</span>
           <select v-model="profile.clientMode">
             <option value="x64-core">x64 核心模式</option>
             <option value="x86-dm">x86 DM 模式</option>
@@ -112,10 +146,25 @@ function completeSetup(): void {
         </label>
       </div>
 
-      <div class="command-grid">
+      <div class="mode-note">
+        <FileCode2 :size="18" />
+        <div>
+          <strong>{{ architectureLabel }}</strong>
+          <span>{{ architectureNote }}</span>
+        </div>
+      </div>
+
+      <div class="advanced-toggle">
+        <button type="button" class="ghost-button" @click="showAdvancedCommands = !showAdvancedCommands">
+          <Terminal :size="16" />
+          <span>{{ showAdvancedCommands ? "隱藏進階排錯命令" : "顯示進階排錯命令" }}</span>
+        </button>
+      </div>
+
+      <div v-if="showAdvancedCommands" class="command-grid">
         <article>
           <div class="command-title">
-            <strong>Server 啟動命令</strong>
+            <strong>Server 排錯命令</strong>
             <button type="button" @click="copyText('server', serverCommand)">
               <Clipboard :size="14" />
               <span>{{ copiedTarget === "server" ? "已複製" : "複製" }}</span>
@@ -126,7 +175,7 @@ function completeSetup(): void {
 
         <article>
           <div class="command-title">
-            <strong>Client 啟動命令</strong>
+            <strong>Client 排錯命令</strong>
             <button type="button" @click="copyText('client', clientCommand)">
               <Clipboard :size="14" />
               <span>{{ copiedTarget === "client" ? "已複製" : "複製" }}</span>
@@ -232,6 +281,41 @@ p {
   gap: var(--space-4);
 }
 
+.simple-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.simple-flow article,
+.mode-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-page);
+  color: var(--color-accent);
+  padding: var(--space-3);
+}
+
+.simple-flow strong,
+.mode-note strong {
+  display: block;
+  color: var(--color-text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.simple-flow span,
+.mode-note span {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -288,6 +372,11 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-3);
+}
+
+.advanced-toggle {
+  display: flex;
+  justify-content: flex-end;
 }
 
 article {
@@ -357,6 +446,7 @@ button {
 }
 
 @media (max-width: 960px) {
+  .simple-flow,
   .form-grid,
   .command-grid {
     grid-template-columns: 1fr;

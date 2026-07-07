@@ -31,3 +31,4 @@
 | `命令执行回执与审计设计.md` | 记录 P24 远程命令执行回执、Server API、Client 上报和 Web 展示边界 |
 | `工程化地基修补设计.md` | 记录 P25 命令清单单一来源、Server app 拆分、错误类型和 CI 边界 |
 | `Client远程配置下发设计.md` | 记录 P26 `config.apply`、Client 配置补丁、monitor 动态重载和 Web 设置面板边界 |
+| `Client原生设置表单化设计.md` | 记录 P27 Client 本机设置窗口从 TOML 文本编辑改为结构化表单 UI 的边界 |

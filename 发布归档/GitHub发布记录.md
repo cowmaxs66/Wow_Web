@@ -18,6 +18,16 @@
 - Release 内容使用 `发布归档/v1.19.0-发布说明.md`。
 - GitHub 自动生成源码包，并额外上传总包、Server 分包和 Client 分包。
 
+## 待发布本地包
+| 项目 | 内容 |
+|------|------|
+| 版本 | v1.20.0 |
+| 范围 | Client 原生设置表单化 |
+| 本地路径 | `target/release-package/` |
+| 编译包 | `WoW_Framework_v1.20.0_windows.zip`、`WoW_Server_v1.20.0_windows.zip`、`WoW_Client_v1.20.0_windows.zip` |
+| 编译包 SHA-256 | 总包 `33adc868ae1fe5f4b466fa340739fa4d039b4a02f5bb0d2787b36f9871ba5fc3`；Server `146df267022bb8d76feaecd75c71e4dc632a3b2fbcc610fc2db5b099f09907d8`；Client `9ef5aa373c90e553ed6d007aa711cd95cbac6dcb7f87c42c971e4b7d80d1e2ab` |
+| 当前状态 | 本地包已生成，GitHub Release 未创建 |
+
 ## 安全边界
 - 未上传 `dm.dll`。
 - 未上传 `RegDll.dll`。

@@ -8,7 +8,7 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P26 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、设置窗口、更新检查/下载/自替换、远程命令入口和 `config.apply` 受控配置写回。
+P27 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、更新检查/下载/自替换、远程命令入口和 `config.apply` 受控配置写回。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -22,7 +22,8 @@ P26 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/startup.rs` | 当前用户开机启动查询、启用和停用 |
 | `src/service_runtime.rs` | Windows Service 运行入口和管理命令 |
 | `src/tray.rs` | WinForms 托盘常驻和右键菜单 |
-| `src/settings_window.rs` | WinForms 本机设置窗口 |
+| `src/settings_window.rs` | WinForms 本机设置窗口，提供可选填、可勾选、可校验的表单 UI |
+| `src/settings_window_script.ps1` | 本机设置窗口 WinForms UI 模板，由 Rust 写入临时目录后启动 |
 | `src/updater.rs` | GitHub Release 检查、下载和自替换更新 |
 | `src/remote_command.rs` | Server 白名单命令执行分发 |
 | `src/config/` | 配置读取、错误类型、默认路径解析和远程配置补丁写回 |
@@ -103,7 +104,7 @@ client-agent.exe --update-apply
 - `--service-run` 是 Windows Service Control Manager 调用入口。
 - `--service-install/start/stop/status/uninstall` 管理 `WoWClientAgent` 服务，安装和启停通常需要管理员权限。
 - `--tray` 启动托盘常驻 UI，右键菜单可控制 monitor、设置窗口、日志、开机启动、Service 和更新。
-- `--settings-window` 打开本机配置编辑窗口。
+- `--settings-window` 打开本机表单设置窗口。
 - `--update-check` 查询 GitHub latest release。
 - `--update-download` 下载最新发布包到 `%LOCALAPPDATA%\WoWFramework\updates`。
 - `--update-apply` 检查新版、下载发布包，并安排独立 updater 在进程退出后替换安装目录。
@@ -114,6 +115,13 @@ client-agent.exe --update-apply
 - 远程配置不允许修改 `client.id`，避免 Client 历史状态和命令回执断裂。
 - monitor 每轮都会重新读取默认配置；如果 TOML 被写错，会继续使用上一轮有效配置并写入本地日志。
 - `script_security.allowed_permissions` 远程下发只接受 `host.log`、`config.read` 和 `dm.access`。
+
+## P27 本机设置表单
+- `--settings-window` 不再把 `client-agent.toml` 当成大文本框展示。
+- 设置窗口按基础、Server 上报、Lua 脚本、脚本安全门和 DM Bridge 分组展示。
+- 用户通过文本框、复选框和权限勾选保存设置，保存前会校验端口、路径、公钥和整数范围。
+- 保存后仍写回标准 TOML，monitor 和 service 下一轮刷新时读取新配置。
+- “打开配置文件”只作为高级排错入口保留，不作为普通设置主流程。
 
 ## 验证命令
 ```powershell

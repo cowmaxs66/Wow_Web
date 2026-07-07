@@ -17,6 +17,7 @@ pub enum AgentCommand {
     SettingsWindow,
     UpdateCheck,
     UpdateDownload,
+    UpdateApply,
     Help,
 }
 
@@ -42,6 +43,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<AgentCommand
             "--settings-window" => command = AgentCommand::SettingsWindow,
             "--update-check" => command = AgentCommand::UpdateCheck,
             "--update-download" => command = AgentCommand::UpdateDownload,
+            "--update-apply" => command = AgentCommand::UpdateApply,
             "--notify" => command = AgentCommand::RunOnce { notify: true },
             "--help" | "-h" => command = AgentCommand::Help,
             unknown => return Err(format!("未知参数：{unknown}")),
@@ -52,7 +54,7 @@ pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<AgentCommand
 }
 
 pub fn help_text() -> &'static str {
-    "client-agent 用法：\n  client-agent.exe                     启动托盘常驻 UI，并拉起 monitor\n  client-agent.exe --tray              启动托盘常驻 UI，并拉起 monitor\n  client-agent.exe --run-once          执行一次并输出状态 JSON\n  client-agent.exe --monitor           常驻监控、上报状态、轮询 Server 消息和命令\n  client-agent.exe --settings-window   打开原生设置窗口\n  client-agent.exe --open-log          打开本机日志文件\n  client-agent.exe --startup-status    查看当前用户开机启动状态\n  client-agent.exe --enable-startup    写入当前用户开机启动项\n  client-agent.exe --disable-startup   删除当前用户开机启动项\n  client-agent.exe --service-install   安装 Windows Service\n  client-agent.exe --service-uninstall 卸载 Windows Service\n  client-agent.exe --service-start     启动 Windows Service\n  client-agent.exe --service-stop      停止 Windows Service\n  client-agent.exe --service-status    查看 Windows Service 状态\n  client-agent.exe --update-check      检查 GitHub 最新版本\n  client-agent.exe --update-download   下载 GitHub 最新发布包"
+    "client-agent 用法：\n  client-agent.exe                     启动托盘常驻 UI，并拉起 monitor\n  client-agent.exe --tray              启动托盘常驻 UI，并拉起 monitor\n  client-agent.exe --run-once          执行一次并输出状态 JSON\n  client-agent.exe --monitor           常驻监控、上报状态、轮询 Server 消息和命令\n  client-agent.exe --settings-window   打开原生设置窗口\n  client-agent.exe --open-log          打开本机日志文件\n  client-agent.exe --startup-status    查看当前用户开机启动状态\n  client-agent.exe --enable-startup    写入当前用户开机启动项\n  client-agent.exe --disable-startup   删除当前用户开机启动项\n  client-agent.exe --service-install   安装 Windows Service\n  client-agent.exe --service-uninstall 卸载 Windows Service\n  client-agent.exe --service-start     启动 Windows Service\n  client-agent.exe --service-stop      停止 Windows Service\n  client-agent.exe --service-status    查看 Windows Service 状态\n  client-agent.exe --update-check      检查 GitHub 最新版本\n  client-agent.exe --update-download   下载 GitHub 最新发布包\n  client-agent.exe --update-apply      下载新版并安排自替换安装"
 }
 
 #[cfg(test)]
@@ -106,10 +108,13 @@ mod tests {
             .expect("settings command must parse");
         let update = parse_args(["client-agent".to_string(), "--update-check".to_string()])
             .expect("update command must parse");
+        let update_apply = parse_args(["client-agent".to_string(), "--update-apply".to_string()])
+            .expect("update apply command must parse");
 
         assert_eq!(service, AgentCommand::ServiceStatus);
         assert_eq!(tray, AgentCommand::Tray);
         assert_eq!(settings, AgentCommand::SettingsWindow);
         assert_eq!(update, AgentCommand::UpdateCheck);
+        assert_eq!(update_apply, AgentCommand::UpdateApply);
     }
 }

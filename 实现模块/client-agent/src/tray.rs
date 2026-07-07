@@ -96,6 +96,13 @@ Add-Item '卸载 Service' {{ Run-Agent '--service-uninstall' 'Service 卸载' }}
 [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
 Add-Item '检查更新' {{ Run-Agent '--update-check' '更新检查' }}
 Add-Item '下载更新包' {{ Run-Agent '--update-download' '更新下载' }}
+Add-Item '安装更新并退出' {{
+  Stop-Monitor
+  Run-Agent '--update-apply' '安装更新'
+  $notify.Visible = $false
+  $notify.Dispose()
+  [System.Windows.Forms.Application]::Exit()
+}}
 [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
 Add-Item '退出托盘' {{
   Stop-Monitor

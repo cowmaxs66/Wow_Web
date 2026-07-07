@@ -42,6 +42,8 @@ P15 发布包中，脚本会优先调用 `bin\management-server-core.exe`、`bin
 .\tools\start-client.ps1 -SettingsWindow
 .\tools\start-client.ps1 -ServiceStatus
 .\tools\start-client.ps1 -UpdateCheck
+.\tools\start-client.ps1 -UpdateDownload
+.\tools\start-client.ps1 -UpdateApply
 ```
 
 ## 正式打包

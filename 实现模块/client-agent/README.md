@@ -8,7 +8,7 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P13 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、设置窗口、更新器和远程命令入口。
+P16 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、设置窗口、更新检查/下载/自替换和远程命令入口。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -23,7 +23,7 @@ P13 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/service_runtime.rs` | Windows Service 运行入口和管理命令 |
 | `src/tray.rs` | WinForms 托盘常驻和右键菜单 |
 | `src/settings_window.rs` | WinForms 本机设置窗口 |
-| `src/updater.rs` | GitHub Release 检查与下载 |
+| `src/updater.rs` | GitHub Release 检查、下载和自替换更新 |
 | `src/remote_command.rs` | Server 白名单命令执行分发 |
 | `src/config/` | 配置读取、错误类型、默认路径解析 |
 | `src/script/` | Lua 脚本文件加载、manifest、签名、hash 和权限校验 |
@@ -83,6 +83,7 @@ client-agent.exe --service-stop
 client-agent.exe --service-uninstall
 client-agent.exe --update-check
 client-agent.exe --update-download
+client-agent.exe --update-apply
 ```
 
 - 默认模式启动托盘常驻 UI，并由托盘拉起 monitor。
@@ -105,6 +106,7 @@ client-agent.exe --update-download
 - `--settings-window` 打开本机配置编辑窗口。
 - `--update-check` 查询 GitHub latest release。
 - `--update-download` 下载最新发布包到 `%LOCALAPPDATA%\WoWFramework\updates`。
+- `--update-apply` 检查新版、下载发布包，并安排独立 updater 在进程退出后替换安装目录。
 - Service 不打开交互窗口；托盘和设置窗口必须运行在当前用户 Session。
 
 ## 验证命令

@@ -4,12 +4,12 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P15 无控制台正式入口与安装器
-- 当前版本：v1.9.0
-- 当前目标：让根目录 `management-server.exe`、`client-agent.exe` 成为无控制台正式入口，并提供当前用户安装入口
+- 当前阶段：P16 自动更新自替换
+- 当前版本：v1.10.0
+- 当前目标：让 Client 可从 GitHub Release 下载新版包，并通过独立 updater 替换安装目录
 
 ## 第一里程碑
-已完成 P0-P15 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口和无控制台发布入口：
+已完成 P0-P16 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口和自动更新自替换：
 
 1. Client Agent 能执行 Lua bootstrap。
 2. DmBridge 能通过 Rust/Lua 调用大漠最小链路。
@@ -26,6 +26,7 @@
 13. Client Agent 可通过 Service、托盘、设置窗口、更新器和 Server 远程白名单命令进入正式运行形态。
 14. `management-server.exe` 无参数启动并打开 Web 管理页，`client-agent.exe` 无参数启动托盘常驻 UI。
 15. 发布包根目录入口为无控制台 GUI launcher，维护 core exe 放入 `bin`，并提供当前用户安装/卸载入口。
+16. Client 支持 `--update-apply`，可下载 GitHub Release 并安排独立 updater 替换安装目录。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -46,4 +47,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.9.0 发布资料已归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.9.0
+v1.10.0 发布资料正在 P16 验证与发布中。

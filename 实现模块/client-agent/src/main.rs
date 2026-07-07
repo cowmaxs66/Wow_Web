@@ -115,6 +115,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Ok(());
     }
 
+    if command == AgentCommand::UpdateApply {
+        println!("{}", updater::apply_update()?);
+        return Ok(());
+    }
+
     let config = AgentConfig::load_from_path(default_config_path())?;
 
     if command == AgentCommand::Monitor {

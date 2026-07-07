@@ -21,7 +21,8 @@ param(
     [switch]$ServiceStop,
     [switch]$ServiceStatus,
     [switch]$UpdateCheck,
-    [switch]$UpdateDownload
+    [switch]$UpdateDownload,
+    [switch]$UpdateApply
 )
 
 Set-StrictMode -Version Latest
@@ -77,6 +78,8 @@ try {
         $arguments += '--update-check'
     } elseif ($UpdateDownload) {
         $arguments += '--update-download'
+    } elseif ($UpdateApply) {
+        $arguments += '--update-apply'
     } elseif ($Notify) {
         $arguments += '--notify'
     }

@@ -208,3 +208,16 @@
 - Server core 包内烟测：通过，`bin/management-server-core.exe --no-open-browser` 临时端口 `/health` 返回 `ok`，内嵌 Web HTTP 200。
 - 安装/卸载脚本语法检查：通过，`install-current-user.ps1` 和 `uninstall-current-user.ps1` 解析错误数为 0。
 - 编译包敏感文件检查：通过，zip 内未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。
+
+## P16 自动更新自替换验证
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 39 项测试、management-server 25 项测试、shared-types 5 项测试、wow-launcher 3 项测试通过。
+- `npm run build`：通过，Web Admin 版本为 `1.10.0`。
+- `tools/package-release.ps1`：通过，生成 `WoW_Framework_v1.10.0_windows.zip`。
+- DmBridge Win32 编译：通过，生成 `target/dm-bridge/Win32/DmBridge.dll`。
+- PE 子系统检查：通过，根目录 GUI launcher 与 `bin` core 维护入口保持 P15 结构。
+- Client core 包内烟测：通过，`bin/client-agent-core.exe --run-once` 输出 `v1.10.0` 和 `local-dev-client`。
+- `--update-apply` 包内烟测：通过，当前 `v1.10.0` 高于远端 latest `v1.9.0` 时返回 `up_to_date`，不会误下载或误降级。
+- Server core 包内烟测：通过，`bin/management-server-core.exe --no-open-browser` 临时端口 `/health` 返回 `ok`，内嵌 Web HTTP 200。
+- 编译包敏感文件检查：通过，zip 内未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。

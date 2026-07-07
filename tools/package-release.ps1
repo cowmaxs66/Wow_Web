@@ -124,6 +124,7 @@ function Write-PackageReadme {
         '- `bin/management-server-core.exe --no-open-browser`',
         '- `bin/client-agent-core.exe --run-once`',
         '- `bin/client-agent-core.exe --startup-status`',
+        '- `bin/client-agent-core.exe --update-apply`',
         '',
         '## Safety boundary',
         'The package does not include dm.dll, RegDll.dll, license files, private scripts, account data, or JSONL runtime logs.'

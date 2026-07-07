@@ -47,4 +47,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.10.0 发布资料正在 P16 验证与发布中。
+v1.10.0 发布资料已归档，GitHub Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.10.0

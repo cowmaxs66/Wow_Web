@@ -4,7 +4,10 @@ mod response;
 
 pub use error::ServerReportError;
 use response::{parse_json_response, parse_status_ack};
-use shared_types::{ClientCommandList, ClientMessageList, ClientStatus, StatusAck, WsEnvelope};
+use shared_types::{
+    ClientCommandList, ClientCommandReceipt, ClientCommandReceiptRequest, ClientMessageList,
+    ClientStatus, StatusAck, WsEnvelope,
+};
 use std::io::{Read, Write};
 use std::net::{TcpStream, ToSocketAddrs};
 use std::time::Duration;
@@ -37,6 +40,18 @@ impl StatusReporter {
     pub fn fetch_commands(&self, client_id: &str) -> Result<ClientCommandList, ServerReportError> {
         let path = format!("/api/client/commands/{client_id}");
         let response = self.send_http("GET", &path, None)?;
+        parse_json_response(&response)
+    }
+
+    pub fn report_command_receipt(
+        &self,
+        client_id: &str,
+        request: &ClientCommandReceiptRequest,
+    ) -> Result<ClientCommandReceipt, ServerReportError> {
+        let body = serde_json::to_string(request)
+            .map_err(|error| ServerReportError::SerializeFailed(error.to_string()))?;
+        let path = format!("/api/client/command-receipts/{client_id}");
+        let response = self.send_http("POST", &path, Some(&body))?;
         parse_json_response(&response)
     }
 
@@ -131,6 +146,54 @@ mod tests {
         assert!(ack.accepted);
         assert_eq!(ack.client_id, "client-a");
         assert_eq!(ack.message_id, "msg-1");
+        server.join().expect("server thread must finish");
+    }
+
+    #[test]
+    fn status_reporter_posts_command_receipt() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener must bind");
+        let port = listener.local_addr().unwrap().port();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("request must arrive");
+            let mut buffer = [0u8; 4096];
+            let read_len = stream.read(&mut buffer).expect("request must read");
+            let request = String::from_utf8_lossy(&buffer[..read_len]);
+            assert!(request.contains("POST /api/client/command-receipts/client-a HTTP/1.1"));
+            assert!(request.contains(r#""command_id":"cmd-1""#));
+
+            let body = r#"{"id":"receipt-1","client_id":"client-a","timestamp_ms":1,"command_id":"cmd-1","command_type":"startup.status","success":true,"summary":"ok"}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("response must write");
+        });
+        let config = ServerConfig {
+            enabled: true,
+            host: "127.0.0.1".to_string(),
+            port,
+            status_path: "/api/client/status".to_string(),
+            connect_timeout_ms: 1000,
+        };
+
+        let receipt = StatusReporter::new(config)
+            .report_command_receipt(
+                "client-a",
+                &ClientCommandReceiptRequest {
+                    command_id: "cmd-1".to_string(),
+                    command_type: "startup.status".to_string(),
+                    success: true,
+                    summary: "ok".to_string(),
+                },
+            )
+            .expect("receipt report must succeed");
+
+        assert_eq!(receipt.id, "receipt-1");
+        assert_eq!(receipt.command_id, "cmd-1");
+        assert!(receipt.success);
         server.join().expect("server thread must finish");
     }
 }

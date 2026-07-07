@@ -271,6 +271,63 @@ impl ClientCommandList {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientCommandReceiptRequest {
+    pub command_id: String,
+    pub command_type: String,
+    pub success: bool,
+    pub summary: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientCommandReceipt {
+    pub id: String,
+    pub client_id: String,
+    pub timestamp_ms: u128,
+    pub command_id: String,
+    pub command_type: String,
+    pub success: bool,
+    pub summary: String,
+}
+
+impl ClientCommandReceipt {
+    pub fn new(client_id: impl Into<String>, request: ClientCommandReceiptRequest) -> Self {
+        let client_id = client_id.into();
+        let timestamp_ms = current_timestamp_ms();
+
+        // P24 命令回执独立于命令队列保存，避免 Client 拉取命令后 Server 无法知道执行结果。
+        // 输入：Client 执行后的 command_id、command_type、success 和摘要。
+        // 输出：可由 Web Admin 查询的审计记录。
+        // 边界：当前仍是内存记录；生产环境需要持久化、操作者身份和更强唯一 ID。
+        Self {
+            id: format!("{client_id}-receipt-{timestamp_ms}"),
+            client_id,
+            timestamp_ms,
+            command_id: request.command_id,
+            command_type: request.command_type,
+            success: request.success,
+            summary: request.summary,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientCommandReceiptList {
+    pub client_id: String,
+    pub total: usize,
+    pub items: Vec<ClientCommandReceipt>,
+}
+
+impl ClientCommandReceiptList {
+    pub fn new(client_id: impl Into<String>, items: Vec<ClientCommandReceipt>) -> Self {
+        Self {
+            client_id: client_id.into(),
+            total: items.len(),
+            items,
+        }
+    }
+}
+
 fn current_timestamp_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -347,5 +404,26 @@ mod tests {
         assert_eq!(command.command_type, "startup.status");
         assert_eq!(list.total, 1);
         assert_eq!(list.items[0], command);
+    }
+
+    #[test]
+    fn client_command_receipt_keeps_command_identity() {
+        let receipt = ClientCommandReceipt::new(
+            "client-a",
+            ClientCommandReceiptRequest {
+                command_id: "cmd-1".to_string(),
+                command_type: "startup.status".to_string(),
+                success: true,
+                summary: "ok".to_string(),
+            },
+        );
+        let list = ClientCommandReceiptList::new("client-a", vec![receipt.clone()]);
+
+        assert_eq!(receipt.client_id, "client-a");
+        assert!(receipt.id.starts_with("client-a-receipt-"));
+        assert_eq!(receipt.command_id, "cmd-1");
+        assert_eq!(receipt.command_type, "startup.status");
+        assert!(receipt.success);
+        assert_eq!(list.total, 1);
     }
 }

@@ -37,6 +37,7 @@
 | P21 Server 托盘与双端图标验证 | Server 托盘真实入口、Client 托盘图标回归、三类 zip 图标资源 | 已通过 |
 | P22 产品化控制中心与安装体验验证 | `WoW-Manager.exe` 控制中心入口、脚本语法、三类 zip 生成 | 已通过 |
 | P23 Web 使用体验与 DM/Lua 操作流验证 | Client 列表、仪表盘、设置向导、DM/Lua 面板、`script.run_bootstrap` 和三类 zip | 已通过 |
+| P24 命令执行回执验证 | Server 回执 API、Client 回执上报、Web 最近回执、三类 zip | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -337,3 +338,19 @@
   - 总包 `1e9c5e8d3355f9ad072a50ce9eb47a5f0607d91136e705bff2717d0d0769078d`
   - Server 分包 `7e5b720eeb476ded8ac112de92f1289a221cce12e1b320ab70dc109b734b9edb`
   - Client 分包 `399d325a437f029d4c315bbfd141018be5ea86f4166e586a00528a4604dd2930`
+
+## P24 命令执行回执验证
+- `cargo fmt --all --check`：通过。
+- `cargo test --workspace`：通过，Client、Server、shared-types、launcher 测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.17.0`。
+- Server 回执 API 单元测试：通过，`POST/GET /api/client/command-receipts/{client_id}` 可创建并查询回执。
+- Client reporter 单元测试：通过，`report_command_receipt` 会 POST 到正确路径并解析 Server 响应。
+- Web Admin 构建验证：通过，远程操作页新增“最近执行回执”列表，无 TypeScript 错误。
+- 浏览器烟测：通过，远程操作页显示“最近执行回执”和 `P24 浏览器烟测回执：startup.status 已执行`，控制台错误数为 0。
+- 包内闭环烟测：通过，Server 分包临时端口 `/health` 返回 `ok`，Client 分包 monitor 上报 `v1.17.0`，下发 `startup.status` 后收到成功回执。
+- 三类 zip 敏感文件检查：通过，未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、PDB、DCU、MAP。
+- 三类 zip SHA-256：
+  - 总包 `b33a9f3efc3fb4ad493006cf6f081b1af827714a7d839429d7358fb021ac8ca7`
+  - Server 分包 `7ab457c001d493041cd8135e5e9d1edc72baa8e921137b4c30f3ceb7ab64fde0`
+  - Client 分包 `d5ad14c5c92c0f1734fdb5f532a2fd3b8dba8d30b91e89af20f7440500fcd448`

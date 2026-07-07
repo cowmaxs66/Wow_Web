@@ -104,6 +104,29 @@ export interface ClientCommandList {
   items: ClientCommand[];
 }
 
+export interface ClientCommandReceiptRequest {
+  command_id: string;
+  command_type: ClientCommandType;
+  success: boolean;
+  summary: string;
+}
+
+export interface ClientCommandReceipt {
+  id: string;
+  client_id: string;
+  timestamp_ms: number;
+  command_id: string;
+  command_type: ClientCommandType;
+  success: boolean;
+  summary: string;
+}
+
+export interface ClientCommandReceiptList {
+  client_id: string;
+  total: number;
+  items: ClientCommandReceipt[];
+}
+
 export function formatTimestamp(timestampMs: number): string {
   if (!Number.isFinite(timestampMs) || timestampMs <= 0) {
     return "無資料";

@@ -1,7 +1,7 @@
 use crate::persistence::{HistoryPersistence, PersistenceError};
 use shared_types::{
-    ClientCommand, ClientCommandRequest, ClientMessage, ClientMessageRequest, ClientStatus,
-    WsEnvelope,
+    ClientCommand, ClientCommandReceipt, ClientCommandReceiptRequest, ClientCommandRequest,
+    ClientMessage, ClientMessageRequest, ClientStatus, WsEnvelope,
 };
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -12,6 +12,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub const CLIENT_HISTORY_LIMIT: usize = 50;
 pub const CLIENT_MESSAGE_LIMIT: usize = 100;
 pub const CLIENT_COMMAND_LIMIT: usize = 100;
+pub const CLIENT_COMMAND_RECEIPT_LIMIT: usize = 100;
 pub const CLIENT_ONLINE_STALE_MS: u128 = 30_000;
 
 #[derive(Debug, Clone, Default)]
@@ -20,6 +21,7 @@ pub struct ServerState {
     histories: Arc<RwLock<HashMap<String, VecDeque<WsEnvelope<ClientStatus>>>>>,
     messages: Arc<RwLock<HashMap<String, VecDeque<ClientMessage>>>>,
     commands: Arc<RwLock<HashMap<String, VecDeque<ClientCommand>>>>,
+    command_receipts: Arc<RwLock<HashMap<String, VecDeque<ClientCommandReceipt>>>>,
     persistence: Option<HistoryPersistence>,
 }
 
@@ -149,6 +151,39 @@ impl ServerState {
             .expect("client command lock poisoned")
             .get_mut(client_id)
             .map(|commands| commands.drain(..).collect())
+            .unwrap_or_default()
+    }
+
+    pub fn push_command_receipt(
+        &self,
+        client_id: &str,
+        request: ClientCommandReceiptRequest,
+    ) -> ClientCommandReceipt {
+        let receipt = ClientCommandReceipt::new(client_id.to_string(), request);
+        let mut receipts = self
+            .command_receipts
+            .write()
+            .expect("client command receipt lock poisoned");
+        let queue = receipts.entry(client_id.to_string()).or_default();
+
+        // P24 回执队列只保存最近结果，解决“命令是否执行”不可见的问题。
+        // 输入：Client 回传的执行结果。
+        // 输出：每个 Client 最近 100 条命令执行记录。
+        // 边界：当前仍是内存审计，Server 重启后丢失；生产持久化后续单独设计。
+        queue.push_back(receipt.clone());
+        while queue.len() > CLIENT_COMMAND_RECEIPT_LIMIT {
+            queue.pop_front();
+        }
+
+        receipt
+    }
+
+    pub fn list_command_receipts(&self, client_id: &str) -> Vec<ClientCommandReceipt> {
+        self.command_receipts
+            .read()
+            .expect("client command receipt lock poisoned")
+            .get(client_id)
+            .map(|receipts| receipts.iter().cloned().collect())
             .unwrap_or_default()
     }
 }
@@ -340,6 +375,29 @@ mod tests {
         assert_eq!(commands[0].payload["index"], serde_json::json!(2));
         assert!(state.take_commands("client-a").is_empty());
         assert!(state.take_commands("missing").is_empty());
+    }
+
+    #[test]
+    fn state_keeps_bounded_client_command_receipts() {
+        let state = ServerState::default();
+
+        for index in 0..(CLIENT_COMMAND_RECEIPT_LIMIT + 2) {
+            state.push_command_receipt(
+                "client-a",
+                ClientCommandReceiptRequest {
+                    command_id: format!("cmd-{index}"),
+                    command_type: "startup.status".to_string(),
+                    success: true,
+                    summary: format!("summary-{index}"),
+                },
+            );
+        }
+
+        let receipts = state.list_command_receipts("client-a");
+
+        assert_eq!(receipts.len(), CLIENT_COMMAND_RECEIPT_LIMIT);
+        assert_eq!(receipts[0].command_id, "cmd-2");
+        assert!(state.list_command_receipts("missing").is_empty());
     }
 
     fn unique_temp_dir(name: &str) -> PathBuf {

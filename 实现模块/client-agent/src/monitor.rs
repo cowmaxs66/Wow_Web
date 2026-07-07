@@ -4,7 +4,7 @@ use crate::local_log::LocalLog;
 use crate::notifier;
 use crate::server_reporter::StatusReporter;
 use crate::status::AgentStatusSnapshot;
-use shared_types::WsEnvelope;
+use shared_types::{ClientCommandReceiptRequest, WsEnvelope};
 use std::collections::HashSet;
 use std::error::Error;
 use std::sync::mpsc::{Receiver, TryRecvError};
@@ -137,25 +137,53 @@ fn poll_commands(
         }
 
         let result = crate::remote_command::execute_remote_command(&command.command_type, config);
-        match result {
+        let (success, summary) = match result {
             Ok(summary) => {
                 log.append_event(&format!(
                     "执行 Server 命令成功：id={} type={} result={}",
                     command.id, command.command_type, summary
                 ))?;
+                (true, summary)
             }
             Err(error) => {
+                let summary = error.to_string();
                 let message = format!(
                     "执行 Server 命令失败：id={} type={} error={}",
-                    command.id, command.command_type, error
+                    command.id, command.command_type, summary
                 );
                 log.append_event(&message)?;
                 let _ = notifier::notify("WoW Client 命令失败", &message);
+                (false, summary)
             }
+        };
+
+        // P24 回执是“执行后上报”的审计补充，不能反过来影响本机命令执行结果。
+        // 输入：本轮已执行的命令 ID、命令类型、成功标记和摘要。
+        // 输出：Server 内存回执队列，供 Web Admin 展示最近执行结果。
+        // 边界：Server 不可达时只写本机日志，下一轮继续正常监控。
+        let receipt = ClientCommandReceiptRequest {
+            command_id: command.id.clone(),
+            command_type: command.command_type.clone(),
+            success,
+            summary: receipt_summary(&summary),
+        };
+        match reporter.report_command_receipt(&config.client.id, &receipt) {
+            Ok(saved) => log.append_event(&format!(
+                "Server 命令回执已上报：id={} command_id={} success={}",
+                saved.id, saved.command_id, saved.success
+            ))?,
+            Err(error) => log.append_event(&format!(
+                "上报 Server 命令回执失败：command_id={} error={}",
+                command.id, error
+            ))?,
         }
     }
 
     Ok(())
+}
+
+fn receipt_summary(summary: &str) -> String {
+    summary.chars().take(2000).collect()
 }
 
 fn should_shutdown(shutdown: Option<&Receiver<()>>) -> bool {

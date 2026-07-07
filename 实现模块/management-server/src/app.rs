@@ -5,7 +5,8 @@ use axum::extract::{Path, State};
 use axum::routing::get;
 use axum::{Json, Router};
 use shared_types::{
-    ClientCommand, ClientCommandList, ClientCommandRequest, ClientMessage, ClientMessageList,
+    ClientCommand, ClientCommandList, ClientCommandReceipt, ClientCommandReceiptList,
+    ClientCommandReceiptRequest, ClientCommandRequest, ClientMessage, ClientMessageList,
     ClientMessageRequest, ClientStatus, ClientStatusHistory, HealthResponse, MessageType,
     StatusAck, WsEnvelope,
 };
@@ -26,6 +27,10 @@ pub fn build_router_with_web_dir(state: ServerState, web_dir: Option<PathBuf>) -
         .route(
             "/api/client/commands/{client_id}",
             get(list_commands).post(push_command),
+        )
+        .route(
+            "/api/client/command-receipts/{client_id}",
+            get(list_command_receipts).post(push_command_receipt),
         )
         .with_state(state)
         // P4 只用于本机 Web Admin 开发联调。生产部署前必须改为明确来源白名单。
@@ -135,6 +140,25 @@ async fn list_commands(
     ))
 }
 
+async fn push_command_receipt(
+    State(state): State<ServerState>,
+    Path(client_id): Path<String>,
+    Json(request): Json<ClientCommandReceiptRequest>,
+) -> Result<Json<ClientCommandReceipt>, ApiError> {
+    validate_command_receipt_request(&client_id, &request)?;
+    Ok(Json(state.push_command_receipt(&client_id, request)))
+}
+
+async fn list_command_receipts(
+    State(state): State<ServerState>,
+    Path(client_id): Path<String>,
+) -> Json<ClientCommandReceiptList> {
+    Json(ClientCommandReceiptList::new(
+        client_id.clone(),
+        state.list_command_receipts(&client_id),
+    ))
+}
+
 fn validate_status_envelope(envelope: &WsEnvelope<ClientStatus>) -> Result<(), ApiError> {
     if envelope.schema_version != 1 {
         return Err(ApiError::BadRequest(
@@ -211,6 +235,38 @@ fn validate_command_request(
             "unsupported command_type: {}",
             request.command_type
         )));
+    }
+
+    Ok(())
+}
+
+fn validate_command_receipt_request(
+    client_id: &str,
+    request: &ClientCommandReceiptRequest,
+) -> Result<(), ApiError> {
+    if client_id.trim().is_empty() {
+        return Err(ApiError::BadRequest(
+            "client_id must not be empty".to_string(),
+        ));
+    }
+
+    if request.command_id.trim().is_empty() {
+        return Err(ApiError::BadRequest(
+            "command_id must not be empty".to_string(),
+        ));
+    }
+
+    if !is_allowed_command(&request.command_type) {
+        return Err(ApiError::BadRequest(format!(
+            "unsupported command_type: {}",
+            request.command_type
+        )));
+    }
+
+    if request.summary.chars().count() > 2000 {
+        return Err(ApiError::BadRequest(
+            "summary must be 2000 chars or fewer".to_string(),
+        ));
     }
 
     Ok(())
@@ -665,6 +721,77 @@ mod tests {
 
         assert_eq!(commands.total, 1);
         assert_eq!(commands.items[0].command_type, "update.apply");
+    }
+
+    #[tokio::test]
+    async fn client_command_receipt_can_be_created_and_listed() {
+        let app = build_router_with_web_dir(ServerState::default(), None);
+        let body = serde_json::to_vec(&ClientCommandReceiptRequest {
+            command_id: "cmd-1".to_string(),
+            command_type: "startup.status".to_string(),
+            success: true,
+            summary: "ok".to_string(),
+        })
+        .expect("receipt request must serialize");
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/client/command-receipts/client-a")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/api/client/command-receipts/client-a")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+        let receipts: ClientCommandReceiptList =
+            serde_json::from_slice(&body).expect("receipt list must deserialize");
+
+        assert_eq!(receipts.total, 1);
+        assert_eq!(receipts.items[0].command_id, "cmd-1");
+        assert!(receipts.items[0].success);
+    }
+
+    #[tokio::test]
+    async fn unsupported_command_receipt_is_rejected() {
+        let app = build_router_with_web_dir(ServerState::default(), None);
+        let body = serde_json::to_vec(&ClientCommandReceiptRequest {
+            command_id: "cmd-1".to_string(),
+            command_type: "shell.exec".to_string(),
+            success: false,
+            summary: "blocked".to_string(),
+        })
+        .expect("receipt request must serialize");
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/client/command-receipts/client-a")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 
     #[tokio::test]

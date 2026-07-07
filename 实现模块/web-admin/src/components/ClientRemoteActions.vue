@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import {
   Bell,
+  CircleCheck,
+  CircleX,
+  Clock3,
   Download,
   FileText,
   MonitorCheck,
@@ -13,8 +16,17 @@ import {
 } from "@lucide/vue";
 import type { Component } from "vue";
 import { computed, ref, watch } from "vue";
-import { sendClientCommand, sendClientMessage } from "../api/managementServer";
-import type { ClientCommandType, ClientStatusEnvelope } from "../types/protocol";
+import {
+  fetchClientCommandReceipts,
+  sendClientCommand,
+  sendClientMessage,
+} from "../api/managementServer";
+import type {
+  ClientCommandReceipt,
+  ClientCommandType,
+  ClientStatusEnvelope,
+} from "../types/protocol";
+import { formatRelativeAge } from "../types/protocol";
 
 interface CommandAction {
   value: ClientCommandType;
@@ -43,6 +55,9 @@ const messageResult = ref("");
 const pendingCommand = ref<ClientCommandType | null>(null);
 const commandResult = ref("");
 const selectedTarget = ref("");
+const receipts = ref<ClientCommandReceipt[]>([]);
+const receiptsLoading = ref(false);
+const receiptsError = ref("");
 
 const clientOptions = computed(() =>
   props.clients.map((client) => ({
@@ -61,6 +76,14 @@ const targetClientIds = computed(() => {
 });
 
 const hasTarget = computed(() => targetClientIds.value.length > 0);
+
+const receiptClientId = computed(() => {
+  if (!selectedTarget.value || selectedTarget.value === allClientsValue) {
+    return "";
+  }
+
+  return selectedTarget.value;
+});
 
 const targetLabel = computed(() => {
   if (selectedTarget.value === allClientsValue) {
@@ -92,6 +115,14 @@ watch(
     if (!ids.includes(selectedTarget.value)) {
       selectedTarget.value = ids[0] ?? "";
     }
+  },
+  { immediate: true },
+);
+
+watch(
+  () => [receiptClientId.value, props.serverUrl] as const,
+  () => {
+    void refreshReceipts();
   },
   { immediate: true },
 );
@@ -211,6 +242,51 @@ const commandGroups: CommandGroup[] = [
   },
 ];
 
+function commandLabel(commandType: ClientCommandType): string {
+  for (const group of commandGroups) {
+    const action = group.actions.find((item) => item.value === commandType);
+    if (action) {
+      return action.label;
+    }
+  }
+
+  return commandType;
+}
+
+async function refreshReceipts(): Promise<void> {
+  const clientId = receiptClientId.value;
+  if (!clientId) {
+    receipts.value = [];
+    receiptsError.value = "";
+    receiptsLoading.value = false;
+    return;
+  }
+
+  receiptsLoading.value = true;
+  receiptsError.value = "";
+
+  try {
+    // P24 回执读取只针对当前单台 Client，避免批量目标时把不同机器结果混合展示。
+    // 输入：当前 Server URL 和选中的 Client ID。
+    // 输出：按最近优先排列的命令执行结果。
+    // 边界：回执仍是 Server 内存数据，刷新或重启 Server 后可能为空。
+    const list = await fetchClientCommandReceipts(props.serverUrl, clientId);
+    if (receiptClientId.value === clientId) {
+      receipts.value = [...list.items].reverse();
+    }
+  } catch (error) {
+    if (receiptClientId.value === clientId) {
+      receipts.value = [];
+      receiptsError.value =
+        error instanceof Error ? error.message : `读取回执失败：${String(error)}`;
+    }
+  } finally {
+    if (receiptClientId.value === clientId) {
+      receiptsLoading.value = false;
+    }
+  }
+}
+
 async function submitMessage(): Promise<void> {
   const targets = targetClientIds.value;
   if (!targets.length || !messageTitle.value.trim() || !messageBody.value.trim()) {
@@ -254,8 +330,8 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
   try {
     // Server 只负责写入白名单命令队列，Client monitor 轮询到后在本机执行。
     // 输入：Web 中明确选择的 Client ID 列表与命令类型。
-    // 输出：对应客户端命令队列记录，便于和客户端日志对照。
-    // 边界：当前阶段没有强确认回执，执行结果以客户端本机日志为准。
+    // 输出：对应客户端命令队列记录，后续由 Client 上报执行回执。
+    // 边界：命令写入不等于同步执行完成，回执会在下一轮 Client monitor 后出现。
     const commands = await Promise.all(
       targets.map((clientId) =>
         sendClientCommand(props.serverUrl, clientId, {
@@ -268,6 +344,9 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
       commands.length === 1
         ? `已写入命令队列：${commands[0].id}`
         : `已写入 ${commands.length} 个客户端命令队列`;
+    if (targets.length === 1) {
+      await refreshReceipts();
+    }
   } catch (error) {
     commandResult.value =
       error instanceof Error ? error.message : `下发失败：${String(error)}`;
@@ -361,6 +440,55 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
         </div>
         <p v-if="commandResult" class="command-result">{{ commandResult }}</p>
       </div>
+
+      <div v-if="receiptClientId" class="receipt-section">
+        <div class="receipt-heading">
+          <div>
+            <h3>最近执行回执</h3>
+            <p>当前 Client：{{ receiptClientId }}</p>
+          </div>
+          <button
+            type="button"
+            :disabled="receiptsLoading"
+            @click="refreshReceipts"
+          >
+            <RefreshCw :size="15" />
+            <span>{{ receiptsLoading ? "读取中" : "刷新" }}</span>
+          </button>
+        </div>
+
+        <p v-if="receiptsError" class="receipt-error">{{ receiptsError }}</p>
+        <div v-else-if="receiptsLoading" class="receipt-empty">
+          正在读取最近执行结果
+        </div>
+        <div v-else-if="!receipts.length" class="receipt-empty">
+          暂无回执。下发命令后，等待 Client monitor 下一轮轮询。
+        </div>
+        <ul v-else class="receipt-list">
+          <li
+            v-for="receipt in receipts"
+            :key="receipt.id"
+            :data-success="receipt.success ? 'true' : 'false'"
+          >
+            <component
+              :is="receipt.success ? CircleCheck : CircleX"
+              :size="17"
+              :stroke-width="2.2"
+            />
+            <div>
+              <div class="receipt-meta">
+                <strong>{{ commandLabel(receipt.command_type) }}</strong>
+                <span>
+                  <Clock3 :size="13" />
+                  {{ formatRelativeAge(receipt.timestamp_ms) }}
+                </span>
+              </div>
+              <p>{{ receipt.summary }}</p>
+              <small>{{ receipt.command_id }}</small>
+            </div>
+          </li>
+        </ul>
+      </div>
     </div>
   </section>
 </template>
@@ -406,7 +534,8 @@ header p,
 .remote-stack,
 .message-form,
 .command-section,
-.command-group {
+.command-group,
+.receipt-section {
   display: grid;
   gap: var(--space-3);
 }
@@ -479,13 +608,15 @@ h4 {
 }
 
 .message-form button,
-.command-grid button {
+.command-grid button,
+.receipt-heading button {
   border-radius: var(--radius-control);
   font-size: 13px;
   font-weight: 760;
 }
 
-.message-form button {
+.message-form button,
+.receipt-heading button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -497,7 +628,8 @@ h4 {
 }
 
 .message-form button:disabled,
-.command-grid button:disabled {
+.command-grid button:disabled,
+.receipt-heading button:disabled {
   opacity: 0.6;
 }
 
@@ -561,5 +693,97 @@ h4 {
 .empty-detail strong {
   color: var(--color-text);
   font-size: 14px;
+}
+
+.receipt-section {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-3);
+}
+
+.receipt-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.receipt-heading p {
+  margin-top: var(--space-1);
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.receipt-heading button {
+  border: 1px solid var(--color-border-strong);
+  background: #ffffff;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.receipt-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receipt-list li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  padding: var(--space-3);
+}
+
+.receipt-list li[data-success="true"] > svg {
+  color: #067647;
+}
+
+.receipt-list li[data-success="false"] > svg {
+  color: #b42318;
+}
+
+.receipt-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.receipt-meta strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.receipt-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.receipt-list p {
+  margin-top: var(--space-1);
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.receipt-list small,
+.receipt-empty,
+.receipt-error {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.receipt-error {
+  color: #b42318;
 }
 </style>

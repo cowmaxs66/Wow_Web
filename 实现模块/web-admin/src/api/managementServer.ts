@@ -1,5 +1,6 @@
 import type {
   ClientCommand,
+  ClientCommandReceiptList,
   ClientCommandRequest,
   ClientMessage,
   ClientMessageRequest,
@@ -69,6 +70,16 @@ export async function sendClientCommand(
     baseUrl,
     `/api/client/commands/${encodeURIComponent(clientId)}`,
     request,
+  );
+}
+
+export async function fetchClientCommandReceipts(
+  baseUrl: string,
+  clientId: string,
+): Promise<ClientCommandReceiptList> {
+  return readJson<ClientCommandReceiptList>(
+    baseUrl,
+    `/api/client/command-receipts/${encodeURIComponent(clientId)}`,
   );
 }
 

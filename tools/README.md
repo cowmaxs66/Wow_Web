@@ -1,6 +1,6 @@
 # 工具脚本说明
 
-本目录保存 P10-P15 一键运行、维护和打包脚本。P15 起普通用户优先直接双击根目录 GUI 入口，核心维护 exe 放入发布包 `bin` 目录。
+本目录保存一键运行、维护和打包脚本。P15 起普通用户优先直接双击根目录 GUI 入口，核心维护 exe 放入发布包 `bin` 目录；P18 起打包脚本同时输出总包、Server 分包和 Client 分包。
 
 ## 脚本清单
 | 文件 | 职责 |
@@ -11,7 +11,7 @@
 | `start-server.cmd` | Windows 双击入口，调用 `start-server.ps1` |
 | `start-client.cmd` | Windows 双击入口，调用 `start-client.ps1` |
 | `run-local.cmd` | Windows 双击入口，启动 Server 后启动 Client 托盘 |
-| `package-release.ps1` | 生成正式发布包，根目录放 GUI launcher，`bin` 放 core exe |
+| `package-release.ps1` | 生成正式发布包，输出总包、Server 分包和 Client 分包 |
 | `installer/` | 当前用户安装和卸载脚本 |
 
 ## 源码目录使用
@@ -54,6 +54,8 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\package-release.ps1
 说明：
 - 打包脚本需要处理中文源码目录，使用 PowerShell 7 (`pwsh`) 执行。
 - 发布包内安装/卸载脚本为 ASCII，可由 Windows PowerShell 直接运行。
+- 输出文件包括 `WoW_Framework_vX.Y.Z_windows.zip`、`WoW_Server_vX.Y.Z_windows.zip`、`WoW_Client_vX.Y.Z_windows.zip`。
+- `WoW_Framework` 总包继续用于当前用户安装器和自动更新兼容。
 
 ## DM 说明
 - x64 Client 只能用于基础 Client、Server、Web Admin 和 JSONL 持久化。

@@ -14,6 +14,10 @@ if ([string]::IsNullOrWhiteSpace($Version)) {
 $packageBase = Join-Path $root 'target\release-package'
 $packageRoot = Join-Path $packageBase "WoW_Framework_${Version}_windows"
 $zipPath = Join-Path $packageBase "WoW_Framework_${Version}_windows.zip"
+$serverPackageRoot = Join-Path $packageBase "WoW_Server_${Version}_windows"
+$serverZipPath = Join-Path $packageBase "WoW_Server_${Version}_windows.zip"
+$clientPackageRoot = Join-Path $packageBase "WoW_Client_${Version}_windows"
+$clientZipPath = Join-Path $packageBase "WoW_Client_${Version}_windows.zip"
 
 function Assert-InWorkspace {
     param([string]$Path)
@@ -27,16 +31,26 @@ function Assert-InWorkspace {
 
 function Reset-PackageDirectory {
     Assert-InWorkspace $packageBase
-    if (Test-Path -LiteralPath $packageRoot) {
-        Assert-InWorkspace $packageRoot
-        Remove-Item -LiteralPath $packageRoot -Recurse -Force
-    }
-    if (Test-Path -LiteralPath $zipPath) {
-        Assert-InWorkspace $zipPath
-        Remove-Item -LiteralPath $zipPath -Force
+    $paths = @(
+        $packageRoot,
+        $zipPath,
+        $serverPackageRoot,
+        $serverZipPath,
+        $clientPackageRoot,
+        $clientZipPath
+    )
+    foreach ($path in $paths) {
+        if (Test-Path -LiteralPath $path) {
+            Assert-InWorkspace $path
+            Remove-Item -LiteralPath $path -Recurse -Force
+        }
     }
     New-Item -ItemType Directory -Force -Path $packageRoot | Out-Null
     New-Item -ItemType Directory -Force -Path (Join-Path $packageRoot 'bin') | Out-Null
+    New-Item -ItemType Directory -Force -Path $serverPackageRoot | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $serverPackageRoot 'bin') | Out-Null
+    New-Item -ItemType Directory -Force -Path $clientPackageRoot | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $clientPackageRoot 'bin') | Out-Null
 }
 
 function Copy-RequiredFile {
@@ -110,7 +124,85 @@ function Copy-PackagePayload {
     Copy-RequiredFile (Join-Path $root 'VERSION') (Join-Path $packageRoot 'VERSION')
 }
 
+function Copy-ToolFiles {
+    param(
+        [string]$Destination,
+        [string[]]$Names
+    )
+
+    New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+    foreach ($name in $Names) {
+        Copy-RequiredFile (Join-Path $root "tools\$name") (Join-Path $Destination $name)
+    }
+}
+
+function Copy-SplitPackagePayload {
+    $releaseDir = Join-Path $root 'target\release'
+    $x86Dir = Join-Path $root 'target\i686-pc-windows-msvc\release'
+
+    # Server 分包只包含服务端运行所需文件，避免把 Client 配置和脚本带入服务端目录。
+    Copy-RequiredFile (Join-Path $releaseDir 'wow-server-launcher.exe') (Join-Path $serverPackageRoot 'management-server.exe')
+    Copy-RequiredFile (Join-Path $releaseDir 'management-server.exe') (Join-Path $serverPackageRoot 'bin\management-server-core.exe')
+    Copy-ToolFiles (Join-Path $serverPackageRoot 'tools') @('common.ps1', 'start-server.ps1')
+    Copy-RequiredFile (Join-Path $root 'README.md') (Join-Path $serverPackageRoot 'README.md')
+    Copy-RequiredFile (Join-Path $root 'VERSION') (Join-Path $serverPackageRoot 'VERSION')
+
+    # Client 分包保留 x86 默认入口、x64 core、DmBridge、配置、脚本和 Client 工具脚本。
+    Copy-RequiredFile (Join-Path $releaseDir 'wow-client-launcher.exe') (Join-Path $clientPackageRoot 'client-agent.exe')
+    Copy-RequiredFile (Join-Path $x86Dir 'client-agent.exe') (Join-Path $clientPackageRoot 'bin\client-agent-core.exe')
+    Copy-RequiredFile (Join-Path $releaseDir 'client-agent.exe') (Join-Path $clientPackageRoot 'bin\client-agent-x64-core.exe')
+    Copy-RequiredFile (Join-Path $root 'target\dm-bridge\Win32\DmBridge.dll') (Join-Path $clientPackageRoot 'dm-bridge\Win32\DmBridge.dll')
+    Copy-RequiredFile (Join-Path $root '实现模块\client-agent\config\client-agent.toml') (Join-Path $clientPackageRoot 'config\client-agent.toml')
+    Copy-RequiredDirectory (Join-Path $root '实现模块\client-agent\scripts') (Join-Path $clientPackageRoot 'scripts')
+    Copy-ToolFiles (Join-Path $clientPackageRoot 'tools') @('common.ps1', 'start-client.ps1')
+    Copy-RequiredFile (Join-Path $root 'README.md') (Join-Path $clientPackageRoot 'README.md')
+    Copy-RequiredFile (Join-Path $root 'VERSION') (Join-Path $clientPackageRoot 'VERSION')
+}
+
 function Write-PackageReadme {
+    param(
+        [string]$TargetRoot,
+        [ValidateSet('full', 'server', 'client')]
+        [string]$PackageKind
+    )
+
+    if ($PackageKind -eq 'server') {
+        $content = @(
+            "# WoW Server $Version",
+            '',
+            '## Main entry point',
+            '- Double-click `management-server.exe` to start Server and open Web Admin.',
+            '',
+            '## Maintenance entry point',
+            '- `bin/management-server-core.exe --no-open-browser`',
+            '',
+            '## Package boundary',
+            'This server package does not include Client config, scripts, DmBridge, dm.dll, RegDll.dll, private data, or runtime logs.'
+        ) -join [Environment]::NewLine
+        Set-Content -LiteralPath (Join-Path $TargetRoot 'RUNNING.md') -Value $content -Encoding UTF8
+        return
+    }
+
+    if ($PackageKind -eq 'client') {
+        $content = @(
+            "# WoW Client $Version",
+            '',
+            '## Main entry point',
+            '- Double-click `client-agent.exe` to start Client tray UI.',
+            '',
+            '## Maintenance entry points',
+            '- `bin/client-agent-core.exe --run-once`',
+            '- `bin/client-agent-core.exe --monitor`',
+            '- `bin/client-agent-core.exe --service-status`',
+            '- `bin/client-agent-core.exe --update-apply`',
+            '',
+            '## Package boundary',
+            'This client package does not include Management Server binaries, dm.dll, RegDll.dll, license files, private scripts, account data, or JSONL runtime logs.'
+        ) -join [Environment]::NewLine
+        Set-Content -LiteralPath (Join-Path $TargetRoot 'RUNNING.md') -Value $content -Encoding UTF8
+        return
+    }
+
     $content = @(
         "# WoW Framework $Version",
         '',
@@ -129,17 +221,29 @@ function Write-PackageReadme {
         '## Safety boundary',
         'The package does not include dm.dll, RegDll.dll, license files, private scripts, account data, or JSONL runtime logs.'
     ) -join [Environment]::NewLine
-    Set-Content -LiteralPath (Join-Path $packageRoot 'RUNNING.md') -Value $content -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $TargetRoot 'RUNNING.md') -Value $content -Encoding UTF8
 }
 
 function Test-PackageSafety {
+    param([string]$TargetRoot)
+
     $blocked = @('dm.dll', 'RegDll.dll', '*.chm', '*.chw', '*.jsonl', '*.pdb', '*.dcu', '*.map', '*.tds', '.env')
     foreach ($pattern in $blocked) {
-        $found = Get-ChildItem -LiteralPath $packageRoot -Recurse -Force -Filter $pattern -ErrorAction SilentlyContinue
+        $found = Get-ChildItem -LiteralPath $TargetRoot -Recurse -Force -Filter $pattern -ErrorAction SilentlyContinue
         if ($found) {
             throw "Blocked file found in release package: $($found[0].FullName)"
         }
     }
+}
+
+function New-ZipPackage {
+    param(
+        [string]$TargetRoot,
+        [string]$TargetZip
+    )
+
+    Compress-Archive -Path (Join-Path $TargetRoot '*') -DestinationPath $TargetZip -Force
+    (Get-FileHash -Algorithm SHA256 -Path $TargetZip).Hash.ToLowerInvariant()
 }
 
 Reset-PackageDirectory
@@ -147,14 +251,26 @@ if (-not $SkipBuild) {
     Invoke-Build
 }
 Copy-PackagePayload
-Write-PackageReadme
-Test-PackageSafety
+Copy-SplitPackagePayload
+Write-PackageReadme $packageRoot 'full'
+Write-PackageReadme $serverPackageRoot 'server'
+Write-PackageReadme $clientPackageRoot 'client'
+Test-PackageSafety $packageRoot
+Test-PackageSafety $serverPackageRoot
+Test-PackageSafety $clientPackageRoot
 
-Compress-Archive -Path (Join-Path $packageRoot '*') -DestinationPath $zipPath -Force
-$hash = (Get-FileHash -Algorithm SHA256 -Path $zipPath).Hash.ToLowerInvariant()
+$hash = New-ZipPackage $packageRoot $zipPath
+$serverHash = New-ZipPackage $serverPackageRoot $serverZipPath
+$clientHash = New-ZipPackage $clientPackageRoot $clientZipPath
 [pscustomobject]@{
     Version = $Version
     PackageRoot = $packageRoot
     ZipPath = $zipPath
     Sha256 = $hash
+    ServerPackageRoot = $serverPackageRoot
+    ServerZipPath = $serverZipPath
+    ServerSha256 = $serverHash
+    ClientPackageRoot = $clientPackageRoot
+    ClientZipPath = $clientZipPath
+    ClientSha256 = $clientHash
 } | ConvertTo-Json -Compress

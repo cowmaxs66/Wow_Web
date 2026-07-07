@@ -63,10 +63,12 @@ async fn report_status(
 ) -> Result<Json<StatusAck>, ApiError> {
     validate_status_envelope(&envelope)?;
 
+    let previous = state.get_status(&envelope.client_id);
     let ack = StatusAck::accepted(envelope.client_id.clone(), envelope.message_id.clone());
     state
-        .save_status(envelope)
+        .save_status(envelope.clone())
         .map_err(|error| ApiError::Internal(format!("failed to save client status: {error}")))?;
+    log_status_report(&envelope, previous.as_ref());
     Ok(Json(ack))
 }
 
@@ -231,6 +233,50 @@ fn is_allowed_command(command_type: &str) -> bool {
             | "log.open"
             | "tray.open"
     )
+}
+
+fn log_status_report(
+    envelope: &WsEnvelope<ClientStatus>,
+    previous: Option<&WsEnvelope<ClientStatus>>,
+) {
+    let event = status_report_event(envelope, previous);
+    let script = envelope.data.current_script.as_deref().unwrap_or("无");
+
+    tracing::info!(
+        client_id = %envelope.client_id,
+        online = envelope.data.online,
+        script = %script,
+        release_version = %envelope.data.runtime.release_version,
+        message_id = %envelope.message_id,
+        "{}", event
+    );
+    // 控制台直接输出一行人能读的上线日志，避免只依赖 tracing 后用户看不到 Client 上线。
+    // 输入：Client 最新状态信封和事件分类。
+    // 输出：Server core 控制台中的上线/刷新/离线记录。
+    // 边界：GUI launcher 没有控制台；需要查看这行日志时运行 bin/management-server-core.exe。
+    println!(
+        "[server] {event}: client_id={} online={} script={} release_version={} message_id={}",
+        envelope.client_id,
+        envelope.data.online,
+        script,
+        envelope.data.runtime.release_version,
+        envelope.message_id
+    );
+}
+
+fn status_report_event(
+    envelope: &WsEnvelope<ClientStatus>,
+    previous: Option<&WsEnvelope<ClientStatus>>,
+) -> &'static str {
+    if !envelope.data.online {
+        return "Client 离线";
+    }
+
+    if previous.is_none_or(|status| !status.data.online) {
+        return "Client 上线";
+    }
+
+    "Client 状态刷新"
 }
 
 #[cfg(test)]
@@ -618,6 +664,33 @@ mod tests {
 
         assert_eq!(commands.total, 1);
         assert_eq!(commands.items[0].command_type, "update.apply");
+    }
+
+    #[test]
+    fn status_report_event_marks_first_online() {
+        let current = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
+
+        assert_eq!(status_report_event(&current, None), "Client 上线");
+    }
+
+    #[test]
+    fn status_report_event_marks_refresh() {
+        let previous = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
+        let current = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
+
+        assert_eq!(
+            status_report_event(&current, Some(&previous)),
+            "Client 状态刷新"
+        );
+    }
+
+    #[test]
+    fn status_report_event_marks_offline() {
+        let mut status = ClientStatus::new("client-a");
+        status.online = false;
+        let current = WsEnvelope::status("client-a", status);
+
+        assert_eq!(status_report_event(&current, None), "Client 离线");
     }
 
     fn unique_temp_dir(name: &str) -> PathBuf {

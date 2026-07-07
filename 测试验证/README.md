@@ -31,6 +31,7 @@
 | P15 无控制台正式入口与安装器验证 | GUI launcher、当前用户安装器、打包和包内烟测 | 已通过 |
 | P16 自动更新自替换验证 | `update-apply`、打包脚本、包内烟测和敏感文件检查 | 已通过 |
 | P17 服务端远程更新与导航补全验证 | Server `update.apply`、在线收敛、Web 导航功能页 | 已通过 |
+| P18 服务端上线日志与分包验证 | Server 控制台上线日志、Server/Client 分包、三类 zip 安全检查 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -244,3 +245,16 @@
 - Server core 包内烟测：通过，临时端口 `/health` 返回 `ok`。
 - Server 远程命令包内烟测：通过，`update.apply` 可写入并取出命令队列。
 - 编译包敏感文件检查：通过，zip 内未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。
+
+## P18 服务端上线日志与分包验证
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，client-agent 39 项测试、management-server 31 项测试、shared-types 5 项测试、wow-launcher 3 项测试通过。
+- `npm run build`：通过，Web Admin 版本为 `1.12.0`。
+- `tools/package-release.ps1`：通过，生成三类 zip。
+- 总包：`WoW_Framework_v1.12.0_windows.zip`，SHA-256 为 `af2825aeb58c1663d97d17ac1c34a53cf29bd939bcbb9fc3f57e4868fb2db95f`，大小 `4289058` bytes。
+- Server 分包：`WoW_Server_v1.12.0_windows.zip`，SHA-256 为 `f1db6f39930afdb4e2c27e465ce56ed381a3d8864e197a057ac91b2ac389a843`，大小 `1393362` bytes。
+- Client 分包：`WoW_Client_v1.12.0_windows.zip`，SHA-256 为 `16ddb34939c7404c5d38874db859c2785cb80eb7b70517248068a26aff09abe1`，大小 `2652867` bytes。
+- Server 控制台上线日志烟测：通过，Server 分包 core 收到 Client 分包上报后输出 `[server] Client 上线: client_id=local-dev-client online=true script=bootstrap release_version=v1.12.0 ...`。
+- 分包边界检查：通过，Server 分包不含 `client-agent.exe`、Client core、Client config、scripts、DmBridge；Client 分包不含 `management-server.exe` 和 Server core。
+- 三类 zip 敏感文件检查：通过，均未包含 `dm.dll`、`RegDll.dll`、CHM/CHW、授权文件、`.env`、JSONL、PDB、DCU、MAP 和私有资料。

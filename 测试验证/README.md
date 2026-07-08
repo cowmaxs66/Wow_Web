@@ -590,3 +590,15 @@
   - 总包 `5fdf01203fd979b6bb7f64b7377d43d1f58fd3a3e51e4f515083ed85e1cb0edb`
   - Server 分包 `b14bafffe7747f8457b6cc026c945beb6b57968da463edfc7d6eb4b0300b0742`
   - Client 分包 `6b55d00cd19534cd7733279f69c96aa420df7361b0afc07ddebbeff7b98ed897`
+
+## P38-H01 桌面控制台直启热修复验证
+- `cargo fmt --all --check`：通过。
+- `cargo test -p desktop-console`：通过，9 项测试全部通过。
+- `cargo test --workspace`：通过，Client 55 项、desktop-console 9 项、Server 53 项、shared-types 11 项、launcher 3 项测试全部通过。
+- `npm run build`：通过，Web Admin 版本为 `1.30.1`。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- 直启 smoke：通过，未提前启动 Server 时，从 Server 分包启动 `WoW-Desktop.exe --url http://127.0.0.1:18134`，可自动启动同包内 Server core，`/health` 返回 HTTP 200。
+- 三类 zip SHA-256：
+  - 总包 `ceaa6d95f968c4928e4d849103584d98f6fc7a19ebada1a3cfbebfd1a339e4f8`
+  - Server 分包 `16ded0bc0527faf9b3f0545d5521cb38d8a9313734c025b1277fa82ddacf2cb0`
+  - Client 分包 `d8f39ad3a9fdb91ba39dfd1b2cd2d5808d1e63f585fc92d5d42cd8f6507e40d8`

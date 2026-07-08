@@ -4,9 +4,9 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P38 原生桌面控制台入口
-- 当前版本：v1.30.0
-- 当前目标：v1.30.0 已完成独立桌面控制台壳、托盘启动链路修正、三类 Windows 包和验证；GitHub Release 待补发
+- 当前阶段：P38-H01 桌面控制台直启热修复
+- 当前版本：v1.30.1
+- 当前目标：v1.30.1 已修复 `WoW-Desktop.exe` 直启时 Server 未启动导致连接拒绝的问题；GitHub Release 待补发
 
 ## 第一里程碑
 已完成 P0-P38 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化、DM smoke 脚本入口、多机器通讯优化、Server 查询审计能力、DM 正式包能力、Lua 热推送能力、DM 绑定诊断能力、脚本故障恢复能力、脚本日志回执能力、桌面控制台体验优化和原生桌面控制台入口：
@@ -48,7 +48,7 @@
 35. Client 日志窗口可正确显示中文和本地时间；Lua DM 首次调用自动初始化；脚本失败时仍能拉取远程停止命令；Web Admin 远程操作页集中展示目标、脚本推送、命令和回执。
 36. Web Admin 远程操作页可直接套用 Client 设置模板；Lua `return` 和 `log()` 会进入命令回执，并按脚本输出、脚本日志分类展示。
 37. Web Admin 桌面控制台已按用户任务流优化，新增日志导航、顶部当前目标卡片、总览 Client 列表优先和移动端两行导航。
-38. Server 托盘默认启动发布包内 `WoW-Desktop.exe` 独立桌面控制台，不再调用 `msedge.exe --app`；浏览器入口只保留为排错备用。
+38. Server 托盘默认启动发布包内 `WoW-Desktop.exe` 独立桌面控制台，不再调用 `msedge.exe --app`；浏览器入口只保留为排错备用。`WoW-Desktop.exe` 直接双击时会自动启动同包内 Server core。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -69,4 +69,4 @@ npm run build
 ```
 
 ## 发布归档
-当前 v1.30.0 本地测试包生成在 `target/release-package/` 后即可测试；远端 GitHub Release 待补发。上一版 v1.29.0：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.29.0
+当前 v1.30.1 本地测试包生成在 `target/release-package/` 后即可测试；远端 GitHub Release 待补发。上一版 v1.30.0：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.30.0

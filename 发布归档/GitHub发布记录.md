@@ -22,16 +22,17 @@
 
 | 项目 | 内容 |
 |------|------|
-| 状态 | v1.30.0 本地包已生成，待 GitHub Release 上传工具 |
-| 版本 | `v1.30.0` |
-| Git tag | `v1.30.0` 已创建，随本次备份推送 |
-| 指向提交 | `dafa39eb59b7d99f3209cd4f4f62afd5243109bc` |
-| 编译包 | `WoW_Framework_v1.30.0_windows.zip`、`WoW_Server_v1.30.0_windows.zip`、`WoW_Client_v1.30.0_windows.zip` |
-| 编译包 SHA-256 | 总包 `5fdf01203fd979b6bb7f64b7377d43d1f58fd3a3e51e4f515083ed85e1cb0edb`；Server `b14bafffe7747f8457b6cc026c945beb6b57968da463edfc7d6eb4b0300b0742`；Client `6b55d00cd19534cd7733279f69c96aa420df7361b0afc07ddebbeff7b98ed897` |
+| 状态 | v1.30.1 本地包已生成，待 GitHub Release 上传工具 |
+| 版本 | `v1.30.1` |
+| Git tag | 待提交后创建并推送 |
+| 指向提交 | 待提交后回写 |
+| 编译包 | `WoW_Framework_v1.30.1_windows.zip`、`WoW_Server_v1.30.1_windows.zip`、`WoW_Client_v1.30.1_windows.zip` |
+| 编译包 SHA-256 | 总包 `ceaa6d95f968c4928e4d849103584d98f6fc7a19ebada1a3cfbebfd1a339e4f8`；Server `16ded0bc0527faf9b3f0545d5521cb38d8a9313734c025b1277fa82ddacf2cb0`；Client `d8f39ad3a9fdb91ba39dfd1b2cd2d5808d1e63f585fc92d5d42cd8f6507e40d8` |
 
 ## 待补发历史本地包
 | 版本 | Git tag | 指向提交 | 状态 |
 |------|---------|----------|------|
+| v1.30.0 | `v1.30.0` 已推送 | `dafa39eb59b7d99f3209cd4f4f62afd5243109bc` | 本地包已生成，GitHub Release 待补发 |
 | v1.29.0 | `v1.29.0` 已推送 | `fec93521a0c6399e59465f3d0ff13655c5e30d5e` | 本地包已生成，GitHub Release 待补发 |
 
 ## 安全边界
@@ -82,4 +83,4 @@
 | v1.2.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.2.0 | `41ca63e6b29658fd572d83c4378b6980dbf0bd36` | 已完成 |
 
 ## 下一步建议
-优先测试本地 v1.30.0 三类包；补齐 GitHub Release 上传工具后发布远端 Release。实机通过后建议补 DM 注册/授权检测向导、Client 批量操作结果筛选和发布包签名验证。
+优先测试本地 v1.30.1 三类包；补齐 GitHub Release 上传工具后发布远端 Release。实机通过后建议补 DM 注册/授权检测向导、Client 批量操作结果筛选和发布包签名验证。

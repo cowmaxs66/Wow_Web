@@ -6,7 +6,7 @@
 ## 当前阶段
 - 当前阶段：P35 客户端体验与脚本故障恢复
 - 当前版本：v1.27.0
-- 当前目标：v1.27.0 已完成日志乱码修复、DM 自动初始化、Lua 故障后仍同步命令、Web 控制台优化和本地三类编译包，等待 GitHub Release
+- 当前目标：v1.27.0 已完成日志乱码修复、DM 自动初始化、Lua 故障后仍同步命令、Web 控制台优化、三类编译包和 GitHub Release
 
 ## 第一里程碑
 已完成 P0-P35 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化、DM smoke 脚本入口、多机器通讯优化、Server 查询审计能力、DM 正式包能力、Lua 热推送能力、DM 绑定诊断能力和脚本故障恢复能力：
@@ -66,4 +66,4 @@ npm run build
 ```
 
 ## 发布归档
-当前 v1.27.0 本地正式测试包已生成，等待 GitHub Release；上一版 v1.26.0 已发布：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.26.0
+当前 v1.27.0 正式测试包已发布：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.27.0

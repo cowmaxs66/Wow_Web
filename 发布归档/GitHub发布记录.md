@@ -24,6 +24,8 @@
 |------|------|
 | 状态 | v1.29.0 本地包已生成，待 GitHub Release 上传工具 |
 | 版本 | `v1.29.0` |
+| Git tag | `v1.29.0` 已推送 |
+| 指向提交 | `fec93521a0c6399e59465f3d0ff13655c5e30d5e` |
 | 编译包 | `WoW_Framework_v1.29.0_windows.zip`、`WoW_Server_v1.29.0_windows.zip`、`WoW_Client_v1.29.0_windows.zip` |
 | 编译包 SHA-256 | 总包 `e9595b7b823fcec5790a4adc574d9339df851eb8db98b0c1b39f9a93d789f5f9`；Server `52557f87c26a9378db8a8619c99d1c0c68147e3461d4e21d01072f39c622c746`；Client `551c801f05bdaa38d80bc25ae3c32fc0efc4cc85ab5e08159e61a7e3fc47953d` |
 

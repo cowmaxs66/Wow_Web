@@ -6,7 +6,7 @@
 ## 当前阶段
 - 当前阶段：P31 Client 分页过滤与审计持久化
 - 当前版本：v1.23.0
-- 当前目标：v1.23.0 已完成 Server 端 Client 分页/分组/标签查询、操作审计 JSONL 持久化和 Web 审计面板；GitHub Release 尚未创建
+- 当前目标：v1.23.0 已完成 Server 端 Client 分页/分组/标签查询、操作审计 JSONL 持久化、Web 审计面板和 GitHub Release
 
 ## 第一里程碑
 已完成 P0-P31 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化、DM smoke 脚本入口、多机器通讯优化和 Server 查询审计能力：
@@ -62,4 +62,4 @@ npm run build
 ```
 
 ## 发布归档
-v1.23.0 本地编译包与发布说明已归档到 `target/release-package/` 和 `发布归档/v1.23.0-发布说明.md`；当前远端 Release 仍为：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.19.0
+v1.23.0 本地编译包与发布说明已归档到 `target/release-package/` 和 `发布归档/v1.23.0-发布说明.md`；当前远端 Release：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.23.0

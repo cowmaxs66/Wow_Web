@@ -55,6 +55,7 @@ $server = $null
 $logDir = Join-Path $workDir 'logs'
 $stdoutLog = Join-Path $logDir 'management-server.log'
 $stderrLog = Join-Path $logDir 'management-server-error.log'
+$desktopConsole = Join-Path $workDir 'WoW-Desktop.exe'
 
 function Show-Balloon($title, $text) {
   $notify.BalloonTipTitle = $title
@@ -107,19 +108,13 @@ function Restart-Server {
 }
 
 function Open-DesktopConsole {
-  $programFilesX86 = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
-  $programFiles = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
-  $edgeCandidates = @(
-    (Join-Path $programFilesX86 'Microsoft\Edge\Application\msedge.exe'),
-    (Join-Path $programFiles 'Microsoft\Edge\Application\msedge.exe')
-  )
-  $edge = $edgeCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
-  if ($edge) {
-    Start-Process -FilePath $edge -ArgumentList @("--app=$serverUrl", '--window-size=1280,860')
+  if (Test-Path -LiteralPath $desktopConsole) {
+    Start-Process -FilePath $desktopConsole -ArgumentList @('--url', $serverUrl) -WorkingDirectory $workDir
     return
   }
 
-  Start-Process -FilePath $serverUrl
+  Show-Balloon 'WoW Server' '未找到 WoW-Desktop.exe，已改用浏览器打开'
+  Open-Web
 }
 
 function Open-Web {
@@ -253,5 +248,22 @@ mod tests {
             server_url_from_bind("127.0.0.1:18100"),
             Some("http://127.0.0.1:18100".to_string())
         );
+    }
+
+    #[test]
+    fn tray_script_prefers_packaged_desktop_console() {
+        let script_path = write_tray_script(
+            "C:\\wow\\bin\\management-server-core.exe",
+            "C:\\wow",
+            "C:\\wow\\assets\\icons\\server.ico",
+            "http://127.0.0.1:18080",
+        )
+        .expect("tray script should be generated");
+        let script = fs::read_to_string(script_path).expect("tray script should be readable");
+
+        assert!(script.contains("WoW-Desktop.exe"));
+        assert!(script.contains("Start-Process -FilePath $desktopConsole"));
+        assert!(!script.contains("msedge.exe"));
+        assert!(!script.contains("--app=$serverUrl"));
     }
 }

@@ -1,6 +1,7 @@
 [workspace]
 resolver = "3"
 members = [
+    "实现模块/desktop-console",
     "实现模块/shared-types",
     "实现模块/client-agent",
     "实现模块/management-server",
@@ -28,3 +29,5 @@ tower-http = { version = "0.6", features = ["cors", "fs"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 windows-service = "0.8.1"
+wry = "0.55.1"
+tao = "0.35"

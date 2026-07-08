@@ -232,6 +232,7 @@ function Set-PackageExeIcons {
 
     if ($PackageKind -in @('full', 'server')) {
         Set-ExeIcon (Join-Path $TargetRoot 'management-server.exe') $serverIcon
+        Set-ExeIcon (Join-Path $TargetRoot 'WoW-Desktop.exe') $serverIcon
         Set-ExeIcon (Join-Path $TargetRoot 'bin\management-server-core.exe') $serverIcon
     }
 
@@ -274,6 +275,7 @@ function Copy-PackagePayload {
     # Root keeps GUI launchers only. Maintenance console binaries stay in bin.
     Copy-RequiredFile (Join-Path $releaseDir 'wow-server-launcher.exe') (Join-Path $packageRoot 'management-server.exe')
     Copy-RequiredFile (Join-Path $releaseDir 'wow-client-launcher.exe') (Join-Path $packageRoot 'client-agent.exe')
+    Copy-RequiredFile (Join-Path $releaseDir 'desktop-console.exe') (Join-Path $packageRoot 'WoW-Desktop.exe')
     Copy-RequiredFile (Join-Path $releaseDir 'wow-user-provision.exe') (Join-Path $packageRoot 'WoW-Manager.exe')
     Copy-RequiredFile (Join-Path $releaseDir 'wow-user-remove.exe') (Join-Path $packageRoot 'WoW-Remove.exe')
 
@@ -360,6 +362,7 @@ function Copy-SplitPackagePayload {
 
     # Server 分包只包含服务端运行所需文件，避免把 Client 配置和脚本带入服务端目录。
     Copy-RequiredFile (Join-Path $releaseDir 'wow-server-launcher.exe') (Join-Path $serverPackageRoot 'management-server.exe')
+    Copy-RequiredFile (Join-Path $releaseDir 'desktop-console.exe') (Join-Path $serverPackageRoot 'WoW-Desktop.exe')
     Copy-RequiredFile (Join-Path $releaseDir 'management-server.exe') (Join-Path $serverPackageRoot 'bin\management-server-core.exe')
     Copy-ToolFiles (Join-Path $serverPackageRoot 'tools') @('common.ps1', 'start-server.ps1')
     Copy-IconAssets $serverPackageRoot @('server.ico', 'lua_ai_server_icon.svg')
@@ -392,7 +395,8 @@ function Write-PackageReadme {
             "# WoW Server $Version",
             '',
             '## Main entry point',
-            '- Double-click `management-server.exe` to start the Server tray UI. The tray starts Server and opens the desktop console.',
+            '- Double-click `management-server.exe` to start the Server tray UI. The tray starts Server and opens `WoW-Desktop.exe`.',
+            '- `WoW-Desktop.exe` is the desktop console shell. It uses Windows WebView2 Runtime internally, but does not start Edge browser or `msedge.exe --app`.',
             '',
             '## Maintenance entry point',
             '- `bin/management-server-core.exe --no-open-browser`',
@@ -430,10 +434,11 @@ function Write-PackageReadme {
     }
 
     $content = @(
-        "# WoW Framework $Version",
-        '',
+            "# WoW Framework $Version",
+            '',
             '## Main entry points',
-            '- Double-click `management-server.exe` to start the Server tray UI. The tray starts Server and opens the desktop console.',
+            '- Double-click `management-server.exe` to start the Server tray UI. The tray starts Server and opens `WoW-Desktop.exe`.',
+            '- Double-click `WoW-Desktop.exe` to open the desktop console directly after Server is running. It uses Windows WebView2 Runtime internally, but does not start Edge browser or `msedge.exe --app`.',
             '- Double-click `client-agent.exe` to start Client tray UI.',
             '- Double-click `WoW-Manager.exe` to open the local control center. It can install/repair, start Server, start Client, open logs, and uninstall.',
             '- Double-click `WoW-Remove.exe` to remove current-user program files and shortcuts.',
@@ -450,6 +455,31 @@ function Write-PackageReadme {
         'The package includes DmBridge.dll, dm.dll, and RegDll.dll under dm-bridge/Win32 for Client DM mode. It does not include license files, private scripts, account data, or JSONL runtime logs.'
     ) -join [Environment]::NewLine
     Set-Content -LiteralPath (Join-Path $TargetRoot 'RUNNING.md') -Value $content -Encoding UTF8
+}
+
+function Get-RelativePathCompat {
+    param(
+        [string]$BasePath,
+        [string]$FullPath
+    )
+
+    # Windows PowerShell 5.1 使用的 .NET Framework 没有 System.IO.Path.GetRelativePath。
+    # 输入：发布包根目录和待检查文件完整路径。
+    # 输出：相对于发布包根目录的路径，用于包安全边界检查。
+    # 边界：如果文件不在发布包内，直接抛错，避免误把外部文件判定为合法。
+    $baseFull = [System.IO.Path]::GetFullPath($BasePath).TrimEnd('\', '/')
+    $targetFull = [System.IO.Path]::GetFullPath($FullPath)
+    $baseWithSeparator = $baseFull + [System.IO.Path]::DirectorySeparatorChar
+
+    if ($targetFull.StartsWith($baseWithSeparator, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $targetFull.Substring($baseWithSeparator.Length)
+    }
+
+    if ([string]::Equals($targetFull, $baseFull, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return ''
+    }
+
+    throw "Path is outside package root: $targetFull"
 }
 
 function Test-PackageSafety {
@@ -475,7 +505,7 @@ function Test-PackageSafety {
     }
 
     foreach ($file in $dmFiles) {
-        $relative = [System.IO.Path]::GetRelativePath($TargetRoot, $file.FullName)
+        $relative = Get-RelativePathCompat $TargetRoot $file.FullName
         $allowedRelative = Join-Path 'dm-bridge\Win32' $file.Name
         if ($relative -ne $allowedRelative) {
             throw "DM runtime file is outside approved Client runtime directory: $($file.FullName)"

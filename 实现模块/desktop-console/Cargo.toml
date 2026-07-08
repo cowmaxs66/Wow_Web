@@ -1,0 +1,9 @@
+[package]
+name = "desktop-console"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+tao.workspace = true
+wry.workspace = true

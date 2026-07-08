@@ -573,3 +573,20 @@
   - 总包 `e9595b7b823fcec5790a4adc574d9339df851eb8db98b0c1b39f9a93d789f5f9`
   - Server 分包 `52557f87c26a9378db8a8619c99d1c0c68147e3461d4e21d01072f39c622c746`
   - Client 分包 `551c801f05bdaa38d80bc25ae3c32fc0efc4cc85ab5e08159e61a7e3fc47953d`
+
+## P38 原生桌面控制台入口验证
+- `cargo fmt --all --check`：通过。
+- `cargo test -p desktop-console`：通过，URL 解析和默认绑定转换测试全部通过。
+- `cargo test -p management-server tray`：通过，托盘脚本包含 `WoW-Desktop.exe`，不包含 `msedge.exe` 和 `--app=$serverUrl`。
+- `cargo test --workspace`：通过，Client 55 项、desktop-console 4 项、Server 53 项、shared-types 11 项、launcher 3 项测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.30.0`。
+- `tools/package-release.ps1`：修复 Windows PowerShell 5.1 `Path.GetRelativePath` 兼容问题后通过，三类 Windows zip 已生成。
+- 包内容检查：完整包和 Server 分包根目录包含 `WoW-Desktop.exe`，Client 分包不包含 Server 桌面控制台。
+- Server 分包 smoke：通过，`/health` 返回 HTTP 200，内嵌首页返回 HTTP 200。
+- Client 分包 smoke：通过，`bin/client-agent-core.exe --run-once` 输出 `release_version = v1.30.0`、`arch = x86`、Lua 启用、脚本安全关闭和 `dm.access`。
+- 桌面壳错误日志 smoke：通过，非法 URL 会写入 `logs/desktop-console-error.log`。
+- 三类 zip SHA-256：
+  - 总包 `5fdf01203fd979b6bb7f64b7377d43d1f58fd3a3e51e4f515083ed85e1cb0edb`
+  - Server 分包 `b14bafffe7747f8457b6cc026c945beb6b57968da463edfc7d6eb4b0300b0742`
+  - Client 分包 `6b55d00cd19534cd7733279f69c96aa420df7361b0afc07ddebbeff7b98ed897`

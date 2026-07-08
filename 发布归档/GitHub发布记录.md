@@ -24,8 +24,8 @@
 |------|------|
 | 状态 | v1.31.1 本地包已生成，待 GitHub Release 上传工具 |
 | 版本 | `v1.31.1` |
-| Git tag | `v1.31.1` 待创建 |
-| 指向提交 | 待本次提交后回写 |
+| Git tag | `v1.31.1` 已创建，随本次备份推送 |
+| 指向提交 | `eb2dd9b9f492561c4e90f759d1ff8349b9b43b30` |
 | 编译包 | `WoW_Framework_v1.31.1_windows.zip`、`WoW_Server_v1.31.1_windows.zip`、`WoW_Client_v1.31.1_windows.zip` |
 | 编译包 SHA-256 | 总包 `520a28e0d3ecd85eedeff4669fb477735eb8c4962f023edeeab6acb44016513a`；Server `7dd2b0900e2c4d1437765d21196547a26f155ba8f27f146a2c637d515232d5b1`；Client `efaf93cbb15e76d76e78556afff06a2cbcab0196df0f75b6dc545b8012c267aa` |
 

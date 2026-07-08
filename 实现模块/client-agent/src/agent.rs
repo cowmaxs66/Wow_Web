@@ -1,5 +1,5 @@
 use crate::config::AgentConfig;
-use crate::lua_host::LuaHost;
+use crate::lua_host::{LuaHost, ScriptRunReport};
 use crate::script::ScriptSource;
 use crate::server_reporter::StatusReporter;
 use crate::status::AgentStatusSnapshot;
@@ -10,6 +10,7 @@ use std::error::Error;
 pub struct AgentRunResult {
     pub envelope: WsEnvelope<ClientStatus>,
     pub ack: Option<StatusAck>,
+    pub script_report: Option<ScriptRunReport>,
 }
 
 pub fn run_once(config: &AgentConfig) -> Result<AgentRunResult, Box<dyn Error>> {
@@ -33,7 +34,11 @@ fn run_once_with_report(
             None
         };
 
-        return Ok(AgentRunResult { envelope, ack });
+        return Ok(AgentRunResult {
+            envelope,
+            ack,
+            script_report: None,
+        });
     }
 
     let script = ScriptSource::load_bootstrap(config)?;
@@ -43,6 +48,7 @@ fn run_once_with_report(
         script = %report.script_name,
         path = %report.script_path.display(),
         result = %report.result,
+        log_count = report.log_messages.len(),
         "Lua bootstrap 执行完成"
     );
 
@@ -61,5 +67,9 @@ fn run_once_with_report(
         None
     };
 
-    Ok(AgentRunResult { envelope, ack })
+    Ok(AgentRunResult {
+        envelope,
+        ack,
+        script_report: Some(report),
+    })
 }

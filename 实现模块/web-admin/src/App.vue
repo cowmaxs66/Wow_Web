@@ -304,6 +304,12 @@ function changeClientPage(page: number): void {
           :clients="clients"
           :server-url="serverUrl"
         />
+        <ClientConfigApplyPanel
+          :status="selectedStatus"
+          :clients="clients"
+          :server-url="serverUrl"
+          @refresh="refreshDashboard"
+        />
         <AuditPanel :server-url="serverUrl" />
         <ClientTable
           v-bind="clientTableProps"

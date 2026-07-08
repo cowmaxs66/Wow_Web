@@ -5,8 +5,15 @@ use crate::script::{
     ScriptSource,
 };
 use mlua::{Error as LuaError, HookTriggers, Lua, VmState};
+use std::cell::RefCell;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicI64, Ordering};
+
+const MAX_SCRIPT_LOG_MESSAGES: usize = 80;
+const MAX_RECEIPT_RESULT_CHARS: usize = 600;
+const MAX_RECEIPT_LOG_CHARS: usize = 360;
+const MAX_RECEIPT_LOG_MESSAGES: usize = 20;
 
 /// Lua 宿主只负责注册白名单 API 并执行脚本，不负责读取配置或网络通信。
 pub struct LuaHost {
@@ -18,7 +25,33 @@ pub struct ScriptRunReport {
     pub script_name: String,
     pub script_path: PathBuf,
     pub result: String,
+    pub log_messages: Vec<String>,
     pub instruction_limit: u32,
+}
+
+impl ScriptRunReport {
+    pub fn receipt_lines(&self) -> Vec<String> {
+        let mut lines = vec![format!(
+            "[script.result] {}",
+            compact_for_receipt(&self.result, MAX_RECEIPT_RESULT_CHARS)
+        )];
+
+        for message in self.log_messages.iter().take(MAX_RECEIPT_LOG_MESSAGES) {
+            lines.push(format!(
+                "[script.log] {}",
+                compact_for_receipt(message, MAX_RECEIPT_LOG_CHARS)
+            ));
+        }
+
+        if self.log_messages.len() > MAX_RECEIPT_LOG_MESSAGES {
+            lines.push(format!(
+                "[script.log.omitted] 已省略 {} 条脚本日志",
+                self.log_messages.len() - MAX_RECEIPT_LOG_MESSAGES
+            ));
+        }
+
+        lines
+    }
 }
 
 impl LuaHost {
@@ -28,12 +61,13 @@ impl LuaHost {
 
     pub fn run_script(&self, script: &ScriptSource) -> mlua::Result<ScriptRunReport> {
         let lua = Lua::new();
+        let log_messages = Rc::new(RefCell::new(Vec::new()));
         self.install_instruction_limit(&lua)?;
-        self.install_host_api(&lua, &script.permissions)?;
+        self.install_host_api(&lua, &script.permissions, log_messages.clone())?;
 
         // Lua 文件由 script 模块读取，宿主只执行已确认的脚本文本。
         // 输入：ScriptSource 中的脚本名称、路径和内容。
-        // 输出：脚本返回的字符串结果和执行元信息。
+        // 输出：脚本返回的字符串结果、脚本 log() 输出和执行元信息。
         // 边界：脚本返回非字符串、运行时错误或超过指令上限都会失败。
         let result = lua.load(&script.content).set_name(&script.name).eval()?;
 
@@ -41,11 +75,17 @@ impl LuaHost {
             script_name: script.name.clone(),
             script_path: script.path.clone(),
             result,
+            log_messages: log_messages.borrow().clone(),
             instruction_limit: self.config.lua.instruction_limit,
         })
     }
 
-    fn install_host_api(&self, lua: &Lua, permissions: &ScriptPermissions) -> mlua::Result<()> {
+    fn install_host_api(
+        &self,
+        lua: &Lua,
+        permissions: &ScriptPermissions,
+        log_messages: Rc<RefCell<Vec<String>>>,
+    ) -> mlua::Result<()> {
         let globals = lua.globals();
 
         // P5 只按 manifest 权限注册 Lua API，未授权能力在脚本内不可见。
@@ -55,6 +95,12 @@ impl LuaHost {
         if permissions.allows(PERMISSION_HOST_LOG) {
             let client_id_for_log = self.config.client.id.clone();
             let log = lua.create_function(move |_, message: String| {
+                {
+                    let mut messages = log_messages.borrow_mut();
+                    if messages.len() < MAX_SCRIPT_LOG_MESSAGES {
+                        messages.push(message.clone());
+                    }
+                }
                 tracing::info!(target: "lua", client_id = %client_id_for_log, message = %message);
                 Ok(())
             })?;
@@ -97,6 +143,25 @@ impl LuaHost {
             },
         )
     }
+}
+
+fn compact_for_receipt(value: &str, max_chars: usize) -> String {
+    let normalized = value
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .split('\n')
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join(" | ");
+
+    if normalized.chars().count() <= max_chars {
+        return normalized;
+    }
+
+    let mut compact = normalized.chars().take(max_chars).collect::<String>();
+    compact.push_str("...");
+    compact
 }
 
 #[cfg(test)]
@@ -177,6 +242,14 @@ mod tests {
 
         assert_eq!(report.result, "lua-test-client");
         assert_eq!(report.script_name, "test-bootstrap");
+        assert_eq!(report.log_messages, vec!["bootstrap started".to_string()]);
+        assert_eq!(
+            report.receipt_lines(),
+            vec![
+                "[script.result] lua-test-client".to_string(),
+                "[script.log] bootstrap started".to_string()
+            ]
+        );
     }
 
     #[test]

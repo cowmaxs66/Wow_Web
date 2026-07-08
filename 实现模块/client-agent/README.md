@@ -8,7 +8,7 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P35 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、日志查看窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter、合并同步接口、默认 DM 权限、Lua 热推送、Lua 启停状态命令、Lua 常用接口扩展、日志窗口 UTF-8 修复、DM 自动初始化和 Lua 故障后继续同步 Server 命令。
+P36 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、日志查看窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter、合并同步接口、默认 DM 权限、Lua 热推送、Lua 启停状态命令、Lua 常用接口扩展、日志窗口 UTF-8 修复、DM 自动初始化、Lua 故障后继续同步 Server 命令和 Lua `return/log()` 命令回执。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -30,7 +30,7 @@ P35 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/script_deploy.rs` | Server 热推送 Lua 脚本包写入、可选启用和可选立即执行 |
 | `src/config/` | 配置读取、错误类型、默认路径解析和远程配置补丁写回 |
 | `src/script/` | Lua 脚本文件加载、manifest、签名、hash 和权限校验 |
-| `src/lua_host.rs` | Lua 宿主和按权限注册的白名单 API |
+| `src/lua_host.rs` | Lua 宿主、按权限注册的白名单 API，并采集脚本 `log()` 进入执行报告 |
 | `src/lua_dm.rs` | Lua `dm` 高层 API 注册，支持首次 DM 调用自动初始化，不暴露 C ABI 指针 |
 | `src/dm_bridge/` | Rust `libloading` DmBridge 安全封装 |
 | `src/server_reporter.rs` | Management Server HTTP 状态上报、合并同步、消息/命令/回执请求入口 |
@@ -164,6 +164,12 @@ client-agent.exe --update-apply
 - 需要 COM 的 `dm` 函数首次调用时自动初始化 DmBridge，普通 Lua 脚本不需要先写 `dm.init("")`。
 - Lua 脚本执行失败时，monitor 仍会上报在线状态并同步 Server 消息、命令和回执，避免错误脚本阻断远程 `script.stop` 或热替换。
 - `script.stop` 关闭后续轮次 Lua 执行；已经进入执行中的单次 Lua 调用不会被强制杀掉。
+
+## P36 脚本日志回执
+- Lua `log()` 仍写入本机 tracing 日志，同时会进入本次 `ScriptRunReport.log_messages`。
+- 远程 `script.deploy_bundle` 勾选立即执行时，命令回执会包含 `[script.result]` 和 `[script.log]` 行。
+- 远程 `script.run_bootstrap`、`script.start` 也会把脚本 `return` 和 `log()` 附加到回执。
+- 回执日志会截断条数和长度，长日志仍通过本机日志窗口查看。
 
 ## P29/P30 多机器与通讯效率
 - `[client]` 新增 `display_name`、`group` 和 `tags`，用于 Web 多机器管理，不替代稳定 `client.id`。

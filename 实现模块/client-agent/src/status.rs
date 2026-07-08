@@ -191,6 +191,7 @@ mod tests {
             script_name: "bootstrap".to_string(),
             script_path: PathBuf::from("scripts/bootstrap.lua"),
             result: "ok".to_string(),
+            log_messages: Vec::new(),
             instruction_limit: 10_000,
         };
 

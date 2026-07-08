@@ -44,6 +44,12 @@ interface CommandGroup {
   actions: CommandAction[];
 }
 
+interface ReceiptSummaryLine {
+  kind: "summary" | "result" | "log" | "omitted" | "error";
+  label: string;
+  text: string;
+}
+
 const props = defineProps<{
   status: ClientStatusEnvelope | null;
   clients: ClientStatusEnvelope[];
@@ -308,6 +314,61 @@ function commandLabel(commandType: ClientCommandType): string {
   return commandType;
 }
 
+function receiptSummaryLines(receipt: ClientCommandReceipt): ReceiptSummaryLine[] {
+  const lines: ReceiptSummaryLine[] = [];
+  for (const rawLine of receipt.summary.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) {
+      continue;
+    }
+
+    const parsed = parseReceiptLine(line);
+    lines.push(parsed ?? {
+      kind: receipt.success ? "summary" : "error",
+      label: receipt.success ? "执行摘要" : "错误摘要",
+      text: line,
+    });
+  }
+
+  if (!lines.length) {
+    lines.push({
+      kind: receipt.success ? "summary" : "error",
+      label: receipt.success ? "执行摘要" : "错误摘要",
+      text: receipt.summary || "无摘要",
+    });
+  }
+
+  return lines;
+}
+
+function parseReceiptLine(line: string): ReceiptSummaryLine | null {
+  if (line.startsWith("[script.result]")) {
+    return {
+      kind: "result",
+      label: "脚本输出",
+      text: line.replace("[script.result]", "").trim() || "无返回值",
+    };
+  }
+
+  if (line.startsWith("[script.log]")) {
+    return {
+      kind: "log",
+      label: "脚本日志",
+      text: line.replace("[script.log]", "").trim() || "空日志",
+    };
+  }
+
+  if (line.startsWith("[script.log.omitted]")) {
+    return {
+      kind: "omitted",
+      label: "日志省略",
+      text: line.replace("[script.log.omitted]", "").trim(),
+    };
+  }
+
+  return null;
+}
+
 async function refreshReceipts(): Promise<void> {
   const clientId = receiptClientId.value;
   if (!clientId) {
@@ -566,7 +627,16 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
                     {{ formatRelativeAge(receipt.timestamp_ms) }}
                   </span>
                 </div>
-                <p>{{ receipt.summary }}</p>
+                <div class="receipt-summary">
+                  <p
+                    v-for="line in receiptSummaryLines(receipt)"
+                    :key="`${receipt.id}-${line.kind}-${line.text}`"
+                    :data-kind="line.kind"
+                  >
+                    <strong>{{ line.label }}</strong>
+                    <span>{{ line.text }}</span>
+                  </p>
+                </div>
                 <small>{{ receipt.command_id }}</small>
               </div>
             </li>
@@ -1010,12 +1080,54 @@ h4 {
   white-space: nowrap;
 }
 
-.receipt-list p {
+.receipt-summary {
+  display: grid;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+
+.receipt-summary p {
+  display: grid;
+  gap: 2px;
   margin-top: var(--space-1);
+  border-left: 3px solid var(--color-border-strong);
+  border-radius: 4px;
+  background: #f8fafc;
   color: var(--color-text);
+  padding: 6px var(--space-2);
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.receipt-summary p[data-kind="result"] {
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.receipt-summary p[data-kind="log"] {
+  border-left-color: #067647;
+  background: #ecfdf3;
+}
+
+.receipt-summary p[data-kind="error"] {
+  border-left-color: #b42318;
+  background: #fff1f0;
+}
+
+.receipt-summary p[data-kind="omitted"] {
+  border-left-color: #a15c07;
+  background: #fff7ed;
+}
+
+.receipt-summary strong,
+.receipt-summary span {
+  display: block;
+}
+
+.receipt-summary strong {
+  color: var(--color-muted);
+  font-size: 11px;
 }
 
 .receipt-list small,

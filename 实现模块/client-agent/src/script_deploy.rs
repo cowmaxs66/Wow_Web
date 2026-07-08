@@ -70,6 +70,10 @@ fn deploy_script_bundle_to_root(
                 .as_deref()
                 .unwrap_or("无");
             summary.push_str(&format!("；已执行 script={script}"));
+            if let Some(report) = result.script_report.as_ref() {
+                summary.push('\n');
+                summary.push_str(&report.receipt_lines().join("\n"));
+            }
         }
     } else if bundle.run_after_deploy {
         return Err(ScriptDeployError::Validate(

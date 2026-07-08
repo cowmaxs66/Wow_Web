@@ -536,3 +536,21 @@
   - 总包 `36340771a29e1c87cbfe75ae9ee583e9d27aa8c0818f86a36a7e84b15a9c8443`
   - Server 分包 `7e1bad71d16400214c08ac88145cdea5a2b477a6db5cff26aca6090921a0e39b`
   - Client 分包 `105c6c7d840136b91d019ba94b9a6cdbfdeb4aa8b36a13a28b8ac595fc47aaa4`
+
+## P36 远程设置与脚本日志回执验证
+- `cargo fmt --all --check`：通过。
+- `cargo test --workspace`：通过，Client 55 个测试、Server 52 个测试、shared-types 11 个测试、launcher 3 个测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.28.0`。
+- Lua 宿主测试：通过，`log()` 会进入 `ScriptRunReport.log_messages`，并能生成 `[script.result]` / `[script.log]` 回执行。
+- Web Admin 构建验证：通过，远程操作页 Client 设置面板、快捷模板和回执分类展示均通过 TypeScript 检查。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Client 分包 smoke：通过，`bin/client-agent-core.exe --run-once` 输出 `release_version = v1.28.0`、`arch = x86`、Lua 启用、脚本安全关闭和 `dm.access`。
+- Server 分包 health smoke：通过，临时端口 `/health` 返回 `{"status":"ok"}`。
+- Server 分包命令队列 smoke：通过，`script.deploy_bundle` 可写入并取出命令队列。
+- 包内容检查：通过，总包和 Client 分包包含 `DmBridge.dll`、`dm.dll`、`RegDll.dll`；Server 分包不包含这三个 DM 文件。
+- EXE 图标 smoke：通过，Client/Server 根 EXE 和 core EXE 均可读取 32x32 关联图标。
+- 三类 zip SHA-256：
+  - 总包 `d5f29ffd5a95a0fbec4a4b024b0b263fa7fa9c2adbc0cd58a168e1bd51a7a3f6`
+  - Server 分包 `45cb5bcac244d7ac10f3d0c2a27f77178463f862467d85577157e0b0a6a949ef`
+  - Client 分包 `feb507de5754dfb0330408e773f483308bfb6a8583401ca05843f07b9898121a`

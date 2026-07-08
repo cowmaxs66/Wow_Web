@@ -40,6 +40,35 @@ const dmBridgePath = ref("dm-bridge/Win32/DmBridge.dll");
 const submitting = ref(false);
 const resultMessage = ref("");
 
+type ConfigPreset = "dm-internal" | "status-only" | "lua-off" | "safe-manifest";
+
+const configPresets: Array<{
+  value: ConfigPreset;
+  label: string;
+  note: string;
+}> = [
+  {
+    value: "dm-internal",
+    label: "DM 內部測試",
+    note: "Lua 开启，安全门关闭，dm.access 开启。",
+  },
+  {
+    value: "status-only",
+    label: "僅狀態上報",
+    note: "关闭 Lua 和 DM 权限，只保留在线状态。",
+  },
+  {
+    value: "lua-off",
+    label: "停止 Lua",
+    note: "只关闭 Lua，Client 继续在线接收命令。",
+  },
+  {
+    value: "safe-manifest",
+    label: "安全校驗模式",
+    note: "开启 manifest 校验，适合脚本稳定后使用。",
+  },
+];
+
 const clientOptions = computed(() =>
   props.clients.map((client) => ({
     id: client.client_id,
@@ -189,6 +218,47 @@ function buildPatch(): ClientConfigPatch {
   };
 }
 
+function applyPreset(preset: ConfigPreset): void {
+  if (preset === "dm-internal") {
+    luaEnabled.value = true;
+    bootstrapName.value = bootstrapName.value.trim() || "bootstrap";
+    bootstrapPath.value = bootstrapPath.value.trim() || "scripts/bootstrap.lua";
+    securityEnabled.value = false;
+    allowHostLog.value = true;
+    allowConfigRead.value = true;
+    allowDmAccess.value = true;
+    dmBridgePath.value = "dm-bridge/Win32/DmBridge.dll";
+    serverEnabled.value = true;
+    resultMessage.value = "已填入 DM 内部测试模板，确认后点击“套用到 Client”。";
+    return;
+  }
+
+  if (preset === "status-only") {
+    luaEnabled.value = false;
+    securityEnabled.value = false;
+    allowHostLog.value = true;
+    allowConfigRead.value = true;
+    allowDmAccess.value = false;
+    serverEnabled.value = true;
+    resultMessage.value = "已填入仅状态上报模板，确认后点击“套用到 Client”。";
+    return;
+  }
+
+  if (preset === "lua-off") {
+    luaEnabled.value = false;
+    resultMessage.value = "已填入停止 Lua 设置，确认后点击“套用到 Client”。";
+    return;
+  }
+
+  securityEnabled.value = true;
+  luaEnabled.value = true;
+  manifestPath.value = manifestPath.value.trim() || "scripts/bootstrap.manifest.json";
+  allowHostLog.value = true;
+  allowConfigRead.value = true;
+  allowDmAccess.value = true;
+  resultMessage.value = "已填入 manifest 安全校验模板，确认公钥后点击“套用到 Client”。";
+}
+
 function normalizedTags(): string[] {
   const seen = new Set<string>();
   const tags: string[] = [];
@@ -249,7 +319,7 @@ async function submitConfig(): Promise<void> {
       <ServerCog :size="18" />
       <div>
         <h2>Client 遠程設定</h2>
-        <p>Server 下發白名單配置，Client 寫回本機 TOML，下一輪 monitor 套用。</p>
+        <p>在控制面板直接下發 Client 設定，Client 寫回本機 TOML，下一輪 monitor 套用。</p>
       </div>
     </header>
 
@@ -271,6 +341,24 @@ async function submitConfig(): Promise<void> {
           </option>
         </select>
       </label>
+
+      <div class="preset-panel">
+        <div>
+          <strong>快捷設定模板</strong>
+          <span>模板只填入表單，不會立即下發；確認後再套用到 Client。</span>
+        </div>
+        <div class="preset-grid">
+          <button
+            v-for="preset in configPresets"
+            :key="preset.value"
+            type="button"
+            @click="applyPreset(preset.value)"
+          >
+            <strong>{{ preset.label }}</strong>
+            <span>{{ preset.note }}</span>
+          </button>
+        </div>
+      </div>
 
       <fieldset>
         <legend>
@@ -444,6 +532,53 @@ header p,
   gap: var(--space-4);
 }
 
+.preset-panel {
+  display: grid;
+  gap: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: #f8fafc;
+  padding: var(--space-3);
+}
+
+.preset-panel > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.preset-panel strong {
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.preset-panel span {
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.preset-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.preset-grid button {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--color-text);
+  padding: var(--space-3);
+  text-align: left;
+}
+
+.preset-grid button:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
 fieldset {
   display: grid;
   gap: var(--space-3);
@@ -562,6 +697,16 @@ select {
 
 @media (max-width: 980px) {
   .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .preset-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .preset-grid {
     grid-template-columns: 1fr;
   }
 }

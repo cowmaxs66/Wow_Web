@@ -111,10 +111,12 @@ fn run_bootstrap_command(config: &AgentConfig) -> Result<String, RemoteCommandEr
         .current_script
         .as_deref()
         .unwrap_or("无");
-    Ok(format!(
+    let mut summary = format!(
         "Lua bootstrap 已执行：client_id={} script={} message_id={}",
         result.envelope.client_id, script, result.envelope.message_id
-    ))
+    );
+    append_script_receipt_lines(&mut summary, result.script_report.as_ref());
+    Ok(summary)
 }
 
 fn start_lua_command() -> Result<String, RemoteCommandError> {
@@ -128,10 +130,12 @@ fn start_lua_command() -> Result<String, RemoteCommandError> {
         .current_script
         .as_deref()
         .unwrap_or("无");
-    Ok(format!(
+    let mut summary = format!(
         "Lua 已启动并执行一次：script={} message_id={}",
         script, result.envelope.message_id
-    ))
+    );
+    append_script_receipt_lines(&mut summary, result.script_report.as_ref());
+    Ok(summary)
 }
 
 fn stop_lua_command() -> Result<String, RemoteCommandError> {
@@ -161,6 +165,20 @@ fn lua_status_summary(config: &AgentConfig) -> String {
         config.script_security.enabled,
         config.script_security.allowed_permissions.join(",")
     )
+}
+
+fn append_script_receipt_lines(
+    summary: &mut String,
+    report: Option<&crate::lua_host::ScriptRunReport>,
+) {
+    if let Some(report) = report {
+        // 命令回执仍保持 summary 字符串协议，使用行前缀让 Web Admin 可分类展示。
+        // 输入：Lua 执行报告中的 return 结果和 log() 消息。
+        // 输出：追加到命令回执 summary 的结构化文本行。
+        // 边界：具体截断策略由 ScriptRunReport::receipt_lines 负责，避免回执过大。
+        summary.push('\n');
+        summary.push_str(&report.receipt_lines().join("\n"));
+    }
 }
 
 #[cfg(test)]

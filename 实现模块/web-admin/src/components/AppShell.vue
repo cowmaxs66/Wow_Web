@@ -65,14 +65,18 @@ const navItems: NavItem[] = [
 <style scoped>
 .shell {
   display: grid;
-  grid-template-columns: 244px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   min-height: 100vh;
 }
 
 .sidebar {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
   border-right: 1px solid var(--color-border);
   background: #ffffff;
-  padding: var(--space-5) var(--space-4);
+  padding: var(--space-4);
 }
 
 .brand {
@@ -136,7 +140,8 @@ nav {
 
 .workspace {
   min-width: 0;
-  padding: var(--space-6);
+  width: min(100%, 1760px);
+  padding: var(--space-5) var(--space-6) var(--space-6);
 }
 
 @media (max-width: 880px) {
@@ -148,6 +153,7 @@ nav {
     position: sticky;
     top: 0;
     z-index: 10;
+    height: auto;
     display: grid;
     gap: var(--space-3);
     padding: var(--space-3) var(--space-4);

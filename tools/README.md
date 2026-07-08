@@ -64,6 +64,7 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\package-release.ps1
 - 输出文件包括 `WoW_Framework_vX.Y.Z_windows.zip`、`WoW_Server_vX.Y.Z_windows.zip`、`WoW_Client_vX.Y.Z_windows.zip`。
 - `WoW_Framework` 总包继续用于当前用户安装器和自动更新兼容。
 - P32 起，总包和 Client 分包会从 `I:\图色\工具\大漠\7.2149` 复制 `dm.dll`、`RegDll.dll` 到 `dm-bridge/Win32/`；其他机器打包时可用 `WOW_DM_RUNTIME_DIR` 指定来源目录。
+- P35 起，打包脚本会把 `assets/icons/client.ico` 和 `assets/icons/server.ico` 写入发布包内对应 EXE 的图标资源，根目录入口和 `bin/*-core.exe` 都会带正式图标。
 
 ## DM 说明
 - x64 Client 只能用于基础 Client、Server、Web Admin 和 JSONL 持久化。

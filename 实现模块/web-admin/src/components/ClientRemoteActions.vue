@@ -85,6 +85,13 @@ const isBulkTarget = computed(() => targetClientIds.value.length > 1);
 
 const canOperateTarget = computed(() => hasTarget.value);
 
+const selectedOnlineCount = computed(
+  () =>
+    clientOptions.value.filter(
+      (client) => client.online && targetClientIds.value.includes(client.id),
+    ).length,
+);
+
 const canSendMessage = computed(
   () =>
     canOperateTarget.value &&
@@ -167,7 +174,7 @@ const commandGroups: CommandGroup[] = [
       {
         value: "script.stop",
         label: "停止 Lua",
-        note: "停止后 Client 仍在线，只是不再执行 Lua。",
+        note: "停止后 Client 仍在线，并继续接收消息和命令。",
         icon: Square,
         tone: "danger",
       },
@@ -268,8 +275,8 @@ const commandGroups: CommandGroup[] = [
       },
       {
         value: "log.open",
-        label: "打开日志",
-        note: "在客户端机器打开本地日志。",
+        label: "打开日志窗口",
+        note: "在客户端机器打开本地日志 UI。",
         icon: FileText,
       },
       {
@@ -445,11 +452,16 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
 
 <template>
   <section class="remote-panel">
-    <header>
+    <header class="remote-header">
       <Send :size="18" />
       <div>
         <h2>遠程操作</h2>
         <p>目标：{{ targetLabel }}</p>
+      </div>
+      <div class="target-metrics">
+        <span>已选 <strong>{{ targetClientIds.length }}</strong></span>
+        <span>在线 <strong>{{ selectedOnlineCount }}</strong></span>
+        <span>总数 <strong>{{ clientOptions.length }}</strong></span>
       </div>
     </header>
 
@@ -458,142 +470,146 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
       <span>刷新並等待客戶端上報後，這裡會顯示可下發的操作。</span>
     </div>
 
-    <div v-else class="remote-stack">
-      <div class="target-list-panel">
-        <div class="target-list-heading">
-          <span>下发目标</span>
-          <div>
-            <button type="button" @click="selectAllTargets">全选</button>
-            <button type="button" @click="clearTargets">清空</button>
+    <div v-else class="remote-console">
+      <aside class="target-rail">
+        <div class="target-list-panel">
+          <div class="target-list-heading">
+            <span>下发目标</span>
+            <div>
+              <button type="button" @click="selectAllTargets">全选</button>
+              <button type="button" @click="clearTargets">清空</button>
+            </div>
+          </div>
+          <div class="target-list" role="listbox" aria-label="选择客户端">
+            <label
+              v-for="client in clientOptions"
+              :key="client.id"
+              :class="{ active: isTargetSelected(client.id) }"
+            >
+              <input
+                type="checkbox"
+                :checked="isTargetSelected(client.id)"
+                @change="setTargetSelected(client.id, ($event.target as HTMLInputElement).checked)"
+              />
+              <span>
+                <strong>{{ client.displayName }}</strong>
+                <small>{{ client.id }} / {{ client.online ? "在线" : "离线" }}</small>
+                <small>{{ client.group }} / {{ client.tags.join(", ") || "无标签" }}</small>
+              </span>
+            </label>
           </div>
         </div>
-        <div class="target-list" role="listbox" aria-label="选择客户端">
-          <label
-            v-for="client in clientOptions"
-            :key="client.id"
-            :class="{ active: isTargetSelected(client.id) }"
-          >
-            <input
-              type="checkbox"
-              :checked="isTargetSelected(client.id)"
-              @change="setTargetSelected(client.id, ($event.target as HTMLInputElement).checked)"
-            />
-            <span>
-              <strong>{{ client.displayName }}</strong>
-              <small>{{ client.id }} / {{ client.online ? "在线" : "离线" }}</small>
-              <small>{{ client.group }} / {{ client.tags.join(", ") || "无标签" }}</small>
-            </span>
-          </label>
+
+        <div v-if="isBulkTarget" class="bulk-summary">
+          已选择 {{ targetClientIds.length }} 台 Client。命令会写入每台机器队列，执行结果以各自回执为准。
         </div>
-      </div>
 
-      <div v-if="isBulkTarget" class="bulk-summary">
-        已选择 {{ targetClientIds.length }} 台 Client。命令会写入每台机器队列，执行结果以各自回执为准。
-      </div>
+        <form class="message-form" @submit.prevent="submitMessage">
+          <h3>Server 消息</h3>
+          <label>
+            <span>标题</span>
+            <input v-model="messageTitle" maxlength="80" />
+          </label>
+          <label>
+            <span>内容</span>
+            <textarea v-model="messageBody" maxlength="1000" rows="4" />
+          </label>
+          <button
+            type="submit"
+            :disabled="!canSendMessage"
+          >
+            <Send :size="15" />
+            <span>{{ sendingMessage ? "发送中" : "发送消息" }}</span>
+          </button>
+          <p v-if="messageResult">{{ messageResult }}</p>
+        </form>
 
-      <form class="message-form" @submit.prevent="submitMessage">
-        <h3>Server 消息</h3>
-        <label>
-          <span>标题</span>
-          <input v-model="messageTitle" maxlength="80" />
-        </label>
-        <label>
-          <span>内容</span>
-          <textarea v-model="messageBody" maxlength="1000" rows="4" />
-        </label>
-        <button
-          type="submit"
-          :disabled="!canSendMessage"
-        >
-          <Send :size="15" />
-          <span>{{ sendingMessage ? "发送中" : "发送消息" }}</span>
-        </button>
-        <p v-if="messageResult">{{ messageResult }}</p>
-      </form>
-
-      <ScriptDeployPanel
-        :server-url="serverUrl"
-        :target-client-ids="targetClientIds"
-        :disabled="!!pendingCommand || !canOperateTarget"
-      />
-
-      <div class="command-section">
-        <h3>客户端白名单命令</h3>
-        <div
-          v-for="group in commandGroups"
-          :key="group.title"
-          class="command-group"
-        >
-          <h4>{{ group.title }}</h4>
-          <div class="command-grid">
+        <div v-if="receiptClientId" class="receipt-section">
+          <div class="receipt-heading">
+            <div>
+              <h3>最近执行回执</h3>
+              <p>当前 Client：{{ receiptClientId }}</p>
+            </div>
             <button
-              v-for="action in group.actions"
-              :key="action.value"
               type="button"
-              :data-tone="action.tone ?? 'default'"
-              :disabled="!!pendingCommand || !canOperateTarget"
-              @click="submitCommand(action.value)"
+              :disabled="receiptsLoading"
+              @click="refreshReceipts"
             >
-              <component :is="action.icon" :size="16" :stroke-width="2" />
-              <span>
-                <strong>
-                  {{ pendingCommand === action.value ? "下发中" : action.label }}
-                </strong>
-                <small>{{ action.note }}</small>
-              </span>
+              <RefreshCw :size="15" />
+              <span>{{ receiptsLoading ? "读取中" : "刷新" }}</span>
             </button>
           </div>
-        </div>
-        <p v-if="commandResult" class="command-result">{{ commandResult }}</p>
-      </div>
 
-      <div v-if="receiptClientId" class="receipt-section">
-        <div class="receipt-heading">
-          <div>
-            <h3>最近执行回执</h3>
-            <p>当前 Client：{{ receiptClientId }}</p>
+          <p v-if="receiptsError" class="receipt-error">{{ receiptsError }}</p>
+          <div v-else-if="receiptsLoading" class="receipt-empty">
+            正在读取最近执行结果
           </div>
-          <button
-            type="button"
-            :disabled="receiptsLoading"
-            @click="refreshReceipts"
-          >
-            <RefreshCw :size="15" />
-            <span>{{ receiptsLoading ? "读取中" : "刷新" }}</span>
-          </button>
-        </div>
-
-        <p v-if="receiptsError" class="receipt-error">{{ receiptsError }}</p>
-        <div v-else-if="receiptsLoading" class="receipt-empty">
-          正在读取最近执行结果
-        </div>
-        <div v-else-if="!receipts.length" class="receipt-empty">
-          暂无回执。下发命令后，等待 Client monitor 下一轮轮询。
-        </div>
-        <ul v-else class="receipt-list">
-          <li
-            v-for="receipt in receipts"
-            :key="receipt.id"
-            :data-success="receipt.success ? 'true' : 'false'"
-          >
-            <component
-              :is="receipt.success ? CircleCheck : CircleX"
-              :size="17"
-              :stroke-width="2.2"
-            />
-            <div>
-              <div class="receipt-meta">
-                <strong>{{ commandLabel(receipt.command_type) }}</strong>
-                <span>
-                  <Clock3 :size="13" />
-                  {{ formatRelativeAge(receipt.timestamp_ms) }}
-                </span>
+          <div v-else-if="!receipts.length" class="receipt-empty">
+            暂无回执。下发命令后，等待 Client monitor 下一轮轮询。
+          </div>
+          <ul v-else class="receipt-list">
+            <li
+              v-for="receipt in receipts"
+              :key="receipt.id"
+              :data-success="receipt.success ? 'true' : 'false'"
+            >
+              <component
+                :is="receipt.success ? CircleCheck : CircleX"
+                :size="17"
+                :stroke-width="2.2"
+              />
+              <div>
+                <div class="receipt-meta">
+                  <strong>{{ commandLabel(receipt.command_type) }}</strong>
+                  <span>
+                    <Clock3 :size="13" />
+                    {{ formatRelativeAge(receipt.timestamp_ms) }}
+                  </span>
+                </div>
+                <p>{{ receipt.summary }}</p>
+                <small>{{ receipt.command_id }}</small>
               </div>
-              <p>{{ receipt.summary }}</p>
-              <small>{{ receipt.command_id }}</small>
+            </li>
+          </ul>
+        </div>
+      </aside>
+
+      <div class="action-workspace">
+        <ScriptDeployPanel
+          :server-url="serverUrl"
+          :target-client-ids="targetClientIds"
+          :disabled="!!pendingCommand || !canOperateTarget"
+        />
+
+        <div class="command-section">
+          <h3>客户端白名单命令</h3>
+          <div
+            v-for="group in commandGroups"
+            :key="group.title"
+            class="command-group"
+          >
+            <h4>{{ group.title }}</h4>
+            <div class="command-grid">
+              <button
+                v-for="action in group.actions"
+                :key="action.value"
+                type="button"
+                :data-tone="action.tone ?? 'default'"
+                :disabled="!!pendingCommand || !canOperateTarget"
+                @click="submitCommand(action.value)"
+              >
+                <component :is="action.icon" :size="16" :stroke-width="2" />
+                <span>
+                  <strong>
+                    {{ pendingCommand === action.value ? "下发中" : action.label }}
+                  </strong>
+                  <small>{{ action.note }}</small>
+                </span>
+              </button>
             </div>
-          </li>
-        </ul>
+          </div>
+          <p v-if="commandResult" class="command-result">{{ commandResult }}</p>
+        </div>
       </div>
     </div>
   </section>
@@ -610,11 +626,16 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
   box-shadow: var(--shadow-panel);
 }
 
-header {
+.remote-header {
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
   gap: var(--space-2);
   color: var(--color-accent);
+}
+
+.remote-header > div:first-of-type {
+  min-width: 0;
 }
 
 h2,
@@ -629,7 +650,7 @@ h2 {
   font-size: 16px;
 }
 
-header p,
+.remote-header p,
 .message-form p,
 .command-result {
   color: var(--color-muted);
@@ -637,13 +658,53 @@ header p,
   line-height: 1.5;
 }
 
-.remote-stack,
+.target-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.target-metrics span {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-page);
+  color: var(--color-muted);
+  padding: 6px var(--space-2);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.target-metrics strong {
+  color: var(--color-text);
+}
+
+.remote-console {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.target-rail,
+.action-workspace,
 .message-form,
 .command-section,
 .command-group,
 .receipt-section {
   display: grid;
   gap: var(--space-3);
+}
+
+.target-rail {
+  position: sticky;
+  top: var(--space-4);
+  align-self: start;
+}
+
+.action-workspace {
+  min-width: 0;
 }
 
 .target-list-panel {
@@ -681,7 +742,7 @@ header p,
 
 .target-list {
   display: grid;
-  max-height: 260px;
+  max-height: 360px;
   overflow: auto;
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-control);
@@ -739,6 +800,15 @@ header p,
   font-size: 12px;
   font-weight: 780;
   line-height: 1.5;
+}
+
+.message-form,
+.receipt-section,
+.command-section {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  background: #f8fafc;
+  padding: var(--space-3);
 }
 
 .command-group {
@@ -873,11 +943,6 @@ h4 {
   font-size: 14px;
 }
 
-.receipt-section {
-  border-top: 1px solid var(--color-border);
-  padding-top: var(--space-3);
-}
-
 .receipt-heading {
   display: flex;
   align-items: flex-start;
@@ -963,5 +1028,30 @@ h4 {
 
 .receipt-error {
   color: #b42318;
+}
+
+@media (max-width: 1180px) {
+  .remote-console {
+    grid-template-columns: 1fr;
+  }
+
+  .target-rail {
+    position: static;
+  }
+}
+
+@media (max-width: 720px) {
+  .remote-header {
+    display: grid;
+  }
+
+  .target-metrics {
+    justify-content: flex-start;
+    margin-left: 0;
+  }
+
+  .command-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

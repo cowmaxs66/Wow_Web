@@ -62,8 +62,7 @@ pub fn execute_remote_command(
             Ok("已请求打开设置窗口".to_string())
         }
         REMOTE_COMMAND_LOG_OPEN => {
-            LocalLog::default()
-                .open_event_log()
+            crate::log_window::open_log_window()
                 .map_err(|error| RemoteCommandError::execute(command_type, error))?;
             Ok("已请求打开日志窗口".to_string())
         }

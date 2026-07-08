@@ -518,3 +518,21 @@
   - 总包 `5e3186e36eb12c2d294c63fba37a6066d2768ba56cd37cd2c11df94dcad995bd`
   - Server 分包 `318bd54b7aea947e0101f9926e58ab515724d8b39a3bd206cebf234afadea703`
   - Client 分包 `8eb6e9cb89ba829cde04917c468b52e3652ed7dd5088bfa6865803abcb8d56d1`
+
+## P35 客户端体验与脚本故障恢复验证
+- `cargo fmt --all --check`：通过。
+- `cargo test --workspace`：通过，Client 55 个测试、Server 52 个测试、shared-types 11 个测试、launcher 3 个测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.27.0`。
+- 日志窗口测试：通过，脚本包含 UTF-8 读取和毫秒时间戳转换。
+- Web Admin 构建验证：通过，远程操作工作台、DM 示例脚本和协议类型均通过 TypeScript 检查。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Client 分包 smoke：通过，`bin/client-agent-core.exe --run-once` 输出 `release_version = v1.27.0`、`arch = x86`、Lua 启用、脚本安全关闭和 `dm.access`。
+- Server 分包 health smoke：通过，临时端口 `/health` 返回 `{"status":"ok"}`。
+- Server 分包命令队列 smoke：通过，`script.deploy_bundle` 可写入并取出命令队列。
+- 包内容检查：通过，总包和 Client 分包包含 `DmBridge.dll`、`dm.dll`、`RegDll.dll`；Server 分包不包含这三个 DM 文件。
+- EXE 图标 smoke：通过，Client/Server 根 EXE 和 core EXE 均可读取 32x32 关联图标。
+- 三类 zip SHA-256：
+  - 总包 `36340771a29e1c87cbfe75ae9ee583e9d27aa8c0818f86a36a7e84b15a9c8443`
+  - Server 分包 `7e1bad71d16400214c08ac88145cdea5a2b477a6db5cff26aca6090921a0e39b`
+  - Client 分包 `105c6c7d840136b91d019ba94b9a6cdbfdeb4aa8b36a13a28b8ac595fc47aaa4`

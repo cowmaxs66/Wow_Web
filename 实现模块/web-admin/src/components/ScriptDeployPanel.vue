@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileUp } from "@lucide/vue";
+import { FileUp, WandSparkles } from "@lucide/vue";
 import { computed, ref } from "vue";
 import { sendClientCommand } from "../api/managementServer";
 import type { ClientScriptDeployBundle } from "../types/protocol";
@@ -78,6 +78,26 @@ function buildPayload(): ClientScriptDeployBundle {
   return payload;
 }
 
+function fillDmSmokeSample(): void {
+  bootstrapName.value = "dm-smoke";
+  bootstrapPath.value = "scripts/dm_smoke_remote.lua";
+  securityEnabled.value = false;
+  activate.value = true;
+  runAfterDeploy.value = false;
+  selectedPermissions.value = [...DEFAULT_PERMISSIONS];
+  luaContent.value = [
+    "local hwnd = dm.find_window_required('', 'World of Warcraft')",
+    "local ok, err = dm.safe_bind_window(hwnd, 'normal', 'windows', 'windows', 0)",
+    "if not ok then",
+    "  log('DM 绑定失败：' .. err)",
+    "  return 'bind failed'",
+    "end",
+    "local color = dm.get_color_rgb(0, 0)",
+    "dm.unbind_window()",
+    "return 'dm smoke ok: ' .. color.hex",
+  ].join("\n");
+}
+
 function deployFingerprint(payload: ClientScriptDeployBundle): string {
   return JSON.stringify({
     targets: props.targetClientIds,
@@ -133,6 +153,10 @@ async function deployScript(): Promise<void> {
         <h3>脚本推送</h3>
         <p>选中 Client 热推送 Lua</p>
       </div>
+      <button class="sample-button" type="button" @click="fillDmSmokeSample">
+        <WandSparkles :size="15" />
+        <span>填入 DM 示例</span>
+      </button>
     </div>
 
     <div class="field-grid">
@@ -195,6 +219,10 @@ async function deployScript(): Promise<void> {
       </label>
     </div>
 
+    <p v-if="runAfterDeploy" class="run-warning">
+      推送后会立即在目标机器执行。实机调试建议先只推送，再用“启动 Lua”观察回执。
+    </p>
+
     <button type="submit" :disabled="!canDeploy">
       <FileUp :size="15" />
       <span>{{ deploying ? "推送中" : "推送脚本包" }}</span>
@@ -217,6 +245,18 @@ async function deployScript(): Promise<void> {
   align-items: flex-start;
   gap: var(--space-2);
   color: var(--color-accent);
+}
+
+.deploy-heading > div {
+  min-width: 0;
+}
+
+.deploy-heading .sample-button {
+  margin-left: auto;
+  border: 1px solid var(--color-border-strong);
+  background: #ffffff;
+  color: var(--color-text);
+  white-space: nowrap;
 }
 
 h3,
@@ -311,5 +351,25 @@ button {
 
 button:disabled {
   opacity: 0.6;
+}
+
+.run-warning {
+  border: 1px solid rgba(161, 92, 7, 0.28);
+  border-radius: var(--radius-control);
+  background: #fff7ed;
+  color: var(--color-warning);
+  padding: var(--space-3);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+@media (max-width: 720px) {
+  .deploy-heading {
+    display: grid;
+  }
+
+  .sample-button {
+    margin-left: 0;
+  }
 }
 </style>

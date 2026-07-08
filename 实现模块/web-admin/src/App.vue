@@ -375,11 +375,17 @@ function changeClientPage(page: number): void {
 
 <style scoped>
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 8;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
-  margin-bottom: var(--space-6);
+  margin: calc(var(--space-5) * -1) calc(var(--space-6) * -1) var(--space-5);
+  border-bottom: 1px solid rgba(216, 225, 235, 0.9);
+  background: rgba(246, 248, 251, 0.96);
+  padding: var(--space-4) var(--space-6);
 }
 
 h1,
@@ -389,7 +395,7 @@ p {
 
 h1 {
   color: var(--color-text);
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 780;
   letter-spacing: 0;
   line-height: 1.15;
@@ -443,9 +449,9 @@ h1 {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
   align-items: start;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .main-stack,
@@ -473,6 +479,8 @@ h1 {
 @media (max-width: 720px) {
   .topbar {
     display: grid;
+    margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) var(--space-4);
+    padding: var(--space-3) var(--space-4);
   }
 
   .topbar-actions {
@@ -480,7 +488,7 @@ h1 {
   }
 
   h1 {
-    font-size: 25px;
+    font-size: 23px;
   }
 
   .metrics-grid {

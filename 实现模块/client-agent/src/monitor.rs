@@ -46,32 +46,33 @@ pub fn run_monitor_until_shutdown(
                     result.envelope.client_id, result.envelope.message_id
                 ))?;
 
-                if active_config.server.enabled {
-                    let sync_result = sync_server_roundtrip(
-                        &active_config,
-                        &log,
-                        &mut seen_messages,
-                        &mut seen_commands,
-                        &result.envelope,
-                    );
-                    if let Err(error) = sync_result {
-                        log.append_event(&format!("合并同步失败，尝试旧轮询链路：{error}"))?;
-                        if let Err(error) = legacy_server_roundtrip(
-                            &active_config,
-                            &log,
-                            &mut seen_messages,
-                            &mut seen_commands,
-                            &result.envelope,
-                        ) {
-                            log.append_event(&format!("旧轮询链路也失败：{error}"))?;
-                        }
-                    }
-                }
+                run_server_roundtrip(
+                    &active_config,
+                    &log,
+                    &mut seen_messages,
+                    &mut seen_commands,
+                    &result.envelope,
+                )?;
             }
             Err(error) => {
                 let message = format!("Client monitor 执行失败：{error}");
                 log.append_event(&message)?;
                 let _ = notifier::notify("WoW Client 错误", &message);
+
+                let status =
+                    AgentStatusSnapshot::online_without_script(&active_config).into_client_status();
+                let envelope = WsEnvelope::status(active_config.client.id.clone(), status);
+                log.append_status(&envelope)?;
+                log.append_event(
+                    "Lua 本轮执行失败，但仍继续同步 Server 消息和命令，允许远程停止或替换脚本",
+                )?;
+                run_server_roundtrip(
+                    &active_config,
+                    &log,
+                    &mut seen_messages,
+                    &mut seen_commands,
+                    &envelope,
+                )?;
             }
         }
 
@@ -251,6 +252,30 @@ fn poll_commands(
     let reporter = StatusReporter::new(config.server.clone());
     let commands = reporter.fetch_commands(&config.client.id)?;
     handle_command_items(commands.items, config, log, seen_commands, &reporter)
+}
+
+fn run_server_roundtrip(
+    config: &AgentConfig,
+    log: &LocalLog,
+    seen_messages: &mut HashSet<String>,
+    seen_commands: &mut HashSet<String>,
+    envelope: &WsEnvelope<ClientStatus>,
+) -> Result<(), Box<dyn Error>> {
+    if !config.server.enabled {
+        return Ok(());
+    }
+
+    let sync_result = sync_server_roundtrip(config, log, seen_messages, seen_commands, envelope);
+    if let Err(error) = sync_result {
+        log.append_event(&format!("合并同步失败，尝试旧轮询链路：{error}"))?;
+        if let Err(error) =
+            legacy_server_roundtrip(config, log, seen_messages, seen_commands, envelope)
+        {
+            log.append_event(&format!("旧轮询链路也失败：{error}"))?;
+        }
+    }
+
+    Ok(())
 }
 
 fn handle_command_items(

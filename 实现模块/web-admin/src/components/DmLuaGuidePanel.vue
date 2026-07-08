@@ -18,24 +18,17 @@ const currentScript = computed(() => {
 });
 
 const sampleLua = `log("dm bootstrap started")
-dm.init("")
 
-local hwnd = dm.find_window("", "窗口标题")
-if hwnd <= 0 then
-  dm.shutdown()
-  return "window not found"
-end
+local hwnd = dm.find_window_required("", "窗口标题")
 
 local ok, err = dm.safe_bind_window(hwnd, "normal", "windows", "windows", 0)
 if not ok then
   log("bind failed: " .. err)
-  dm.shutdown()
   return "bind failed"
 end
 
 local color = dm.get_color(10, 10)
 dm.unbind_window()
-dm.shutdown()
 
 return "dm color=" .. color`;
 
@@ -92,7 +85,7 @@ async function copySample(): Promise<void> {
         <Cpu :size="18" />
         <div>
           <strong>DM 模式如何套用</strong>
-          <span>Client 使用 Win32 DmBridge.dll，並在 manifest 與 allowed_permissions 中同時允許 dm.access。</span>
+          <span>Client 使用 Win32 DmBridge.dll；Lua 首次調用 DM 函數時會自動初始化 DmBridge。</span>
         </div>
       </article>
     </div>

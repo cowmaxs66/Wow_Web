@@ -5,9 +5,16 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+type SharedBridgeState = Rc<RefCell<Option<BridgeRuntime>>>;
+
+struct BridgeRuntime {
+    bridge: DmBridge,
+    initialized: bool,
+}
+
 pub fn create_table(lua: &Lua, config: &AgentConfig) -> mlua::Result<Table> {
     let table = lua.create_table()?;
-    let bridge_state: Rc<RefCell<Option<DmBridge>>> = Rc::new(RefCell::new(None));
+    let bridge_state: SharedBridgeState = Rc::new(RefCell::new(None));
 
     register_lifecycle(lua, &table, config, &bridge_state)?;
     register_window_and_bind(lua, &table, config, &bridge_state)?;
@@ -21,14 +28,14 @@ fn register_lifecycle(
     lua: &Lua,
     table: &Table,
     config: &AgentConfig,
-    bridge_state: &Rc<RefCell<Option<DmBridge>>>,
+    bridge_state: &SharedBridgeState,
 ) -> mlua::Result<()> {
     let fn_config = config.clone();
     let state = Rc::clone(bridge_state);
     table.set(
         "abi_version",
         lua.create_function(move |_, ()| {
-            with_bridge(&fn_config, &state, |bridge| Ok(bridge.abi_version()))
+            with_bridge_loaded(&fn_config, &state, |bridge| Ok(bridge.abi_version()))
         })?,
     )?;
 
@@ -37,7 +44,7 @@ fn register_lifecycle(
     table.set(
         "init",
         lua.create_function(move |_, dm_root: String| {
-            with_bridge(&fn_config, &state, |bridge| bridge.init(&dm_root))?;
+            with_bridge_initialized(&fn_config, &state, &dm_root, |_| Ok(()))?;
             Ok(true)
         })?,
     )?;
@@ -47,7 +54,11 @@ fn register_lifecycle(
     table.set(
         "shutdown",
         lua.create_function(move |_, ()| {
-            with_bridge(&fn_config, &state, |bridge| bridge.shutdown())?;
+            with_bridge_runtime(&fn_config, &state, |runtime| {
+                runtime.bridge.shutdown()?;
+                runtime.initialized = false;
+                Ok(())
+            })?;
             Ok(true)
         })?,
     )?;
@@ -56,7 +67,9 @@ fn register_lifecycle(
     let state = Rc::clone(bridge_state);
     table.set(
         "ver",
-        lua.create_function(move |_, ()| with_bridge(&fn_config, &state, |bridge| bridge.ver()))?,
+        lua.create_function(move |_, ()| {
+            with_bridge_initialized(&fn_config, &state, "", |bridge| bridge.ver())
+        })?,
     )?;
 
     let fn_config = config.clone();
@@ -64,7 +77,7 @@ fn register_lifecycle(
     table.set(
         "last_bridge_error",
         lua.create_function(move |_, ()| {
-            with_bridge(&fn_config, &state, |bridge| Ok(bridge.last_bridge_error()))
+            with_bridge_loaded(&fn_config, &state, |bridge| Ok(bridge.last_bridge_error()))
         })?,
     )?;
 
@@ -73,7 +86,7 @@ fn register_lifecycle(
     table.set(
         "last_dm_error",
         lua.create_function(move |_, ()| {
-            with_bridge(&fn_config, &state, |bridge| bridge.last_dm_error())
+            with_bridge_initialized(&fn_config, &state, "", |bridge| bridge.last_dm_error())
         })?,
     )?;
 
@@ -84,14 +97,14 @@ fn register_window_and_bind(
     lua: &Lua,
     table: &Table,
     config: &AgentConfig,
-    bridge_state: &Rc<RefCell<Option<DmBridge>>>,
+    bridge_state: &SharedBridgeState,
 ) -> mlua::Result<()> {
     let fn_config = config.clone();
     let state = Rc::clone(bridge_state);
     table.set(
         "set_path",
         lua.create_function(move |_, path: String| {
-            with_bridge(&fn_config, &state, |bridge| bridge.set_path(&path))?;
+            with_bridge_initialized(&fn_config, &state, "", |bridge| bridge.set_path(&path))?;
             Ok(true)
         })?,
     )?;
@@ -101,7 +114,7 @@ fn register_window_and_bind(
     table.set(
         "find_window",
         lua.create_function(move |_, (class_name, title_name): (String, String)| {
-            with_bridge(&fn_config, &state, |bridge| {
+            with_bridge_initialized(&fn_config, &state, "", |bridge| {
                 bridge.find_window(&class_name, &title_name)
             })
         })?,
@@ -112,7 +125,7 @@ fn register_window_and_bind(
     table.set(
         "find_window_required",
         lua.create_function(move |_, (class_name, title_name): (String, String)| {
-            let hwnd = with_bridge(&fn_config, &state, |bridge| {
+            let hwnd = with_bridge_initialized(&fn_config, &state, "", |bridge| {
                 bridge.find_window(&class_name, &title_name)
             })?;
             if hwnd <= 0 {
@@ -130,7 +143,7 @@ fn register_window_and_bind(
         "bind_window",
         lua.create_function(
             move |_, (hwnd, display, mouse, keypad, mode): (i32, String, String, String, i32)| {
-                with_bridge(&fn_config, &state, |bridge| {
+                with_bridge_initialized(&fn_config, &state, "", |bridge| {
                     bridge.bind_window(hwnd, &display, &mouse, &keypad, mode)
                 })
             },
@@ -143,7 +156,7 @@ fn register_window_and_bind(
         "bind_window_try",
         lua.create_function(
             move |lua, (hwnd, display, mouse, keypad, mode): (i32, String, String, String, i32)| {
-                let result = with_bridge_result(&fn_config, &state, |bridge| {
+                let result = with_bridge_initialized_result(&fn_config, &state, "", |bridge| {
                     bridge.bind_window(hwnd, &display, &mouse, &keypad, mode)
                 });
                 let table = lua.create_table()?;
@@ -169,7 +182,7 @@ fn register_window_and_bind(
         "safe_bind_window",
         lua.create_function(
             move |_, (hwnd, display, mouse, keypad, mode): (i32, String, String, String, i32)| {
-                match with_bridge_result(&fn_config, &state, |bridge| {
+                match with_bridge_initialized_result(&fn_config, &state, "", |bridge| {
                     bridge.bind_window(hwnd, &display, &mouse, &keypad, mode)
                 }) {
                     Ok(_) => Ok((true, String::new())),
@@ -184,7 +197,7 @@ fn register_window_and_bind(
     table.set(
         "unbind_window",
         lua.create_function(move |_, ()| {
-            with_bridge(&fn_config, &state, |bridge| bridge.unbind_window())
+            with_bridge_initialized(&fn_config, &state, "", |bridge| bridge.unbind_window())
         })?,
     )?;
 
@@ -195,14 +208,14 @@ fn register_color_and_input(
     lua: &Lua,
     table: &Table,
     config: &AgentConfig,
-    bridge_state: &Rc<RefCell<Option<DmBridge>>>,
+    bridge_state: &SharedBridgeState,
 ) -> mlua::Result<()> {
     let fn_config = config.clone();
     let state = Rc::clone(bridge_state);
     table.set(
         "get_color",
         lua.create_function(move |_, (x, y): (i32, i32)| {
-            with_bridge(&fn_config, &state, |bridge| bridge.get_color(x, y))
+            with_bridge_initialized(&fn_config, &state, "", |bridge| bridge.get_color(x, y))
         })?,
     )?;
 
@@ -211,7 +224,8 @@ fn register_color_and_input(
     table.set(
         "get_color_rgb",
         lua.create_function(move |lua, (x, y): (i32, i32)| {
-            let color = with_bridge(&fn_config, &state, |bridge| bridge.get_color(x, y))?;
+            let color =
+                with_bridge_initialized(&fn_config, &state, "", |bridge| bridge.get_color(x, y))?;
             let (r, g, b) = parse_rgb_hex(&color).map_err(LuaError::runtime)?;
             let table = lua.create_table()?;
             table.set("hex", color)?;
@@ -233,7 +247,9 @@ fn register_color_and_input(
                 let deadline = Instant::now() + timeout;
 
                 loop {
-                    let color = with_bridge(&fn_config, &state, |bridge| bridge.get_color(x, y))?;
+                    let color = with_bridge_initialized(&fn_config, &state, "", |bridge| {
+                        bridge.get_color(x, y)
+                    })?;
                     if color.eq_ignore_ascii_case(expected.trim()) {
                         return Ok((true, color));
                     }
@@ -251,7 +267,7 @@ fn register_color_and_input(
     table.set(
         "move_to",
         lua.create_function(move |_, (x, y): (i32, i32)| {
-            with_bridge(&fn_config, &state, |bridge| bridge.move_to(x, y))
+            with_bridge_initialized(&fn_config, &state, "", |bridge| bridge.move_to(x, y))
         })?,
     )?;
 
@@ -260,7 +276,7 @@ fn register_color_and_input(
     table.set(
         "left_click",
         lua.create_function(move |_, ()| {
-            with_bridge(&fn_config, &state, |bridge| bridge.left_click())
+            with_bridge_initialized(&fn_config, &state, "", |bridge| bridge.left_click())
         })?,
     )?;
 
@@ -271,7 +287,7 @@ fn register_helpers(
     lua: &Lua,
     table: &Table,
     config: &AgentConfig,
-    bridge_state: &Rc<RefCell<Option<DmBridge>>>,
+    bridge_state: &SharedBridgeState,
 ) -> mlua::Result<()> {
     table.set(
         "sleep_ms",
@@ -306,13 +322,14 @@ fn register_helpers(
                 i32,
                 Function,
             )| {
-                with_bridge(&fn_config, &state, |bridge| {
+                with_bridge_initialized(&fn_config, &state, "", |bridge| {
                     bridge.bind_window(hwnd, &display, &mouse, &keypad, mode)
                 })?;
 
                 let callback_result: mlua::Result<Value> = callback.call(());
-                let unbind_result =
-                    with_bridge(&fn_config, &state, |bridge| bridge.unbind_window());
+                let unbind_result = with_bridge_initialized(&fn_config, &state, "", |bridge| {
+                    bridge.unbind_window()
+                });
 
                 unbind_result?;
 
@@ -324,33 +341,86 @@ fn register_helpers(
     Ok(())
 }
 
-fn with_bridge<T>(
+fn with_bridge_loaded<T>(
     config: &AgentConfig,
-    state: &Rc<RefCell<Option<DmBridge>>>,
+    state: &SharedBridgeState,
     action: impl FnOnce(&DmBridge) -> Result<T, DmBridgeError>,
 ) -> mlua::Result<T> {
-    with_bridge_result(config, state, action).map_err(lua_dm_error)
+    with_bridge_loaded_result(config, state, action).map_err(lua_dm_error)
 }
 
-fn with_bridge_result<T>(
+fn with_bridge_initialized<T>(
     config: &AgentConfig,
-    state: &Rc<RefCell<Option<DmBridge>>>,
+    state: &SharedBridgeState,
+    dm_root: &str,
+    action: impl FnOnce(&DmBridge) -> Result<T, DmBridgeError>,
+) -> mlua::Result<T> {
+    with_bridge_initialized_result(config, state, dm_root, action).map_err(lua_dm_error)
+}
+
+fn with_bridge_runtime<T>(
+    config: &AgentConfig,
+    state: &SharedBridgeState,
+    action: impl FnOnce(&mut BridgeRuntime) -> Result<T, DmBridgeError>,
+) -> mlua::Result<T> {
+    with_bridge_runtime_result(config, state, action).map_err(lua_dm_error)
+}
+
+fn with_bridge_loaded_result<T>(
+    config: &AgentConfig,
+    state: &SharedBridgeState,
     action: impl FnOnce(&DmBridge) -> Result<T, DmBridgeError>,
 ) -> Result<T, DmBridgeError> {
-    let mut bridge_slot = state.borrow_mut();
+    with_bridge_runtime_result(config, state, |runtime| action(&runtime.bridge))
+}
 
+fn with_bridge_initialized_result<T>(
+    config: &AgentConfig,
+    state: &SharedBridgeState,
+    dm_root: &str,
+    action: impl FnOnce(&DmBridge) -> Result<T, DmBridgeError>,
+) -> Result<T, DmBridgeError> {
+    with_bridge_runtime_result(config, state, |runtime| {
+        if !runtime.initialized {
+            runtime.bridge.init(dm_root)?;
+            runtime.initialized = true;
+            tracing::info!(path = %runtime.bridge.path().display(), "DmBridge 已初始化");
+        }
+
+        action(&runtime.bridge)
+    })
+}
+
+fn with_bridge_runtime_result<T>(
+    config: &AgentConfig,
+    state: &SharedBridgeState,
+    action: impl FnOnce(&mut BridgeRuntime) -> Result<T, DmBridgeError>,
+) -> Result<T, DmBridgeError> {
+    let mut bridge_slot = state.borrow_mut();
+    let runtime = ensure_bridge_runtime(config, &mut bridge_slot)?;
+
+    // Lua API 保持懒加载、自动初始化和同步执行。
+    // 输入：Lua 调用参数和配置中的 DmBridge 路径。
+    // 输出：安全 Rust 封装的返回值。
+    // 边界：不把 libloading Symbol、裸指针或 C ABI 直接暴露给 Lua。
+    action(runtime)
+}
+
+fn ensure_bridge_runtime<'a>(
+    config: &AgentConfig,
+    bridge_slot: &'a mut Option<BridgeRuntime>,
+) -> Result<&'a mut BridgeRuntime, DmBridgeError> {
     if bridge_slot.is_none() {
         let path = resolve_bridge_path(&config.dm.bridge_path);
         let bridge = DmBridge::load(path)?;
         tracing::info!(path = %bridge.path().display(), "DmBridge 已加载");
-        *bridge_slot = Some(bridge);
+        *bridge_slot = Some(BridgeRuntime {
+            bridge,
+            initialized: false,
+        });
     }
 
-    // Lua API 保持懒加载和同步执行。
-    // 输入：Lua 调用参数和配置中的 DmBridge 路径。
-    // 输出：安全 Rust 封装的返回值。
-    // 边界：不把 libloading Symbol、裸指针或 C ABI 直接暴露给 Lua。
-    action(bridge_slot.as_ref().expect("bridge must be loaded"))
+    Ok(bridge_slot.as_mut().expect("bridge runtime must be loaded"))
 }
 
 fn parse_rgb_hex(color: &str) -> Result<(u8, u8, u8), String> {

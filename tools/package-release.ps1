@@ -81,6 +81,172 @@ function Copy-RequiredDirectory {
     Copy-Item -LiteralPath $Source -Destination $Destination -Recurse -Force
 }
 
+function Add-IconResourceApi {
+    if (([System.Management.Automation.PSTypeName]'NativeIconResource').Type) {
+        return
+    }
+
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+
+public static class NativeIconResource
+{
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern IntPtr BeginUpdateResource(string pFileName, bool bDeleteExistingResources);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool UpdateResource(
+        IntPtr hUpdate,
+        IntPtr lpType,
+        IntPtr lpName,
+        ushort wLanguage,
+        byte[] lpData,
+        uint cbData);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool EndUpdateResource(IntPtr hUpdate, bool fDiscard);
+}
+'@
+}
+
+function Read-UInt16Le {
+    param(
+        [byte[]]$Bytes,
+        [int]$Offset
+    )
+
+    [System.BitConverter]::ToUInt16($Bytes, $Offset)
+}
+
+function Read-UInt32Le {
+    param(
+        [byte[]]$Bytes,
+        [int]$Offset
+    )
+
+    [System.BitConverter]::ToUInt32($Bytes, $Offset)
+}
+
+function Write-UInt16Le {
+    param(
+        [byte[]]$Bytes,
+        [int]$Offset,
+        [UInt16]$Value
+    )
+
+    $raw = [System.BitConverter]::GetBytes($Value)
+    [System.Array]::Copy($raw, 0, $Bytes, $Offset, 2)
+}
+
+function Set-ExeIcon {
+    param(
+        [string]$ExePath,
+        [string]$IconPath
+    )
+
+    if (-not (Test-Path -LiteralPath $ExePath)) {
+        throw "Missing EXE for icon update: $ExePath"
+    }
+    if (-not (Test-Path -LiteralPath $IconPath)) {
+        throw "Missing icon for EXE update: $IconPath"
+    }
+
+    Add-IconResourceApi
+
+    $iconBytes = [System.IO.File]::ReadAllBytes($IconPath)
+    $reserved = Read-UInt16Le $iconBytes 0
+    $iconType = Read-UInt16Le $iconBytes 2
+    $count = Read-UInt16Le $iconBytes 4
+    if ($reserved -ne 0 -or $iconType -ne 1 -or $count -le 0) {
+        throw "Invalid ico file: $IconPath"
+    }
+
+    $groupBytes = New-Object byte[] (6 + ($count * 14))
+    [System.Array]::Copy($iconBytes, 0, $groupBytes, 0, 6)
+
+    $handle = [NativeIconResource]::BeginUpdateResource($ExePath, $false)
+    if ($handle -eq [IntPtr]::Zero) {
+        throw "BeginUpdateResource failed for $ExePath, win32=$([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
+    }
+
+    $discard = $true
+    try {
+        for ($index = 0; $index -lt $count; $index++) {
+            $entryOffset = 6 + ($index * 16)
+            $groupOffset = 6 + ($index * 14)
+            $imageSize = [int](Read-UInt32Le $iconBytes ($entryOffset + 8))
+            $imageOffset = [int](Read-UInt32Le $iconBytes ($entryOffset + 12))
+            $iconId = [UInt16]($index + 1)
+
+            # ICO 目录项前 12 字节和 GROUP_ICON 目录项一致，最后 2 字节改为资源 ID。
+            # 输入：用户提供的多尺寸 ico。
+            # 输出：EXE 内 RT_ICON/RT_GROUP_ICON 资源。
+            # 边界：这里只修改发布包副本，不改 target/release 原始编译产物。
+            [System.Array]::Copy($iconBytes, $entryOffset, $groupBytes, $groupOffset, 12)
+            Write-UInt16Le $groupBytes ($groupOffset + 12) $iconId
+
+            $imageBytes = New-Object byte[] $imageSize
+            [System.Array]::Copy($iconBytes, $imageOffset, $imageBytes, 0, $imageSize)
+            $ok = [NativeIconResource]::UpdateResource(
+                $handle,
+                [IntPtr]3,
+                [IntPtr]$iconId,
+                0,
+                $imageBytes,
+                $imageBytes.Length)
+            if (-not $ok) {
+                throw "UpdateResource RT_ICON failed for $ExePath, win32=$([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
+            }
+        }
+
+        $ok = [NativeIconResource]::UpdateResource(
+            $handle,
+            [IntPtr]14,
+            [IntPtr]1,
+            0,
+            $groupBytes,
+            $groupBytes.Length)
+        if (-not $ok) {
+            throw "UpdateResource RT_GROUP_ICON failed for $ExePath, win32=$([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
+        }
+
+        $discard = $false
+    } finally {
+        $ended = [NativeIconResource]::EndUpdateResource($handle, $discard)
+        if (-not $ended) {
+            throw "EndUpdateResource failed for $ExePath, win32=$([Runtime.InteropServices.Marshal]::GetLastWin32Error())"
+        }
+    }
+}
+
+function Set-PackageExeIcons {
+    param(
+        [string]$TargetRoot,
+        [ValidateSet('full', 'server', 'client')]
+        [string]$PackageKind
+    )
+
+    $serverIcon = Join-Path $root 'assets\icons\server.ico'
+    $clientIcon = Join-Path $root 'assets\icons\client.ico'
+
+    if ($PackageKind -in @('full', 'server')) {
+        Set-ExeIcon (Join-Path $TargetRoot 'management-server.exe') $serverIcon
+        Set-ExeIcon (Join-Path $TargetRoot 'bin\management-server-core.exe') $serverIcon
+    }
+
+    if ($PackageKind -in @('full', 'client')) {
+        Set-ExeIcon (Join-Path $TargetRoot 'client-agent.exe') $clientIcon
+        Set-ExeIcon (Join-Path $TargetRoot 'bin\client-agent-core.exe') $clientIcon
+        Set-ExeIcon (Join-Path $TargetRoot 'bin\client-agent-x64-core.exe') $clientIcon
+    }
+
+    if ($PackageKind -eq 'full') {
+        Set-ExeIcon (Join-Path $TargetRoot 'WoW-Manager.exe') $serverIcon
+        Set-ExeIcon (Join-Path $TargetRoot 'WoW-Remove.exe') $serverIcon
+    }
+}
+
 function Invoke-Build {
     Push-Location $root
     try {
@@ -333,6 +499,9 @@ if (-not $SkipBuild) {
 }
 Copy-PackagePayload
 Copy-SplitPackagePayload
+Set-PackageExeIcons $packageRoot 'full'
+Set-PackageExeIcons $serverPackageRoot 'server'
+Set-PackageExeIcons $clientPackageRoot 'client'
 Write-PackageReadme $packageRoot 'full'
 Write-PackageReadme $serverPackageRoot 'server'
 Write-PackageReadme $clientPackageRoot 'client'

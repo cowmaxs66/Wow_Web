@@ -8,7 +8,7 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P34 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、日志查看窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter、合并同步接口、默认 DM 权限、Lua 热推送、Lua 启停状态命令和 Lua 常用接口扩展。
+P35 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、日志查看窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter、合并同步接口、默认 DM 权限、Lua 热推送、Lua 启停状态命令、Lua 常用接口扩展、日志窗口 UTF-8 修复、DM 自动初始化和 Lua 故障后继续同步 Server 命令。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -16,9 +16,9 @@ P34 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/main.rs` | 程序入口，只负责命令分发 |
 | `src/agent.rs` | 单次执行 Lua、生成状态、上报 Server |
 | `src/cli.rs` | monitor、setup、open-log、notify、startup、service、tray、settings 和 update 参数解析 |
-| `src/monitor.rs` | 常驻监控、jitter 周期、合并同步、旧轮询回退，并在每轮重载配置 |
+| `src/monitor.rs` | 常驻监控、jitter 周期、合并同步、旧轮询回退、每轮重载配置，并在 Lua 失败后继续同步 Server 命令 |
 | `src/local_log.rs` | 本地事件日志和状态 JSONL |
-| `src/log_window.rs` | WinForms 本机日志查看窗口，支持 DPI 缩放和定时刷新 |
+| `src/log_window.rs` | WinForms 本机日志查看窗口，支持 UTF-8 读取、毫秒时间戳格式化、DPI 缩放和定时刷新 |
 | `src/notifier.rs` | Windows 通知气泡 |
 | `src/startup.rs` | 当前用户开机启动查询、启用和停用 |
 | `src/service_runtime.rs` | Windows Service 运行入口和管理命令 |
@@ -31,7 +31,7 @@ P34 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/config/` | 配置读取、错误类型、默认路径解析和远程配置补丁写回 |
 | `src/script/` | Lua 脚本文件加载、manifest、签名、hash 和权限校验 |
 | `src/lua_host.rs` | Lua 宿主和按权限注册的白名单 API |
-| `src/lua_dm.rs` | Lua `dm` 高层 API 注册，不暴露 C ABI 指针 |
+| `src/lua_dm.rs` | Lua `dm` 高层 API 注册，支持首次 DM 调用自动初始化，不暴露 C ABI 指针 |
 | `src/dm_bridge/` | Rust `libloading` DmBridge 安全封装 |
 | `src/server_reporter.rs` | Management Server HTTP 状态上报、合并同步、消息/命令/回执请求入口 |
 | `src/server_reporter/error.rs` | 状态上报错误类型 |
@@ -157,6 +157,13 @@ client-agent.exe --update-apply
 - Lua 新增 `dm.get_color_rgb`、`dm.wait_color`、`dm.sleep_ms` 和 `dm.now_ms`。
 - `--log-window` 和托盘“查看日志窗口”可在 UI 内查看 Client 日志。
 - 完整接口表见 `技术设计/Lua接口表与使用说明.md`。
+
+## P35 日志、DM 初始化与故障恢复
+- 日志窗口按 UTF-8 读取 `logs/client-agent.log`，避免中文内容在 WinForms 中乱码。
+- 日志窗口会把 13 位毫秒时间戳格式化为本地时间，便于排查远程命令和脚本执行顺序。
+- 需要 COM 的 `dm` 函数首次调用时自动初始化 DmBridge，普通 Lua 脚本不需要先写 `dm.init("")`。
+- Lua 脚本执行失败时，monitor 仍会上报在线状态并同步 Server 消息、命令和回执，避免错误脚本阻断远程 `script.stop` 或热替换。
+- `script.stop` 关闭后续轮次 Lua 执行；已经进入执行中的单次 Lua 调用不会被强制杀掉。
 
 ## P29/P30 多机器与通讯效率
 - `[client]` 新增 `display_name`、`group` 和 `tags`，用于 Web 多机器管理，不替代稳定 `client.id`。

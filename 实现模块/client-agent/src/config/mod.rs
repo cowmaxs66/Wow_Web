@@ -316,7 +316,11 @@ mod tests {
                 manifest_path: PathBuf::from("scripts/bootstrap.manifest.json"),
                 trusted_signer_public_key:
                     "1111111111111111111111111111111111111111111111111111111111111111".to_string(),
-                allowed_permissions: vec!["host.log".to_string(), "config.read".to_string()],
+                allowed_permissions: vec![
+                    "host.log".to_string(),
+                    "config.read".to_string(),
+                    "dm.access".to_string(),
+                ],
             },
             dm: DmConfig {
                 bridge_path: PathBuf::from("../../target/dm-bridge/Win32/DmBridge.dll"),
@@ -356,5 +360,18 @@ mod tests {
             Some("true".to_string())
         );
         assert_eq!(config.get_value("unknown.key"), None);
+    }
+
+    #[test]
+    fn default_config_enables_dm_access() {
+        let config: AgentConfig =
+            toml::from_str(DEFAULT_CONFIG_TEMPLATE).expect("default config must parse");
+
+        assert!(
+            config
+                .script_security
+                .allowed_permissions
+                .contains(&"dm.access".to_string())
+        );
     }
 }

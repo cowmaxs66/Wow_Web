@@ -13,7 +13,7 @@ instruction_limit = 100000
 enabled = true
 manifest_path = "scripts/bootstrap.manifest.json"
 trusted_signer_public_key = "7f3c8268b3f403594ef6e7e681ca62851e66b07b915c48a523b0cfaf7e54bfc9"
-allowed_permissions = ["host.log", "config.read"]
+allowed_permissions = ["host.log", "config.read", "dm.access"]
 
 [dm]
 bridge_path = "../../target/dm-bridge/Win32/DmBridge.dll"

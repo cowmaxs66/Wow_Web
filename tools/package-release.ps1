@@ -116,6 +116,7 @@ function Copy-PackagePayload {
     Copy-RequiredFile (Join-Path $releaseDir 'client-agent.exe') (Join-Path $binDir 'client-agent-x64-core.exe')
 
     Copy-RequiredFile (Join-Path $root 'target\dm-bridge\Win32\DmBridge.dll') (Join-Path $packageRoot 'dm-bridge\Win32\DmBridge.dll')
+    Copy-DmRuntimeFiles $packageRoot
     Write-PackagedClientConfig $packageRoot
     Copy-RequiredDirectory (Join-Path $root '实现模块\client-agent\scripts') (Join-Path $packageRoot 'scripts')
     Copy-RequiredDirectory (Join-Path $root 'tools') (Join-Path $packageRoot 'tools')
@@ -146,6 +147,28 @@ function Copy-IconAssets {
     foreach ($name in $Names) {
         Copy-RequiredFile (Join-Path $root "assets\icons\$name") (Join-Path $DestinationRoot "assets\icons\$name")
     }
+}
+
+function Get-DmRuntimeSourceDir {
+    if (-not [string]::IsNullOrWhiteSpace($env:WOW_DM_RUNTIME_DIR)) {
+        return $env:WOW_DM_RUNTIME_DIR
+    }
+
+    return 'I:\图色\工具\大漠\7.2149'
+}
+
+function Copy-DmRuntimeFiles {
+    param([string]$DestinationRoot)
+
+    $sourceDir = Get-DmRuntimeSourceDir
+    $destinationDir = Join-Path $DestinationRoot 'dm-bridge\Win32'
+
+    # DM 运行文件只进入 release 包，不进入源码仓库。
+    # 输入：本机私有大漠目录，默认来自用户提供的 7.2149 路径，也可用 WOW_DM_RUNTIME_DIR 覆盖。
+    # 输出：Client 运行目录下的 dm.dll / RegDll.dll，供正式测试包直接部署。
+    # 边界：这里不复制授权文件、不复制 CHM 文档，也不把 DLL 加入 git。
+    Copy-RequiredFile (Join-Path $sourceDir 'dm.dll') (Join-Path $destinationDir 'dm.dll')
+    Copy-RequiredFile (Join-Path $sourceDir 'RegDll.dll') (Join-Path $destinationDir 'RegDll.dll')
 }
 
 function Write-PackagedClientConfig {
@@ -182,6 +205,7 @@ function Copy-SplitPackagePayload {
     Copy-RequiredFile (Join-Path $x86Dir 'client-agent.exe') (Join-Path $clientPackageRoot 'bin\client-agent-core.exe')
     Copy-RequiredFile (Join-Path $releaseDir 'client-agent.exe') (Join-Path $clientPackageRoot 'bin\client-agent-x64-core.exe')
     Copy-RequiredFile (Join-Path $root 'target\dm-bridge\Win32\DmBridge.dll') (Join-Path $clientPackageRoot 'dm-bridge\Win32\DmBridge.dll')
+    Copy-DmRuntimeFiles $clientPackageRoot
     Write-PackagedClientConfig $clientPackageRoot
     Copy-RequiredDirectory (Join-Path $root '实现模块\client-agent\scripts') (Join-Path $clientPackageRoot 'scripts')
     Copy-ToolFiles (Join-Path $clientPackageRoot 'tools') @('common.ps1', 'start-client.ps1')
@@ -229,7 +253,7 @@ function Write-PackageReadme {
             '- `bin/client-agent-core.exe --update-apply`',
             '',
             '## Package boundary',
-            'This client package does not include Management Server binaries, dm.dll, RegDll.dll, license files, private scripts, account data, or JSONL runtime logs.'
+            'This client package includes DmBridge.dll, dm.dll, and RegDll.dll under dm-bridge/Win32. It does not include Management Server binaries, license files, private scripts, account data, or JSONL runtime logs.'
         ) -join [Environment]::NewLine
         Set-Content -LiteralPath (Join-Path $TargetRoot 'RUNNING.md') -Value $content -Encoding UTF8
         return
@@ -252,19 +276,38 @@ function Write-PackageReadme {
         '- `bin/client-agent-core.exe --update-apply`',
         '',
         '## Safety boundary',
-        'The package does not include dm.dll, RegDll.dll, license files, private scripts, account data, or JSONL runtime logs.'
+        'The package includes DmBridge.dll, dm.dll, and RegDll.dll under dm-bridge/Win32 for Client DM mode. It does not include license files, private scripts, account data, or JSONL runtime logs.'
     ) -join [Environment]::NewLine
     Set-Content -LiteralPath (Join-Path $TargetRoot 'RUNNING.md') -Value $content -Encoding UTF8
 }
 
 function Test-PackageSafety {
-    param([string]$TargetRoot)
+    param(
+        [string]$TargetRoot,
+        [ValidateSet('full', 'server', 'client')]
+        [string]$PackageKind
+    )
 
-    $blocked = @('dm.dll', 'RegDll.dll', '*.chm', '*.chw', '*.jsonl', '*.pdb', '*.dcu', '*.map', '*.tds', '.env')
+    $blocked = @('*.chm', '*.chw', '*.jsonl', '*.pdb', '*.dcu', '*.map', '*.tds', '.env')
     foreach ($pattern in $blocked) {
         $found = Get-ChildItem -LiteralPath $TargetRoot -Recurse -Force -Filter $pattern -ErrorAction SilentlyContinue
         if ($found) {
             throw "Blocked file found in release package: $($found[0].FullName)"
+        }
+    }
+
+    $dmFiles = Get-ChildItem -LiteralPath $TargetRoot -Recurse -Force -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -in @('dm.dll', 'RegDll.dll') }
+
+    if ($PackageKind -eq 'server' -and $dmFiles) {
+        throw "Server package must not contain DM runtime file: $($dmFiles[0].FullName)"
+    }
+
+    foreach ($file in $dmFiles) {
+        $relative = [System.IO.Path]::GetRelativePath($TargetRoot, $file.FullName)
+        $allowedRelative = Join-Path 'dm-bridge\Win32' $file.Name
+        if ($relative -ne $allowedRelative) {
+            throw "DM runtime file is outside approved Client runtime directory: $($file.FullName)"
         }
     }
 }
@@ -288,9 +331,9 @@ Copy-SplitPackagePayload
 Write-PackageReadme $packageRoot 'full'
 Write-PackageReadme $serverPackageRoot 'server'
 Write-PackageReadme $clientPackageRoot 'client'
-Test-PackageSafety $packageRoot
-Test-PackageSafety $serverPackageRoot
-Test-PackageSafety $clientPackageRoot
+Test-PackageSafety $packageRoot 'full'
+Test-PackageSafety $serverPackageRoot 'server'
+Test-PackageSafety $clientPackageRoot 'client'
 
 $hash = New-ZipPackage $packageRoot $zipPath
 $serverHash = New-ZipPackage $serverPackageRoot $serverZipPath

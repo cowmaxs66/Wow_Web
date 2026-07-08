@@ -8,7 +8,7 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P30 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter 和合并同步接口。
+P32 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter、合并同步接口和默认 DM 权限。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -56,10 +56,10 @@ P30 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 - `server`：上报状态上报是否启用以及目标地址。
 - 状态摘要不包含签名私钥、真实账号、商业脚本和大漠授权资料。
 
-## P9 打包路径
+## P9/P32 打包路径
 - `config/client-agent.toml` 优先从当前工作目录读取，适配普通编译包。
 - `scripts/bootstrap.lua` 和 `scripts/bootstrap.manifest.json` 优先从当前工作目录读取，找不到才回退到源码模块目录。
-- 普通编译包不包含 `dm.dll`、`RegDll.dll` 和授权资料；如后续启用大漠能力，需要在本机私有目录配置桥接 DLL。
+- P32 起总包和 Client 分包包含 `dm-bridge/Win32/dm.dll` 与 `dm-bridge/Win32/RegDll.dll`；授权资料仍不进入包，也不进入仓库。
 
 ## P10 x86/x64 运行边界
 - `bin/client-agent.exe` 是 x64 Client，用于基础状态、Lua bootstrap、Server 上报和 Web Admin 联调。
@@ -130,7 +130,12 @@ client-agent.exe --update-apply
 - `scripts/dm_smoke.lua` 用于实机验证 Lua -> Rust -> DmBridge -> 大漠 COM 链路。
 - 脚本只执行 ABI、初始化、版本、取色、错误码和关闭 Bridge，不点击、不键盘输入、不绑定窗口。
 - 运行前需在设置窗口切换 `bootstrap_name = dm-smoke`、`bootstrap_path = scripts/dm_smoke.lua`、`manifest_path = scripts/dm_smoke.manifest.json`，公钥设为 `ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c`，并勾选 `host.log` 和 `dm.access`。
-- DM smoke 仍要求本机大漠 COM 可用；项目不会提交 `dm.dll`、`RegDll.dll`、授权文件或账号资料。
+- DM smoke 仍要求本机大漠 COM 可用；P32 起 release 包携带 `dm.dll/RegDll.dll`，但项目不会提交这些 DLL、授权文件或账号资料到源码仓库。
+
+## P32 默认 DM 权限
+- 默认 `client-agent.toml` 的 `script_security.allowed_permissions` 包含 `host.log`、`config.read` 和 `dm.access`。
+- 默认 `bootstrap.lua` 仍只请求 `host.log/config.read`，不会自动调用 DM。
+- 需要调用 DM 的脚本必须在自己的 manifest 中声明 `dm.access`，并通过签名和 hash 校验。
 
 ## P29/P30 多机器与通讯效率
 - `[client]` 新增 `display_name`、`group` 和 `tags`，用于 Web 多机器管理，不替代稳定 `client.id`。

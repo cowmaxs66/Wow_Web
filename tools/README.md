@@ -63,9 +63,10 @@ pwsh -NoProfile -ExecutionPolicy Bypass -File .\tools\package-release.ps1
 - 发布包内安装/卸载脚本为 ASCII，可由 Windows PowerShell 直接运行。
 - 输出文件包括 `WoW_Framework_vX.Y.Z_windows.zip`、`WoW_Server_vX.Y.Z_windows.zip`、`WoW_Client_vX.Y.Z_windows.zip`。
 - `WoW_Framework` 总包继续用于当前用户安装器和自动更新兼容。
+- P32 起，总包和 Client 分包会从 `I:\图色\工具\大漠\7.2149` 复制 `dm.dll`、`RegDll.dll` 到 `dm-bridge/Win32/`；其他机器打包时可用 `WOW_DM_RUNTIME_DIR` 指定来源目录。
 
 ## DM 说明
 - x64 Client 只能用于基础 Client、Server、Web Admin 和 JSONL 持久化。
 - P11 发布包默认 `client-agent.exe` 使用 x86 构建，便于后续接入 32 位大漠。
-- 32 位大漠需要 x86 Client、Win32 DmBridge 和本机私有 `dm.dll`/注册信息。
-- 本脚本不会复制或注册大漠 DLL。
+- 32 位大漠需要 x86 Client、Win32 DmBridge、`dm.dll`、COM 注册和授权。
+- P32 起发布包会携带 `dm.dll` 与 `RegDll.dll`，但不会复制授权文件，也不会自动完成 COM 注册。

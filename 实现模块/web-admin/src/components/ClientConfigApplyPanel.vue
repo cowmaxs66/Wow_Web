@@ -34,8 +34,8 @@ const manifestPath = ref("scripts/bootstrap.manifest.json");
 const trustedSignerPublicKey = ref("");
 const allowHostLog = ref(true);
 const allowConfigRead = ref(true);
-const allowDmAccess = ref(false);
-const dmBridgePath = ref("dm-bridge/DmBridge.dll");
+const allowDmAccess = ref(true);
+const dmBridgePath = ref("dm-bridge/Win32/DmBridge.dll");
 const submitting = ref(false);
 const resultMessage = ref("");
 

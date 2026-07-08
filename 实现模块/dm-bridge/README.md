@@ -69,7 +69,7 @@ target/dm-bridge/Win32/DmBridge.dll
 - 当前已允许外部线程调用导出函数，但 DLL 内部仍串行投递到单一 STA 线程执行大漠 COM。
 - 当前不实现大漠全量接口，只实现烟测链路。
 - 自动烟测验证 `MoveTo`，不自动执行 `LeftClick`，避免误点击。
-- 当前不复制 `dm.dll`、`RegDll.dll`、CHM、授权资料到仓库。
+- 当前不复制 `dm.dll`、`RegDll.dll`、CHM、授权资料到仓库；P32 起 release 总包和 Client 分包会把 `dm.dll` / `RegDll.dll` 放入 `dm-bridge/Win32/`。
 
 ## 契约文档
 详见：`技术设计/DmBridge_C_ABI契约设计.md`

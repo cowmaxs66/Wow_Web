@@ -47,15 +47,13 @@ const props = defineProps<{
   serverUrl: string;
 }>();
 
-const allClientsValue = "__all_clients__";
 const messageTitle = ref("服务端消息");
 const messageBody = ref("");
 const sendingMessage = ref(false);
 const messageResult = ref("");
 const pendingCommand = ref<ClientCommandType | null>(null);
 const commandResult = ref("");
-const selectedTarget = ref("");
-const bulkConfirmed = ref(false);
+const selectedClientIds = ref<string[]>([]);
 const receipts = ref<ClientCommandReceipt[]>([]);
 const receiptsLoading = ref(false);
 const receiptsError = ref("");
@@ -64,23 +62,23 @@ const clientOptions = computed(() =>
   props.clients.map((client) => ({
     id: client.client_id,
     online: client.data.online,
-    label: `${client.client_id} / ${client.data.online ? "在线" : "离线"}`,
+    displayName: client.data.identity.display_name || client.client_id,
+    group: client.data.identity.group || "default",
+    tags: client.data.identity.tags,
   })),
 );
 
-const targetClientIds = computed(() => {
-  if (selectedTarget.value === allClientsValue) {
-    return clientOptions.value.map((client) => client.id);
-  }
+const clientIdSet = computed(() => new Set(clientOptions.value.map((client) => client.id)));
 
-  return selectedTarget.value ? [selectedTarget.value] : [];
-});
+const targetClientIds = computed(() =>
+  selectedClientIds.value.filter((clientId) => clientIdSet.value.has(clientId)),
+);
 
 const hasTarget = computed(() => targetClientIds.value.length > 0);
 
 const isBulkTarget = computed(() => targetClientIds.value.length > 1);
 
-const canOperateTarget = computed(() => hasTarget.value && (!isBulkTarget.value || bulkConfirmed.value));
+const canOperateTarget = computed(() => hasTarget.value);
 
 const canSendMessage = computed(
   () =>
@@ -91,19 +89,24 @@ const canSendMessage = computed(
 );
 
 const receiptClientId = computed(() => {
-  if (!selectedTarget.value || selectedTarget.value === allClientsValue) {
+  if (targetClientIds.value.length !== 1) {
     return "";
   }
 
-  return selectedTarget.value;
+  return targetClientIds.value[0];
 });
 
 const targetLabel = computed(() => {
-  if (selectedTarget.value === allClientsValue) {
-    return `全部客户端（${targetClientIds.value.length} 台）`;
+  if (!targetClientIds.value.length) {
+    return "未选择";
   }
 
-  return selectedTarget.value || "未选择";
+  if (targetClientIds.value.length === 1) {
+    const client = clientOptions.value.find((item) => item.id === targetClientIds.value[0]);
+    return client ? `${client.displayName}（${client.id}）` : targetClientIds.value[0];
+  }
+
+  return `已选择 ${targetClientIds.value.length} 台 Client`;
 });
 
 watch(
@@ -111,7 +114,7 @@ watch(
   (selectedId) => {
     const ids = clientOptions.value.map((client) => client.id);
     if (selectedId && ids.includes(selectedId)) {
-      selectedTarget.value = selectedId;
+      selectedClientIds.value = [selectedId];
     }
   },
   { immediate: true },
@@ -121,12 +124,12 @@ watch(
   () => clientOptions.value.map((client) => client.id).join("\n"),
   () => {
     const ids = clientOptions.value.map((client) => client.id);
-    if (selectedTarget.value === allClientsValue && ids.length > 1) {
-      return;
-    }
+    const idSet = new Set(ids);
+    selectedClientIds.value = selectedClientIds.value.filter((clientId) => idSet.has(clientId));
 
-    if (!ids.includes(selectedTarget.value)) {
-      selectedTarget.value = ids[0] ?? "";
+    if (!selectedClientIds.value.length && ids.length) {
+      const preferredId = props.status?.client_id;
+      selectedClientIds.value = preferredId && idSet.has(preferredId) ? [preferredId] : [ids[0]];
     }
   },
   { immediate: true },
@@ -138,13 +141,6 @@ watch(
     void refreshReceipts();
   },
   { immediate: true },
-);
-
-watch(
-  () => selectedTarget.value,
-  () => {
-    bulkConfirmed.value = false;
-  },
 );
 
 const commandGroups: CommandGroup[] = [
@@ -311,6 +307,31 @@ async function refreshReceipts(): Promise<void> {
   }
 }
 
+function isTargetSelected(clientId: string): boolean {
+  return selectedClientIds.value.includes(clientId);
+}
+
+function setTargetSelected(clientId: string, checked: boolean): void {
+  const next = new Set(selectedClientIds.value);
+  if (checked) {
+    next.add(clientId);
+  } else {
+    next.delete(clientId);
+  }
+
+  selectedClientIds.value = clientOptions.value
+    .map((client) => client.id)
+    .filter((id) => next.has(id));
+}
+
+function selectAllTargets(): void {
+  selectedClientIds.value = clientOptions.value.map((client) => client.id);
+}
+
+function clearTargets(): void {
+  selectedClientIds.value = [];
+}
+
 async function submitMessage(): Promise<void> {
   const targets = targetClientIds.value;
   if (!canSendMessage.value || !targets.length) {
@@ -396,30 +417,36 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
     </div>
 
     <div v-else class="remote-stack">
-      <label class="target-select">
-        <span>下发目标</span>
-        <select v-model="selectedTarget">
-          <option
-            v-if="clientOptions.length > 1"
-            :value="allClientsValue"
-          >
-            全部已上报客户端
-          </option>
-          <option
+      <div class="target-list-panel">
+        <div class="target-list-heading">
+          <span>下发目标</span>
+          <div>
+            <button type="button" @click="selectAllTargets">全选</button>
+            <button type="button" @click="clearTargets">清空</button>
+          </div>
+        </div>
+        <div class="target-list" role="listbox" aria-label="选择客户端">
+          <label
             v-for="client in clientOptions"
             :key="client.id"
-            :value="client.id"
+            :class="{ active: isTargetSelected(client.id) }"
           >
-            {{ client.label }}
-          </option>
-        </select>
-      </label>
+            <input
+              type="checkbox"
+              :checked="isTargetSelected(client.id)"
+              @change="setTargetSelected(client.id, ($event.target as HTMLInputElement).checked)"
+            />
+            <span>
+              <strong>{{ client.displayName }}</strong>
+              <small>{{ client.id }} / {{ client.online ? "在线" : "离线" }}</small>
+              <small>{{ client.group }} / {{ client.tags.join(", ") || "无标签" }}</small>
+            </span>
+          </label>
+        </div>
+      </div>
 
-      <div v-if="isBulkTarget" class="bulk-guard">
-        <label>
-          <input v-model="bulkConfirmed" type="checkbox" />
-          <span>确认对 {{ targetClientIds.length }} 台 Client 批量下发。本操作会写入每台机器的队列，执行结果以回执为准。</span>
-        </label>
+      <div v-if="isBulkTarget" class="bulk-summary">
+        已选择 {{ targetClientIds.length }} 台 Client。命令会写入每台机器队列，执行结果以各自回执为准。
       </div>
 
       <form class="message-form" @submit.prevent="submitMessage">
@@ -571,49 +598,99 @@ header p,
   gap: var(--space-3);
 }
 
-.target-select {
+.target-list-panel {
   display: grid;
   gap: var(--space-2);
 }
 
-.target-select span {
+.target-list-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.target-list-heading > span {
   color: var(--color-muted);
   font-size: 12px;
   font-weight: 760;
 }
 
-.bulk-guard {
-  border: 1px solid rgba(161, 92, 7, 0.28);
-  border-radius: var(--radius-control);
-  background: #fff7ed;
-  padding: var(--space-3);
+.target-list-heading div {
+  display: inline-flex;
+  gap: var(--space-2);
 }
 
-.bulk-guard label {
+.target-list-heading button {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--color-text);
+  padding: 5px var(--space-2);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.target-list {
+  display: grid;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+}
+
+.target-list label {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: flex-start;
   gap: var(--space-2);
-  color: var(--color-warning);
-  font-size: 12px;
-  font-weight: 780;
-  line-height: 1.5;
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3);
 }
 
-.bulk-guard input {
+.target-list label:last-child {
+  border-bottom: 0;
+}
+
+.target-list label.active {
+  background: var(--color-accent-soft);
+}
+
+.target-list input {
+  width: 16px;
+  height: 16px;
   margin-top: 2px;
 }
 
-.target-select select {
-  width: 100%;
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-control);
-  background: #ffffff;
+.target-list strong,
+.target-list small {
+  display: block;
+}
+
+.target-list strong {
   color: var(--color-text);
-  padding: 9px var(--space-3);
-  font: inherit;
   font-size: 13px;
-  outline: none;
+  line-height: 1.3;
+}
+
+.target-list small {
+  margin-top: 2px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.bulk-summary {
+  border: 1px solid rgba(161, 92, 7, 0.28);
+  border-radius: var(--radius-control);
+  background: #fff7ed;
+  color: var(--color-warning);
+  padding: var(--space-3);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.5;
 }
 
 .command-group {

@@ -461,3 +461,18 @@
   - 总包 `d450d43db072c35c983689208e098c42959590aebf2175f4e10eac23dd1bf9ab`
   - Server 分包 `f80de951b25743b28d435a8581e93d4267341259e50afa60f7d8e9be83537e02`
   - Client 分包 `76b34c27c67ceb5298f0dddd33c5ed8949337218bf30d7ec4f61823dbe45fc12`
+
+## P32 DM 正式包与多选客户端操作验证
+- `cargo fmt --all --check`：通过。
+- `cargo test --workspace`：通过，Client 49 个测试、Server 49 个测试、shared-types 11 个测试、launcher 3 个测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.24.0`。
+- `tools/package-release.ps1` PowerShell AST 解析：通过。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Client 分包 smoke：通过，`bin/client-agent-core.exe --run-once` 输出 `release_version = v1.24.0`、`arch = x86`、`allowed_permissions = ["host.log", "config.read", "dm.access"]`。
+- Server 分包 smoke：通过，临时端口 `/health` 返回 `{"status":"ok"}`。
+- 包内容检查：通过，总包和 Client 分包包含 `DmBridge.dll`、`dm.dll`、`RegDll.dll`；Server 分包不包含这三个 DM 文件。
+- 三类 zip SHA-256：
+  - 总包 `f13ac447611caef4209865cec2aeaa98a631d59b4a73ee60461d612397d2be4b`
+  - Server 分包 `34a26b5a7a0cbe3b2195f7ef91c9e2dd469a7aaf77a4e218b413809bb2866822`
+  - Client 分包 `06f0dd76e88a45cda55f69d0a91edc745a4377f6c75fa0925d9790947f4eb29f`

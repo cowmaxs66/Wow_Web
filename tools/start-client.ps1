@@ -40,7 +40,7 @@ try {
 
     if ($ClientArch -eq 'x86') {
         $env:DM_BRIDGE_DLL = $DmBridgePath
-        Write-Host 'Client 模式：x86 DM。请确认本机已准备 32 位 dm.dll 注册与授权。'
+        Write-Host 'Client 模式：x86 DM。发布包已带 dm.dll / RegDll.dll；首次使用仍需确认本机 COM 注册与授权状态。'
     } else {
         Write-Host 'Client 模式：x64 核心。不会直接加载 32 位大漠 DLL。'
     }

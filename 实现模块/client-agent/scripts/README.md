@@ -16,6 +16,6 @@
 - `Lua 权限`：勾选 `host.log` 和 `dm.access`
 - `Ed25519 公钥`：`ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c`
 
-`DmBridge.dll 路径` 使用发布包默认值 `dm-bridge/Win32/DmBridge.dll`。本烟测仍要求本机大漠 COM 已可用；发布包不会包含 `dm.dll`、`RegDll.dll`、授权文件或账号资料。
+`DmBridge.dll 路径` 使用发布包默认值 `dm-bridge/Win32/DmBridge.dll`。P32 起总包和 Client 分包会随包携带 `dm.dll` 与 `RegDll.dll`；本烟测仍要求本机大漠 COM 已注册并具备授权。
 
-切回默认 `bootstrap.lua` 时，需要把 `Ed25519 公钥` 恢复为默认配置中的 `7f3c8268b3f403594ef6e7e681ca62851e66b07b915c48a523b0cfaf7e54bfc9`，并把权限恢复为 `host.log`、`config.read`。
+切回默认 `bootstrap.lua` 时，需要把 `Ed25519 公钥` 恢复为默认配置中的 `7f3c8268b3f403594ef6e7e681ca62851e66b07b915c48a523b0cfaf7e54bfc9`，权限保持 `host.log`、`config.read`、`dm.access`。

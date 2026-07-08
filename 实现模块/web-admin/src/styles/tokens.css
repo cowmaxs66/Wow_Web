@@ -1,7 +1,10 @@
 :root {
-  --color-page: #f6f8fb;
+  --color-page: #f2f6fa;
   --color-surface: #ffffff;
-  --color-surface-muted: #eef3f8;
+  --color-surface-muted: #edf3f8;
+  --color-sidebar: #151a22;
+  --color-sidebar-text: #edf2f7;
+  --color-sidebar-muted: #9aa6b6;
   --color-border: #d8e1eb;
   --color-border-strong: #bfd0df;
   --color-text: #172033;
@@ -14,7 +17,7 @@
   --color-success: #15803d;
   --color-danger: #b42318;
   --color-warning: #a15c07;
-  --shadow-panel: 0 12px 30px rgba(26, 40, 66, 0.08);
+  --shadow-panel: 0 10px 26px rgba(26, 40, 66, 0.07);
   --radius-panel: 8px;
   --radius-control: 6px;
   --space-1: 4px;

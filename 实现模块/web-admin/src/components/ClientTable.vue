@@ -59,6 +59,14 @@ const groupCount = computed(() => {
   return groups.size;
 });
 
+const hasActiveFilter = computed(
+  () =>
+    !!props.searchText.trim() ||
+    !!props.groupFilter.trim() ||
+    !!props.tagFilter.trim() ||
+    props.onlineFilter !== "all",
+);
+
 function runtimeMode(client: ClientStatusEnvelope): string {
   const arch = client.data.runtime.arch || "unknown";
   const hasDm = client.data.script.allowed_permissions.includes("dm.access");
@@ -154,16 +162,22 @@ const pageSummary = computed(() => {
       </button>
     </div>
 
-    <div v-if="clients.length === 0" class="empty-state">
+    <div v-if="loading && clients.length === 0" class="empty-state">
       <MonitorCheck :size="34" :stroke-width="1.8" />
-      <strong>{{ loading ? "正在讀取狀態" : "尚無 Client 上報" }}</strong>
-      <span>啟動 Client Agent 並開啟 Server 上報後，這裡會顯示最新狀態。</span>
+      <strong>正在讀取狀態</strong>
+      <span>控制台正在向 Management Server 读取最新 Client 快照。</span>
+    </div>
+
+    <div v-else-if="clients.length === 0 && hasActiveFilter" class="empty-state">
+      <MonitorCheck :size="34" :stroke-width="1.8" />
+      <strong>沒有符合條件的 Client</strong>
+      <span>清除搜尋字或切換篩選條件後再查看。</span>
     </div>
 
     <div v-else-if="clients.length === 0" class="empty-state">
       <MonitorCheck :size="34" :stroke-width="1.8" />
-      <strong>沒有符合條件的 Client</strong>
-      <span>清除搜尋字或切換篩選條件後再查看。</span>
+      <strong>尚無 Client 上報</strong>
+      <span>啟動 Client Agent 並開啟 Server 上報後，這裡會顯示最新狀態。</span>
     </div>
 
     <div v-else class="table-wrap">

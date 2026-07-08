@@ -4,6 +4,7 @@ import {
   FileCode2,
   LayoutDashboard,
   MonitorCheck,
+  ScrollText,
   Settings,
 } from "@lucide/vue";
 import type { Component } from "vue";
@@ -16,6 +17,8 @@ interface NavItem {
 
 defineProps<{
   activeView: string;
+  serverLabel?: string;
+  serverUrl?: string;
 }>();
 
 defineEmits<{
@@ -27,6 +30,7 @@ const navItems: NavItem[] = [
   { id: "clients", label: "客戶端", icon: MonitorCheck },
   { id: "scripts", label: "腳本", icon: FileCode2 },
   { id: "operations", label: "遠程操作", icon: Bolt },
+  { id: "logs", label: "日誌", icon: ScrollText },
   { id: "settings", label: "設定", icon: Settings },
 ];
 </script>
@@ -38,7 +42,7 @@ const navItems: NavItem[] = [
         <span class="brand-mark">W</span>
         <div>
           <strong>WoW Control</strong>
-          <small>Agent 管理端</small>
+          <small>Desktop Console</small>
         </div>
       </div>
       <nav>
@@ -54,6 +58,10 @@ const navItems: NavItem[] = [
           <span>{{ item.label }}</span>
         </button>
       </nav>
+      <footer class="shell-status">
+        <span>{{ serverUrl || "Management Server" }}</span>
+        <strong>{{ serverLabel || "未知" }}</strong>
+      </footer>
     </aside>
 
     <main class="workspace">
@@ -65,8 +73,9 @@ const navItems: NavItem[] = [
 <style scoped>
 .shell {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 236px minmax(0, 1fr);
   min-height: 100vh;
+  background: var(--color-page);
 }
 
 .sidebar {
@@ -74,8 +83,11 @@ const navItems: NavItem[] = [
   top: 0;
   align-self: start;
   height: 100vh;
-  border-right: 1px solid var(--color-border);
-  background: #ffffff;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  border-right: 1px solid rgba(148, 163, 184, 0.2);
+  background: var(--color-sidebar);
+  color: var(--color-sidebar-text);
   padding: var(--space-4);
 }
 
@@ -83,7 +95,7 @@ const navItems: NavItem[] = [
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-8);
+  margin-bottom: var(--space-5);
 }
 
 .brand-mark {
@@ -92,7 +104,7 @@ const navItems: NavItem[] = [
   height: 38px;
   place-items: center;
   border-radius: var(--radius-control);
-  background: var(--color-text);
+  background: linear-gradient(135deg, var(--color-accent) 0%, #0f766e 100%);
   color: #ffffff;
   font-size: 18px;
   font-weight: 800;
@@ -108,12 +120,13 @@ const navItems: NavItem[] = [
 }
 
 .brand small {
-  color: var(--color-muted);
+  color: var(--color-sidebar-muted);
   font-size: 12px;
 }
 
 nav {
   display: grid;
+  align-content: start;
   gap: var(--space-2);
 }
 
@@ -125,23 +138,58 @@ nav {
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
-  color: var(--color-muted);
+  color: var(--color-sidebar-muted);
   padding: 10px var(--space-3);
   text-align: left;
   font-size: 14px;
   font-weight: 700;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
 }
 
 .nav-item.active,
 .nav-item:hover {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.nav-item:focus {
+  outline: none;
+}
+
+.nav-item:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.42);
+  outline-offset: 2px;
+}
+
+.shell-status {
+  display: grid;
+  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.06);
+  padding: var(--space-3);
+}
+
+.shell-status span {
+  overflow: hidden;
+  color: var(--color-sidebar-muted);
+  font-size: 11px;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shell-status strong {
+  color: #d1fae5;
+  font-size: 13px;
 }
 
 .workspace {
   min-width: 0;
-  width: min(100%, 1760px);
-  padding: var(--space-5) var(--space-6) var(--space-6);
+  width: min(100%, 1840px);
+  padding: var(--space-5);
 }
 
 @media (max-width: 880px) {
@@ -165,20 +213,26 @@ nav {
 
   nav {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--space-2);
   }
 
   .nav-item {
+    width: 100%;
     min-width: 0;
     justify-content: center;
     gap: var(--space-2);
     padding-inline: var(--space-2);
     font-size: 12px;
+    white-space: nowrap;
   }
 
   .workspace {
     padding: var(--space-4);
+  }
+
+  .shell-status {
+    display: none;
   }
 }
 </style>

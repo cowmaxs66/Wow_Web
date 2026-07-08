@@ -48,6 +48,9 @@
 | P32 DM 正式包与多选客户端操作验证 | 默认 DM 权限、DM DLL 随包、Web Client 多选操作、三类 zip | 已通过 |
 | P33 Lua 热推送与内部测试模式源码验证 | 默认内部测试模式、Lua 热推送、Lua 启停状态、重复下发拦截 | 已通过 |
 | P34 DM 绑定诊断与桌面控制台源码验证 | BindWindow 诊断、Lua 常用接口、Server 桌面控制台、Client 日志 UI | 已通过 |
+| P35 客户端体验与脚本故障恢复验证 | 日志乱码、DM 自动初始化、Lua 故障恢复、控制台 UI 和 EXE 图标 | 已通过 |
+| P36 远程设置与脚本日志回执验证 | 远程设置、Lua 输出回执、回执分类展示、三类编译包和 GitHub Release | 已通过 |
+| P37 桌面控制台 UI 体验优化验证 | Web 构建、桌面/移动浏览器 QA、日志导航和截图记录 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -554,3 +557,19 @@
   - 总包 `d5f29ffd5a95a0fbec4a4b024b0b263fa7fa9c2adbc0cd58a168e1bd51a7a3f6`
   - Server 分包 `45cb5bcac244d7ac10f3d0c2a27f77178463f862467d85577157e0b0a6a949ef`
   - Client 分包 `feb507de5754dfb0330408e773f483308bfb6a8583401ca05843f07b9898121a`
+
+## P37 桌面控制台 UI 体验优化验证
+- `npm run build`：通过，Web Admin 版本为 `1.29.0`。
+- `cargo test --workspace`：通过，Client 55 项、Server 52 项、shared-types 11 项、launcher 3 项测试全部通过。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- 浏览器桌面 QA：1280px 视口通过，页面显示总览、顶部当前目标卡片、Client 列表优先布局，页面无横向溢出。
+- 浏览器日志页 QA：日志导航可进入，页面显示 `Server 審計` 和远程操作回执入口。
+- 浏览器移动 QA：390px 视口通过，移动导航为 3 列两行，中文未竖排，页面无横向溢出。
+- 浏览器控制台错误检查：通过，错误数为 0。
+- QA 截图：`测试验证/P37-UI-QA/desktop-overview.png`、`测试验证/P37-UI-QA/mobile-logs.png`。
+- Client 分包 smoke：通过，`bin/client-agent-core.exe --run-once` 输出 `release_version = v1.29.0`、`arch = x86`、Lua 启用、脚本安全关闭和 `dm.access`。
+- Server 分包 smoke：通过，`/health = ok`、内嵌首页 HTTP 200、`script.deploy_bundle` 命令可写入。
+- 三类 zip SHA-256：
+  - 总包 `e9595b7b823fcec5790a4adc574d9339df851eb8db98b0c1b39f9a93d789f5f9`
+  - Server 分包 `52557f87c26a9378db8a8619c99d1c0c68147e3461d4e21d01072f39c622c746`
+  - Client 分包 `551c801f05bdaa38d80bc25ae3c32fc0efc4cc85ab5e08159e61a7e3fc47953d`

@@ -22,7 +22,10 @@
 
 | 项目 | 内容 |
 |------|------|
-| 状态 | 无 |
+| 状态 | v1.29.0 本地包已生成，待 GitHub Release 上传工具 |
+| 版本 | `v1.29.0` |
+| 编译包 | `WoW_Framework_v1.29.0_windows.zip`、`WoW_Server_v1.29.0_windows.zip`、`WoW_Client_v1.29.0_windows.zip` |
+| 编译包 SHA-256 | 总包 `e9595b7b823fcec5790a4adc574d9339df851eb8db98b0c1b39f9a93d789f5f9`；Server `52557f87c26a9378db8a8619c99d1c0c68147e3461d4e21d01072f39c622c746`；Client `551c801f05bdaa38d80bc25ae3c32fc0efc4cc85ab5e08159e61a7e3fc47953d` |
 
 ## 安全边界
 - 总包和 Client 分包包含 `dm-bridge/Win32/dm.dll` 与 `dm-bridge/Win32/RegDll.dll`。
@@ -72,4 +75,4 @@
 | v1.2.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.2.0 | `41ca63e6b29658fd572d83c4378b6980dbf0bd36` | 已完成 |
 
 ## 下一步建议
-优先测试 v1.28.0 GitHub Release 下载包；实机通过后建议补 DM 注册/授权检测向导、Server 桌面控制台原生壳、Client 批量操作结果筛选和发布包签名验证。
+优先测试本地 v1.29.0 三类包；补齐 GitHub Release 上传工具后发布远端 Release。实机通过后建议补 DM 注册/授权检测向导、Client 批量操作结果筛选和发布包签名验证。

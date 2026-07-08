@@ -14,12 +14,20 @@ body {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
 button {
   cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  accent-color: var(--color-accent);
 }
 
 button:disabled {

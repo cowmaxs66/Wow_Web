@@ -4,8 +4,10 @@ import {
   Bolt,
   Clock3,
   FileCode2,
+  ListChecks,
   MonitorCheck,
   RefreshCw,
+  ScrollText,
   Server,
   ShieldCheck,
 } from "@lucide/vue";
@@ -56,7 +58,13 @@ const {
   refreshDashboard,
 } = useDashboardStatus();
 
-type AdminView = "overview" | "clients" | "scripts" | "operations" | "settings";
+type AdminView =
+  | "overview"
+  | "clients"
+  | "scripts"
+  | "operations"
+  | "logs"
+  | "settings";
 
 const activeView = ref<AdminView>("overview");
 const allowedViews = new Set<AdminView>([
@@ -64,6 +72,7 @@ const allowedViews = new Set<AdminView>([
   "clients",
   "scripts",
   "operations",
+  "logs",
   "settings",
 ]);
 
@@ -82,17 +91,22 @@ const viewMeta = computed(() => {
     case "operations":
       return {
         title: "遠程操作",
-        description: "由 Server 寫入命令隊列，Client monitor 輪詢後在本機執行。",
+        description: "選擇單台或多台 Client，下發消息、Lua、設定和本機操作。",
+      };
+    case "logs":
+      return {
+        title: "日誌與回執",
+        description: "集中查看 Server 審計、命令回執與最近一次 Client 上報。",
       };
     case "settings":
       return {
         title: "設定",
-        description: "管理 Web 端連線設定與首次部署向導。",
+        description: "管理控制台連線、首次部署向導與 Client 遠程設定。",
       };
     default:
       return {
         title: "總覽",
-        description: "查看 Management Server 與 Client Agent 的整體運行狀態。",
+        description: "先確認 Server 與 Client 狀態，再選擇機器進行腳本、設定或日志排查。",
       };
   }
 });
@@ -107,6 +121,74 @@ const clientTableProps = computed(() => ({
   tagFilter: clientTagFilter.value,
   onlineFilter: clientOnlineFilter.value,
 }));
+
+const selectedClientTitle = computed(() => {
+  const status = selectedStatus.value;
+  return status?.data.identity.display_name || status?.client_id || "未選擇 Client";
+});
+
+const selectedClientSubtitle = computed(() => {
+  const status = selectedStatus.value;
+  if (!status) {
+    return "請先在客戶端列表中選擇目標";
+  }
+
+  const group = status.data.identity.group || "default";
+  const tags = status.data.identity.tags.length
+    ? status.data.identity.tags.join(", ")
+    : "無標籤";
+  return `${status.client_id} / ${group} / ${tags}`;
+});
+
+const selectedRuntimeMode = computed(() => {
+  const status = selectedStatus.value;
+  if (!status) {
+    return "未選擇";
+  }
+
+  const arch = status.data.runtime.arch || "unknown";
+  const hasDmAccess = status.data.script.allowed_permissions.includes("dm.access");
+  return hasDmAccess ? `${arch} / DM` : `${arch} / Core`;
+});
+
+const selectedScriptState = computed(() => {
+  const status = selectedStatus.value;
+  if (!status) {
+    return "未選擇";
+  }
+
+  return status.data.script.enabled
+    ? `${status.data.current_script ?? status.data.script.bootstrap_name}`
+    : "Lua 已停用";
+});
+
+const selectedStatusTone = computed<"online" | "offline" | "idle">(() => {
+  if (!selectedStatus.value) {
+    return "idle";
+  }
+
+  return selectedStatus.value.data.online ? "online" : "offline";
+});
+
+const selectedStatusLabel = computed(() => {
+  if (!selectedStatus.value) {
+    return "未選擇";
+  }
+
+  return selectedStatus.value.data.online ? "Client 在線" : "Client 離線";
+});
+
+const primaryActionText = computed(() => {
+  if (!selectedStatus.value) {
+    return "先選擇 Client";
+  }
+
+  if (!selectedStatus.value.data.online) {
+    return "先檢查離線原因";
+  }
+
+  return "可下發命令";
+});
 
 function changeView(view: string): void {
   if (allowedViews.has(view as AdminView)) {
@@ -146,13 +228,23 @@ function changeClientPage(page: number): void {
 </script>
 
 <template>
-  <AppShell :active-view="activeView" @navigate="changeView">
+  <AppShell
+    :active-view="activeView"
+    :server-label="healthLabel"
+    :server-url="serverUrl"
+    @navigate="changeView"
+  >
     <header class="topbar">
-      <div>
+      <div class="title-block">
         <h1>{{ viewMeta.title }}</h1>
         <p>{{ viewMeta.description }}</p>
       </div>
       <div class="topbar-actions">
+        <div class="target-card" :data-online="selectedStatus?.data.online ? 'true' : 'false'">
+          <StatusDot :tone="selectedStatusTone" :label="selectedStatusLabel" />
+          <strong>{{ selectedClientTitle }}</strong>
+          <span class="target-subtitle">{{ selectedClientSubtitle }}</span>
+        </div>
         <StatusDot
           :tone="health === 'online' ? 'online' : health === 'offline' ? 'offline' : 'idle'"
           :label="healthLabel"
@@ -183,17 +275,16 @@ function changeClientPage(page: number): void {
           tone="success"
         />
         <MetricCard
-          label="當前腳本"
-          :value="currentScript"
-          note="選中 Client 的 current_script"
-          :icon="Activity"
+          label="目前目標"
+          :value="primaryActionText"
+          :note="selectedRuntimeMode"
+          :icon="ListChecks"
         />
         <MetricCard
-          label="腳本安全門"
-          :value="`${securityEnabledCount}/${clients.length}`"
+          label="當前腳本"
+          :value="selectedScriptState"
           :note="`Agent 版本：${selectedReleaseVersion}`"
-          :icon="ShieldCheck"
-          tone="success"
+          :icon="Activity"
         />
         <MetricCard
           label="最近上報"
@@ -205,15 +296,6 @@ function changeClientPage(page: number): void {
 
       <section class="content-grid">
         <div class="main-stack">
-          <SnapshotAnalytics
-            :clients="clients"
-            :online-count="onlineCount"
-            :offline-count="offlineCount"
-          />
-          <HistoryTrendPanel
-            :history="selectedHistory"
-            :limit="historyLimit"
-          />
           <ClientTable
             v-bind="clientTableProps"
             :clients="clients"
@@ -228,8 +310,24 @@ function changeClientPage(page: number): void {
             @page-change="changeClientPage"
             @select="selectedClientId = $event"
           />
+          <SnapshotAnalytics
+            :clients="clients"
+            :online-count="onlineCount"
+            :offline-count="offlineCount"
+          />
+          <HistoryTrendPanel
+            :history="selectedHistory"
+            :limit="historyLimit"
+          />
         </div>
         <aside class="side-stack">
+          <MetricCard
+            label="DM 權限"
+            :value="`${securityEnabledCount}/${clients.length}`"
+            note="已上报 dm.access 的 Client 数量"
+            :icon="ShieldCheck"
+            tone="success"
+          />
           <ClientDetail :status="selectedStatus" />
         </aside>
       </section>
@@ -257,6 +355,12 @@ function changeClientPage(page: number): void {
         />
       </div>
       <aside class="side-stack">
+        <MetricCard
+          label="操作目標"
+          :value="selectedClientTitle"
+          :note="selectedRuntimeMode"
+          :icon="ListChecks"
+        />
         <ClientDetail :status="selectedStatus" />
       </aside>
     </section>
@@ -329,9 +433,35 @@ function changeClientPage(page: number): void {
       <aside class="side-stack">
         <MetricCard
           label="遠程目標"
-          :value="selectedStatus?.client_id ?? '未選擇'"
-          note="操作面板可选择单台或全部 Client"
+          :value="selectedClientTitle"
+          :note="selectedRuntimeMode"
           :icon="Bolt"
+        />
+        <MetricCard
+          label="最近上報"
+          :value="lastReportLabel"
+          :note="`頁面刷新：${lastRefreshLabel}`"
+          :icon="Clock3"
+        />
+        <ClientDetail :status="selectedStatus" />
+      </aside>
+    </section>
+
+    <section v-else-if="activeView === 'logs'" class="content-grid logs-view">
+      <div class="main-stack">
+        <AuditPanel :server-url="serverUrl" />
+        <ClientRemoteActions
+          :status="selectedStatus"
+          :clients="clients"
+          :server-url="serverUrl"
+        />
+      </div>
+      <aside class="side-stack">
+        <MetricCard
+          label="日誌目標"
+          :value="selectedClientTitle"
+          :note="selectedStatusLabel"
+          :icon="ScrollText"
         />
         <MetricCard
           label="最近上報"
@@ -385,13 +515,14 @@ function changeClientPage(page: number): void {
   top: 0;
   z-index: 8;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  margin: calc(var(--space-5) * -1) calc(var(--space-6) * -1) var(--space-5);
-  border-bottom: 1px solid rgba(216, 225, 235, 0.9);
-  background: rgba(246, 248, 251, 0.96);
-  padding: var(--space-4) var(--space-6);
+  margin: calc(var(--space-5) * -1) calc(var(--space-5) * -1) var(--space-5);
+  border-bottom: 1px solid rgba(211, 220, 232, 0.92);
+  background: rgba(242, 246, 250, 0.96);
+  backdrop-filter: blur(18px);
+  padding: var(--space-3) var(--space-5);
 }
 
 h1,
@@ -401,17 +532,17 @@ p {
 
 h1 {
   color: var(--color-text);
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 780;
   letter-spacing: 0;
   line-height: 1.15;
 }
 
 .topbar p {
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
   color: var(--color-muted);
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .topbar-actions {
@@ -419,7 +550,41 @@ h1 {
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+}
+
+.target-card {
+  display: grid;
+  min-width: 300px;
+  max-width: 440px;
+  gap: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: rgba(255, 255, 255, 0.82);
+  padding: 8px var(--space-3);
+}
+
+.target-card strong {
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 820;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.target-subtitle {
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.target-card[data-online="true"] {
+  border-color: rgba(8, 127, 122, 0.28);
 }
 
 .topbar-actions button {
@@ -437,8 +602,8 @@ h1 {
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--space-3);
   margin-bottom: var(--space-5);
 }
 
@@ -455,7 +620,7 @@ h1 {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
   align-items: start;
   gap: var(--space-4);
 }
@@ -463,7 +628,11 @@ h1 {
 .main-stack,
 .side-stack {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-4);
+}
+
+.logs-view {
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
 }
 
 .spinning {
@@ -491,6 +660,11 @@ h1 {
 
   .topbar-actions {
     justify-content: flex-start;
+  }
+
+  .target-card {
+    min-width: 0;
+    width: 100%;
   }
 
   h1 {

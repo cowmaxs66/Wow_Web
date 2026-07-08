@@ -3,19 +3,19 @@
 ## 当前发布
 | 项目 | 内容 |
 |------|------|
-| Release | v1.27.0 - 客户端体验与脚本故障恢复 |
+| Release | v1.28.0 - 远程设置与脚本日志回执 |
 | 发布日期 | 2026-07-08 |
-| Git tag | `v1.27.0` |
-| 指向提交 | `aff6c3a97ee9fd9bb3bc653e6364438d5840dd3f` |
-| Release URL | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.27.0 |
-| Release ID | `350752729` |
-| 编译包 | `WoW_Framework_v1.27.0_windows.zip`、`WoW_Server_v1.27.0_windows.zip`、`WoW_Client_v1.27.0_windows.zip` |
-| 编译包 SHA-256 | 总包 `36340771a29e1c87cbfe75ae9ee583e9d27aa8c0818f86a36a7e84b15a9c8443`；Server `7e1bad71d16400214c08ac88145cdea5a2b477a6db5cff26aca6090921a0e39b`；Client `105c6c7d840136b91d019ba94b9a6cdbfdeb4aa8b36a13a28b8ac595fc47aaa4` |
+| Git tag | `v1.28.0` |
+| 指向提交 | `6619f90e2031d174bd9945873bcd54632838bf3f` |
+| Release URL | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.28.0 |
+| Release ID | `350764725` |
+| 编译包 | `WoW_Framework_v1.28.0_windows.zip`、`WoW_Server_v1.28.0_windows.zip`、`WoW_Client_v1.28.0_windows.zip` |
+| 编译包 SHA-256 | 总包 `d5f29ffd5a95a0fbec4a4b024b0b263fa7fa9c2adbc0cd58a168e1bd51a7a3f6`；Server `45cb5bcac244d7ac10f3d0c2a27f77178463f862467d85577157e0b0a6a949ef`；Client `feb507de5754dfb0330408e773f483308bfb6a8583401ca05843f07b9898121a` |
 | 当前状态 | 已完成 |
 
 ## 发布范围
-- 发布 P35 已验证源码状态：Client 日志乱码修复、DM 自动初始化、Lua 故障后仍同步命令、Web 远程操作工作台和 EXE 图标写入。
-- Release 内容使用 `发布归档/v1.27.0-发布说明.md`。
+- 发布 P36 已验证源码状态：控制面板远程设置、快捷模板、Lua `return/log()` 回执和 Web 回执分类展示。
+- Release 内容使用 `发布归档/v1.28.0-发布说明.md`。
 - GitHub 自动生成源码包，并额外上传总包、Server 分包和 Client 分包。
 
 ## 待发布本地包
@@ -26,7 +26,7 @@
 
 ## 安全边界
 - 总包和 Client 分包包含 `dm-bridge/Win32/dm.dll` 与 `dm-bridge/Win32/RegDll.dll`。
-- v1.27.0 Client 分包默认 `script_security.enabled = false`，用于内部测试热推送 Lua；后台可重新开启。
+- v1.28.0 Client 分包默认 `script_security.enabled = false`，用于内部测试热推送 Lua；后台可重新开启。
 - Server 分包未上传 `dm.dll`、`RegDll.dll` 或 `DmBridge.dll`。
 - 未上传 CHM/CHW 文档。
 - 未上传授权文件、真实账号资料、签名私钥、真实商业脚本。
@@ -35,17 +35,18 @@
 - 公开分发前必须确认大漠插件授权与再分发边界；授权不允许时应改用私有 Release 或用户本机安装 DM。
 
 ## 验证记录
-- 远端 `main` 发布前指向 `aff6c3a97ee9fd9bb3bc653e6364438d5840dd3f`。
-- 远端 `v1.27.0` tag 已推送。
+- 远端 `main` 发布前指向 `6619f90e2031d174bd9945873bcd54632838bf3f`。
+- 远端 `v1.28.0` tag 已推送。
 - GitHub Release 已通过 API 创建。
-- 总包 asset ID 为 `469999695`，大小 `7969401` bytes，digest 为 `sha256:36340771a29e1c87cbfe75ae9ee583e9d27aa8c0818f86a36a7e84b15a9c8443`。
-- Server 分包 asset ID 为 `469999734`，大小 `1521969` bytes，digest 为 `sha256:7e1bad71d16400214c08ac88145cdea5a2b477a6db5cff26aca6090921a0e39b`。
-- Client 分包 asset ID 为 `469999782`，大小 `6192431` bytes，digest 为 `sha256:105c6c7d840136b91d019ba94b9a6cdbfdeb4aa8b36a13a28b8ac595fc47aaa4`。
-- P35 功能验证沿用 `发布归档/v1.27.0-发布说明.md` 中记录的最终验证结果。
+- 总包 asset ID 为 `470022631`，大小 `7986230` bytes，digest 为 `sha256:d5f29ffd5a95a0fbec4a4b024b0b263fa7fa9c2adbc0cd58a168e1bd51a7a3f6`。
+- Server 分包 asset ID 为 `470022687`，大小 `1523250` bytes，digest 为 `sha256:45cb5bcac244d7ac10f3d0c2a27f77178463f862467d85577157e0b0a6a949ef`。
+- Client 分包 asset ID 为 `470022703`，大小 `6208081` bytes，digest 为 `sha256:feb507de5754dfb0330408e773f483308bfb6a8583401ca05843f07b9898121a`。
+- P36 功能验证沿用 `发布归档/v1.28.0-发布说明.md` 中记录的最终验证结果。
 
 ## 历史发布
 | 版本 | Release | 指向提交 | 状态 |
 |------|---------|----------|------|
+| v1.27.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.27.0 | `aff6c3a97ee9fd9bb3bc653e6364438d5840dd3f` | 已完成 |
 | v1.26.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.26.0 | `17ccf7faf049ec5edf0de252b6fb7294edc4331f` | 已完成 |
 | v1.25.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.25.0 | `ae6c902c2b9a8bdc62657528797d5ff9c8407517` | 已完成 |
 | v1.24.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.24.0 | `ce772f8855ca83cdeb137579dcd8c8417d67a58b` | 已完成 |
@@ -71,4 +72,4 @@
 | v1.2.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.2.0 | `41ca63e6b29658fd572d83c4378b6980dbf0bd36` | 已完成 |
 
 ## 下一步建议
-优先测试 v1.27.0 GitHub Release 下载包；实机通过后建议补 DM 注册/授权检测向导、Server 桌面控制台原生壳、Client 批量操作结果筛选和发布包签名验证。
+优先测试 v1.28.0 GitHub Release 下载包；实机通过后建议补 DM 注册/授权检测向导、Server 桌面控制台原生壳、Client 批量操作结果筛选和发布包签名验证。

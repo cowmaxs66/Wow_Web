@@ -6,7 +6,7 @@
 ## 当前阶段
 - 当前阶段：P36 远程设置与脚本日志回执
 - 当前版本：v1.28.0
-- 当前目标：v1.28.0 已完成控制面板远程 Client 设置、Lua `return/log()` 回执、回执分类展示和本地三类编译包，等待 GitHub Release
+- 当前目标：v1.28.0 已完成控制面板远程 Client 设置、Lua `return/log()` 回执、回执分类展示、三类编译包和 GitHub Release
 
 ## 第一里程碑
 已完成 P0-P36 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化、DM smoke 脚本入口、多机器通讯优化、Server 查询审计能力、DM 正式包能力、Lua 热推送能力、DM 绑定诊断能力、脚本故障恢复能力和脚本日志回执能力：
@@ -67,4 +67,4 @@ npm run build
 ```
 
 ## 发布归档
-当前 v1.28.0 本地正式测试包已生成，等待 GitHub Release；上一版 v1.27.0 正式测试包已发布：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.27.0
+当前 v1.28.0 正式测试包已发布：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.28.0

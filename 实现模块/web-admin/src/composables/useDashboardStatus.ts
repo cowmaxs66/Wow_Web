@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import {
   ManagementServerError,
   fetchClientHistory,
@@ -7,6 +7,10 @@ import {
   fetchClientStatuses,
   fetchHealth,
 } from "../api/managementServer";
+import {
+  type AdminRealtimeConnection,
+  connectAdminRealtime,
+} from "../api/realtime";
 import type { ClientStatusEnvelope } from "../types/protocol";
 import { formatTimestamp } from "../types/protocol";
 
@@ -33,6 +37,9 @@ export function useDashboardStatus() {
   const loading = ref(false);
   const errorMessage = ref("");
   const lastRefreshAt = ref<number | null>(null);
+  const realtimeConnected = ref(false);
+  let realtimeConnection: AdminRealtimeConnection | null = null;
+  let realtimeRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   const selectedStatus = computed(() => {
     return (
@@ -210,8 +217,62 @@ export function useDashboardStatus() {
     historyLimit.value = history.limit;
   }
 
+  function startAdminRealtime(): void {
+    stopAdminRealtime();
+
+    try {
+      realtimeConnection = connectAdminRealtime(serverUrl.value, {
+        onOpen: () => {
+          realtimeConnected.value = true;
+        },
+        onClose: () => {
+          realtimeConnected.value = false;
+        },
+        onEvent: () => {
+          scheduleRealtimeRefresh();
+        },
+      });
+    } catch {
+      realtimeConnected.value = false;
+    }
+  }
+
+  function stopAdminRealtime(): void {
+    realtimeConnection?.close();
+    realtimeConnection = null;
+    realtimeConnected.value = false;
+  }
+
+  function scheduleRealtimeRefresh(): void {
+    if (realtimeRefreshTimer) {
+      return;
+    }
+
+    // WS 事件只说明 Server 数据有变化；实际列表仍走原 HTTP 查询，保留分页、筛选和离线判定。
+    // 输入：/ws/admin 的状态、命令、回执事件。
+    // 输出：300ms 内合并成一次 dashboard 刷新。
+    // 边界：Server 离线或 WS 断开时，用户仍可手动刷新走 HTTP。
+    realtimeRefreshTimer = setTimeout(() => {
+      realtimeRefreshTimer = null;
+      void refreshDashboard();
+    }, 300);
+  }
+
   onMounted(() => {
     void refreshDashboard();
+    startAdminRealtime();
+  });
+
+  onBeforeUnmount(() => {
+    if (realtimeRefreshTimer) {
+      clearTimeout(realtimeRefreshTimer);
+      realtimeRefreshTimer = null;
+    }
+    stopAdminRealtime();
+  });
+
+  watch(serverUrl, () => {
+    startAdminRealtime();
   });
 
   watch(selectedClientId, () => {
@@ -238,6 +299,7 @@ export function useDashboardStatus() {
     selectedClientId,
     loading,
     errorMessage,
+    realtimeConnected,
     selectedStatus,
     onlineCount,
     offlineCount,

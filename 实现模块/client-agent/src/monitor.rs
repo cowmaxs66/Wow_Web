@@ -10,8 +10,11 @@ use shared_types::{
 use std::collections::HashSet;
 use std::error::Error;
 use std::sync::mpsc::{Receiver, TryRecvError};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+
+pub(crate) type SharedSeenCommands = Arc<Mutex<HashSet<String>>>;
 
 pub fn run_monitor(config: AgentConfig) -> Result<(), Box<dyn Error>> {
     run_monitor_until_shutdown(config, None)
@@ -25,10 +28,14 @@ pub fn run_monitor_until_shutdown(
     let interval = monitor_interval();
     let max_jitter_ms = monitor_max_jitter_ms();
     let mut seen_messages = HashSet::new();
-    let mut seen_commands = HashSet::new();
+    let seen_commands = Arc::new(Mutex::new(HashSet::new()));
     let mut active_config = config;
     log.append_event("Client monitor 已启动")?;
     let _ = notifier::notify("WoW Client", "客户端监控已启动");
+    let mut realtime_worker = crate::client_realtime::RealtimeWorker::start(
+        active_config.clone(),
+        Arc::clone(&seen_commands),
+    );
 
     loop {
         if should_shutdown(shutdown.as_ref()) {
@@ -50,7 +57,7 @@ pub fn run_monitor_until_shutdown(
                     &active_config,
                     &log,
                     &mut seen_messages,
-                    &mut seen_commands,
+                    &seen_commands,
                     &result.envelope,
                 )?;
             }
@@ -70,7 +77,7 @@ pub fn run_monitor_until_shutdown(
                     &active_config,
                     &log,
                     &mut seen_messages,
-                    &mut seen_commands,
+                    &seen_commands,
                     &envelope,
                 )?;
             }
@@ -83,6 +90,10 @@ pub fn run_monitor_until_shutdown(
             log.append_event("Client monitor 已收到停止信号")?;
             break;
         }
+    }
+
+    if let Some(worker) = realtime_worker.take() {
+        worker.stop();
     }
 
     if let Err(error) = report_offline(&active_config, &log) {
@@ -203,7 +214,7 @@ fn sync_server_roundtrip(
     config: &AgentConfig,
     log: &LocalLog,
     seen_messages: &mut HashSet<String>,
-    seen_commands: &mut HashSet<String>,
+    seen_commands: &SharedSeenCommands,
     envelope: &WsEnvelope<ClientStatus>,
 ) -> Result<(), Box<dyn Error>> {
     let reporter = StatusReporter::new(config.server.clone());
@@ -230,7 +241,7 @@ fn legacy_server_roundtrip(
     config: &AgentConfig,
     log: &LocalLog,
     seen_messages: &mut HashSet<String>,
-    seen_commands: &mut HashSet<String>,
+    seen_commands: &SharedSeenCommands,
     envelope: &WsEnvelope<ClientStatus>,
 ) -> Result<(), Box<dyn Error>> {
     let reporter = StatusReporter::new(config.server.clone());
@@ -247,7 +258,7 @@ fn legacy_server_roundtrip(
 fn poll_commands(
     config: &AgentConfig,
     log: &LocalLog,
-    seen_commands: &mut HashSet<String>,
+    seen_commands: &SharedSeenCommands,
 ) -> Result<(), Box<dyn Error>> {
     let reporter = StatusReporter::new(config.server.clone());
     let commands = reporter.fetch_commands(&config.client.id)?;
@@ -258,7 +269,7 @@ fn run_server_roundtrip(
     config: &AgentConfig,
     log: &LocalLog,
     seen_messages: &mut HashSet<String>,
-    seen_commands: &mut HashSet<String>,
+    seen_commands: &SharedSeenCommands,
     envelope: &WsEnvelope<ClientStatus>,
 ) -> Result<(), Box<dyn Error>> {
     if !config.server.enabled {
@@ -278,53 +289,23 @@ fn run_server_roundtrip(
     Ok(())
 }
 
-fn handle_command_items(
+pub(crate) fn handle_command_items(
     commands: Vec<ClientCommand>,
     config: &AgentConfig,
     log: &LocalLog,
-    seen_commands: &mut HashSet<String>,
+    seen_commands: &SharedSeenCommands,
     reporter: &StatusReporter,
 ) -> Result<(), Box<dyn Error>> {
     for command in commands {
-        if !seen_commands.insert(command.id.clone()) {
+        if !mark_command_seen(seen_commands, &command.id) {
             continue;
         }
-
-        let result = crate::remote_command::execute_remote_command(
-            &command.command_type,
-            &command.payload,
-            config,
-        );
-        let (success, summary) = match result {
-            Ok(summary) => {
-                log.append_event(&format!(
-                    "执行 Server 命令成功：id={} type={} result={}",
-                    command.id, command.command_type, summary
-                ))?;
-                (true, summary)
-            }
-            Err(error) => {
-                let summary = error.to_string();
-                let message = format!(
-                    "执行 Server 命令失败：id={} type={} error={}",
-                    command.id, command.command_type, summary
-                );
-                log.append_event(&message)?;
-                let _ = notifier::notify("WoW Client 命令失败", &message);
-                (false, summary)
-            }
-        };
 
         // P24 回执是“执行后上报”的审计补充，不能反过来影响本机命令执行结果。
         // 输入：本轮已执行的命令 ID、命令类型、成功标记和摘要。
         // 输出：Server 内存回执队列，供 Web Admin 展示最近执行结果。
         // 边界：Server 不可达时只写本机日志，下一轮继续正常监控。
-        let receipt = ClientCommandReceiptRequest {
-            command_id: command.id.clone(),
-            command_type: command.command_type.clone(),
-            success,
-            summary: receipt_summary(&summary),
-        };
+        let receipt = execute_command_to_receipt(&command, config, log)?;
         match reporter.report_command_receipt(&config.client.id, &receipt) {
             Ok(saved) => log.append_event(&format!(
                 "Server 命令回执已上报：id={} command_id={} success={}",
@@ -340,7 +321,52 @@ fn handle_command_items(
     Ok(())
 }
 
-fn receipt_summary(summary: &str) -> String {
+pub(crate) fn execute_command_to_receipt(
+    command: &ClientCommand,
+    config: &AgentConfig,
+    log: &LocalLog,
+) -> Result<ClientCommandReceiptRequest, Box<dyn Error>> {
+    let result = crate::remote_command::execute_remote_command(
+        &command.command_type,
+        &command.payload,
+        config,
+    );
+    let (success, summary) = match result {
+        Ok(summary) => {
+            log.append_event(&format!(
+                "执行 Server 命令成功：id={} type={} result={}",
+                command.id, command.command_type, summary
+            ))?;
+            (true, summary)
+        }
+        Err(error) => {
+            let summary = error.to_string();
+            let message = format!(
+                "执行 Server 命令失败：id={} type={} error={}",
+                command.id, command.command_type, summary
+            );
+            log.append_event(&message)?;
+            let _ = notifier::notify("WoW Client 命令失败", &message);
+            (false, summary)
+        }
+    };
+
+    Ok(ClientCommandReceiptRequest {
+        command_id: command.id.clone(),
+        command_type: command.command_type.clone(),
+        success,
+        summary: receipt_summary(&summary),
+    })
+}
+
+pub(crate) fn mark_command_seen(seen_commands: &SharedSeenCommands, command_id: &str) -> bool {
+    match seen_commands.lock() {
+        Ok(mut seen) => seen.insert(command_id.to_string()),
+        Err(poisoned) => poisoned.into_inner().insert(command_id.to_string()),
+    }
+}
+
+pub(crate) fn receipt_summary(summary: &str) -> String {
     summary.chars().take(2000).collect()
 }
 

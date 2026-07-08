@@ -651,6 +651,50 @@ impl ClientSyncResponse {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ClientRealtimeMessage {
+    Hello {
+        client_id: String,
+    },
+    CommandReceipt {
+        client_id: String,
+        receipt: ClientCommandReceiptRequest,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ServerRealtimeMessage {
+    Ready { client_id: String },
+    Command { command: ClientCommand },
+    Message { message: ClientMessage },
+    Error { message: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AdminRealtimeMessage {
+    ClientConnected {
+        client_id: String,
+    },
+    ClientDisconnected {
+        client_id: String,
+    },
+    ClientStatus {
+        status: Box<WsEnvelope<ClientStatus>>,
+    },
+    CommandQueued {
+        command: Box<ClientCommand>,
+    },
+    CommandReceipt {
+        receipt: Box<ClientCommandReceipt>,
+    },
+    ClientMessage {
+        message: Box<ClientMessage>,
+    },
+}
+
 fn current_timestamp_ms() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -833,5 +877,33 @@ mod tests {
         assert_eq!(event.client_id, "client-a");
         assert_eq!(event.command_type, Some("startup.status".to_string()));
         assert_eq!(list.total, 1);
+    }
+
+    #[test]
+    fn realtime_frames_keep_stable_json_tags() {
+        let hello = ClientRealtimeMessage::Hello {
+            client_id: "client-a".to_string(),
+        };
+        let json = serde_json::to_string(&hello).expect("frame must serialize");
+        assert!(json.contains(r#""type":"hello""#));
+        assert!(json.contains(r#""client_id":"client-a""#));
+
+        let command = ClientCommand::new(
+            "client-a",
+            ClientCommandRequest {
+                command_type: REMOTE_COMMAND_STARTUP_STATUS.to_string(),
+                payload: serde_json::json!({}),
+            },
+        );
+        let server_frame = ServerRealtimeMessage::Command { command };
+        let json = serde_json::to_string(&server_frame).expect("frame must serialize");
+        assert!(json.contains(r#""type":"command""#));
+
+        let status = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
+        let admin_frame = AdminRealtimeMessage::ClientStatus {
+            status: Box::new(status),
+        };
+        let json = serde_json::to_string(&admin_frame).expect("frame must serialize");
+        assert!(json.contains(r#""type":"client_status""#));
     }
 }

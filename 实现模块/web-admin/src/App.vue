@@ -46,6 +46,7 @@ const {
   selectedClientId,
   loading,
   errorMessage,
+  realtimeConnected,
   selectedStatus,
   onlineCount,
   offlineCount,
@@ -248,6 +249,10 @@ function changeClientPage(page: number): void {
         <StatusDot
           :tone="health === 'online' ? 'online' : health === 'offline' ? 'offline' : 'idle'"
           :label="healthLabel"
+        />
+        <StatusDot
+          :tone="realtimeConnected ? 'online' : 'idle'"
+          :label="realtimeConnected ? '實時通道' : 'HTTP 保底'"
         />
         <button type="button" :disabled="loading" @click="refreshDashboard">
           <RefreshCw :size="16" :class="{ spinning: loading }" />

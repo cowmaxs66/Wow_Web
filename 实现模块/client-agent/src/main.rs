@@ -1,5 +1,6 @@
 mod agent;
 mod cli;
+mod client_realtime;
 mod config;
 mod dm_bridge;
 mod local_log;

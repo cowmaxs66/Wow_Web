@@ -4,7 +4,7 @@
 本模块保存 Client Agent、Management Server 和 Web Admin 共同依赖的协议结构。
 
 ## 当前状态
-P33 已扩展共享协议与命令目录，当前包含：
+P40 已扩展共享协议与实时通讯 frame，当前包含：
 - 基础状态：`client_id`、`online`、`current_script`。
 - 身份信息：`display_name`、`group`、`tags`，用于多机器分组、标签检索和 Web 展示。
 - 运行详情：框架版本、操作系统、架构、进程 ID。
@@ -18,6 +18,7 @@ P33 已扩展共享协议与命令目录，当前包含：
 - 命令回执：`ClientCommandReceipt*` 保存 Client 执行结果摘要。
 - 合并同步：`ClientSyncRequest/ClientSyncResponse` 支持 Client 一次 HTTP 完成状态上报、消息拉取和命令拉取。
 - Server 审计：`ServerAuditEvent/ServerAuditEventList` 保存消息、命令和回执摘要。
+- 实时通讯：`ClientRealtimeMessage`、`ServerRealtimeMessage`、`AdminRealtimeMessage` 支持 Client 命令推送、回执和 Web Admin 事件刷新。
 
 ## 约束
 - 字段必须来自真实配置或运行时，不在协议层制造假数据。

@@ -11,7 +11,7 @@ const SCRIPT_DEPLOY_PAYLOAD_LIMIT: usize = 200_000;
 const SCRIPT_DEPLOY_LUA_LIMIT: usize = 120_000;
 const SCRIPT_DEPLOY_MANIFEST_LIMIT: usize = 20_000;
 
-pub(super) fn validate_status_envelope(
+pub(crate) fn validate_status_envelope(
     envelope: &WsEnvelope<ClientStatus>,
 ) -> Result<(), ApiError> {
     if envelope.schema_version != 1 {
@@ -41,7 +41,7 @@ pub(super) fn validate_status_envelope(
     Ok(())
 }
 
-pub(super) fn validate_message_request(
+pub(crate) fn validate_message_request(
     client_id: &str,
     request: &ClientMessageRequest,
 ) -> Result<(), ApiError> {
@@ -74,7 +74,7 @@ pub(super) fn validate_message_request(
     Ok(())
 }
 
-pub(super) fn validate_command_request(
+pub(crate) fn validate_command_request(
     client_id: &str,
     request: &ClientCommandRequest,
 ) -> Result<(), ApiError> {
@@ -250,7 +250,7 @@ fn validate_script_path(value: &str, extension: &str) -> Result<(), ApiError> {
     Ok(())
 }
 
-pub(super) fn validate_command_receipt_request(
+pub(crate) fn validate_command_receipt_request(
     client_id: &str,
     request: &ClientCommandReceiptRequest,
 ) -> Result<(), ApiError> {

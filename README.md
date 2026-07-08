@@ -4,12 +4,12 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P39 DM API 测试与上线准入
-- 当前版本：v1.31.1
-- 当前目标：v1.31.1 已补齐 DM/Lua API 自检、窗口 smoke、绑定探测、Web 示例和接口说明；本地三类测试包已生成，GitHub Release 待补发
+- 当前阶段：P40 WebSocket 实时通讯通道
+- 当前版本：v1.32.0
+- 当前目标：v1.32.0 已新增 Client/Web Admin WebSocket 实时通道、命令去重、HTTP 保底和本机 WS smoke；本地三类测试包已生成，GitHub Release 待补发
 
 ## 第一里程碑
-已完成 P0-P39 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化、DM smoke 脚本入口、多机器通讯优化、Server 查询审计能力、DM 正式包能力、Lua 热推送能力、DM 绑定诊断能力、脚本故障恢复能力、脚本日志回执能力、桌面控制台体验优化、原生桌面控制台入口和 DM API 上线前测试：
+已完成 P0-P40 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化、DM smoke 脚本入口、多机器通讯优化、Server 查询审计能力、DM 正式包能力、Lua 热推送能力、DM 绑定诊断能力、脚本故障恢复能力、脚本日志回执能力、桌面控制台体验优化、原生桌面控制台入口、DM API 上线前测试和 WebSocket 实时通讯通道：
 
 1. Client Agent 能执行 Lua bootstrap。
 2. DmBridge 能通过 Rust/Lua 调用大漠最小链路。
@@ -50,6 +50,7 @@
 37. Web Admin 桌面控制台已按用户任务流优化，新增日志导航、顶部当前目标卡片、总览 Client 列表优先和移动端两行导航。
 38. Server 托盘默认启动发布包内 `WoW-Desktop.exe` 独立桌面控制台，不再调用 `msedge.exe --app`；浏览器入口只保留为排错备用。`WoW-Desktop.exe` 直接双击时会自动启动同包内 Server core。
 39. Client 新增 `dm_api_selftest.lua`、`dm_window_smoke.lua` 和 `dm_bind_probe.lua`，Web 远程推送支持 API 自检、窗口 smoke 和绑定探测，`dm.find_window` 找不到窗口返回 `0`，接口文档补齐上线准入。
+40. Server 新增 `/ws/client/{client_id}` 和 `/ws/admin`，Client 可实时接收命令并通过 WS 回执，Web Admin 可实时感知状态/命令/回执事件；HTTP `/api/client/sync` 仍保留为断线保底。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -70,4 +71,4 @@ npm run build
 ```
 
 ## 发布归档
-当前 v1.31.1 本地测试包已生成在 `target/release-package/`；远端 GitHub Release 待补发。上一版 v1.31.0 tag 已推送。
+当前 v1.32.0 本地测试包已生成在 `target/release-package/`；远端 GitHub Release 待补发。上一版 v1.31.1 tag 已推送。

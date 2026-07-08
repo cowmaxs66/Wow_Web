@@ -217,6 +217,14 @@ export interface ServerAuditEventList {
   items: ServerAuditEvent[];
 }
 
+export type AdminRealtimeMessage =
+  | { type: "client_connected"; client_id: string }
+  | { type: "client_disconnected"; client_id: string }
+  | { type: "client_status"; status: ClientStatusEnvelope }
+  | { type: "command_queued"; command: ClientCommand }
+  | { type: "command_receipt"; receipt: ClientCommandReceipt }
+  | { type: "client_message"; message: ClientMessage };
+
 export function formatTimestamp(timestampMs: number): string {
   if (!Number.isFinite(timestampMs) || timestampMs <= 0) {
     return "無資料";

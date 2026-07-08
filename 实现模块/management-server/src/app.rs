@@ -3,6 +3,8 @@ use crate::error::ApiError;
 use crate::state::{CLIENT_HISTORY_LIMIT, ServerState};
 #[path = "app_validation.rs"]
 mod app_validation;
+#[path = "realtime_ws.rs"]
+mod realtime_ws;
 use app_validation::{
     validate_command_receipt_request, validate_command_request, validate_message_request,
     validate_status_envelope,
@@ -27,6 +29,7 @@ pub fn build_router_with_web_dir(state: ServerState, web_dir: Option<PathBuf>) -
         .route("/api/client/status", get(list_statuses).post(report_status))
         .route("/api/client/status-page", get(list_status_page))
         .route("/api/client/sync", axum::routing::post(sync_client))
+        .route("/api/client/ws/{client_id}", get(realtime_ws::client_ws))
         .route("/api/client/status/{client_id}", get(get_status))
         .route("/api/client/history/{client_id}", get(get_history))
         .route(
@@ -42,6 +45,8 @@ pub fn build_router_with_web_dir(state: ServerState, web_dir: Option<PathBuf>) -
             get(list_command_receipts).post(push_command_receipt),
         )
         .route("/api/server/audit", get(list_audit_events))
+        .route("/ws/client/{client_id}", get(realtime_ws::client_ws))
+        .route("/ws/admin", get(realtime_ws::admin_ws))
         .with_state(state)
         // P4 只用于本机 Web Admin 开发联调。生产部署前必须改为明确来源白名单。
         .layer(CorsLayer::permissive());

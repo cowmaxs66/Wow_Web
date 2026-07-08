@@ -1,14 +1,16 @@
 use crate::persistence::{AuditPersistence, HistoryPersistence, PersistenceError};
 use shared_types::{
-    ClientCommand, ClientCommandReceipt, ClientCommandReceiptRequest, ClientCommandRequest,
-    ClientMessage, ClientMessageRequest, ClientStatus, ClientStatusPage, ServerAuditEvent,
-    WsEnvelope,
+    AdminRealtimeMessage, ClientCommand, ClientCommandReceipt, ClientCommandReceiptRequest,
+    ClientCommandRequest, ClientMessage, ClientMessageRequest, ClientStatus, ClientStatusPage,
+    ServerAuditEvent, ServerRealtimeMessage, WsEnvelope,
 };
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::mpsc::UnboundedSender;
 
 pub const CLIENT_HISTORY_LIMIT: usize = 50;
 pub const CLIENT_MESSAGE_LIMIT: usize = 100;
@@ -35,8 +37,17 @@ pub struct ServerState {
     commands: Arc<RwLock<HashMap<String, VecDeque<ClientCommand>>>>,
     command_receipts: Arc<RwLock<HashMap<String, VecDeque<ClientCommandReceipt>>>>,
     audit_events: Arc<RwLock<VecDeque<ServerAuditEvent>>>,
+    realtime_clients: Arc<RwLock<HashMap<String, ClientRealtimeConnection>>>,
+    realtime_admins: Arc<RwLock<HashMap<u64, UnboundedSender<AdminRealtimeMessage>>>>,
+    next_realtime_connection_id: Arc<AtomicU64>,
     persistence: Option<HistoryPersistence>,
     audit_persistence: Option<AuditPersistence>,
+}
+
+#[derive(Debug, Clone)]
+struct ClientRealtimeConnection {
+    connection_id: u64,
+    sender: UnboundedSender<ServerRealtimeMessage>,
 }
 
 impl ServerState {
@@ -78,7 +89,10 @@ impl ServerState {
             persistence.append(&envelope)?;
         }
 
-        self.save_status_in_memory(envelope);
+        self.save_status_in_memory(envelope.clone());
+        self.broadcast_admin(AdminRealtimeMessage::ClientStatus {
+            status: Box::new(envelope),
+        });
         Ok(())
     }
 
@@ -171,6 +185,10 @@ impl ServerState {
             None,
             format!("写入 Server 消息：{}", message.title),
         ));
+        self.send_realtime_message(&message);
+        self.broadcast_admin(AdminRealtimeMessage::ClientMessage {
+            message: Box::new(message.clone()),
+        });
         message
     }
 
@@ -205,6 +223,10 @@ impl ServerState {
             None,
             format!("写入 Client 命令队列：{command_type}"),
         ));
+        self.send_realtime_command(&command);
+        self.broadcast_admin(AdminRealtimeMessage::CommandQueued {
+            command: Box::new(command.clone()),
+        });
         command
     }
 
@@ -214,6 +236,15 @@ impl ServerState {
             .expect("client command lock poisoned")
             .get_mut(client_id)
             .map(|commands| commands.drain(..).collect())
+            .unwrap_or_default()
+    }
+
+    pub fn pending_commands(&self, client_id: &str) -> Vec<ClientCommand> {
+        self.commands
+            .read()
+            .expect("client command lock poisoned")
+            .get(client_id)
+            .map(|commands| commands.iter().cloned().collect())
             .unwrap_or_default()
     }
 
@@ -245,6 +276,10 @@ impl ServerState {
             Some(receipt.success),
             receipt.summary.clone(),
         ));
+        self.remove_pending_command(client_id, &receipt.command_id);
+        self.broadcast_admin(AdminRealtimeMessage::CommandReceipt {
+            receipt: Box::new(receipt.clone()),
+        });
         receipt
     }
 
@@ -291,6 +326,151 @@ impl ServerState {
             .expect("server audit lock poisoned");
 
         audit_events.iter().rev().take(limit).cloned().collect()
+    }
+
+    pub fn register_realtime_client(
+        &self,
+        client_id: impl Into<String>,
+        sender: UnboundedSender<ServerRealtimeMessage>,
+    ) -> u64 {
+        let client_id = client_id.into();
+        let connection_id = self.next_realtime_id();
+        let connection = ClientRealtimeConnection {
+            connection_id,
+            sender,
+        };
+
+        // 同一个 Client 只能保留最新实时连接，避免旧连接断开时继续收到命令。
+        // 输入：Client ID、当前 WebSocket writer 对应的 channel。
+        // 输出：connection_id，用于断线时只注销本连接。
+        // 边界：旧连接的关闭事件不能删除新连接，注销时会校验 connection_id。
+        self.realtime_clients
+            .write()
+            .expect("realtime client lock poisoned")
+            .insert(client_id.clone(), connection);
+        self.broadcast_admin(AdminRealtimeMessage::ClientConnected { client_id });
+        connection_id
+    }
+
+    pub fn unregister_realtime_client(&self, client_id: &str, connection_id: u64) {
+        let removed = {
+            let mut clients = self
+                .realtime_clients
+                .write()
+                .expect("realtime client lock poisoned");
+            let should_remove = clients
+                .get(client_id)
+                .is_some_and(|connection| connection.connection_id == connection_id);
+            if should_remove {
+                clients.remove(client_id);
+            }
+            should_remove
+        };
+
+        if removed {
+            self.broadcast_admin(AdminRealtimeMessage::ClientDisconnected {
+                client_id: client_id.to_string(),
+            });
+        }
+    }
+
+    pub fn register_realtime_admin(&self, sender: UnboundedSender<AdminRealtimeMessage>) -> u64 {
+        let connection_id = self.next_realtime_id();
+        self.realtime_admins
+            .write()
+            .expect("realtime admin lock poisoned")
+            .insert(connection_id, sender);
+        connection_id
+    }
+
+    pub fn unregister_realtime_admin(&self, connection_id: u64) {
+        self.realtime_admins
+            .write()
+            .expect("realtime admin lock poisoned")
+            .remove(&connection_id);
+    }
+
+    pub fn list_realtime_clients(&self) -> Vec<String> {
+        let mut client_ids: Vec<_> = self
+            .realtime_clients
+            .read()
+            .expect("realtime client lock poisoned")
+            .keys()
+            .cloned()
+            .collect();
+        client_ids.sort();
+        client_ids
+    }
+
+    pub fn realtime_admin_count(&self) -> usize {
+        self.realtime_admins
+            .read()
+            .expect("realtime admin lock poisoned")
+            .len()
+    }
+
+    fn send_realtime_command(&self, command: &ClientCommand) -> bool {
+        let sender = self
+            .realtime_clients
+            .read()
+            .expect("realtime client lock poisoned")
+            .get(&command.client_id)
+            .map(|connection| connection.sender.clone());
+
+        sender.is_some_and(|sender| {
+            sender
+                .send(ServerRealtimeMessage::Command {
+                    command: command.clone(),
+                })
+                .is_ok()
+        })
+    }
+
+    fn send_realtime_message(&self, message: &ClientMessage) -> bool {
+        let sender = self
+            .realtime_clients
+            .read()
+            .expect("realtime client lock poisoned")
+            .get(&message.client_id)
+            .map(|connection| connection.sender.clone());
+
+        sender.is_some_and(|sender| {
+            sender
+                .send(ServerRealtimeMessage::Message {
+                    message: message.clone(),
+                })
+                .is_ok()
+        })
+    }
+
+    fn broadcast_admin(&self, message: AdminRealtimeMessage) {
+        let mut admins = self
+            .realtime_admins
+            .write()
+            .expect("realtime admin lock poisoned");
+
+        // Admin WS 是 UI 加速通道，发送失败只说明该页面已断开。
+        // 输入：状态、命令、回执等事件。
+        // 输出：仍在线的 Admin 连接继续保留，已断开的 sender 被清理。
+        // 边界：前端还会走 HTTP 防抖刷新，因此这里不阻断业务写入。
+        admins.retain(|_, sender| sender.send(message.clone()).is_ok());
+    }
+
+    fn remove_pending_command(&self, client_id: &str, command_id: &str) {
+        if command_id.trim().is_empty() {
+            return;
+        }
+
+        let mut commands = self.commands.write().expect("client command lock poisoned");
+        if let Some(queue) = commands.get_mut(client_id) {
+            queue.retain(|command| command.id != command_id);
+        }
+    }
+
+    fn next_realtime_id(&self) -> u64 {
+        self.next_realtime_connection_id
+            .fetch_add(1, Ordering::Relaxed)
+            + 1
     }
 }
 
@@ -386,6 +566,7 @@ mod tests {
     use super::*;
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
+    use tokio::sync::mpsc::unbounded_channel;
 
     #[test]
     fn state_keeps_latest_client_status() {
@@ -635,6 +816,79 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert_eq!(events[0].event_type, "message.created");
         assert_eq!(events[1].event_type, "command.created");
+    }
+
+    #[test]
+    fn realtime_client_registration_does_not_remove_new_connection() {
+        let state = ServerState::default();
+        let (first_sender, _first_receiver) = unbounded_channel::<ServerRealtimeMessage>();
+        let first_id = state.register_realtime_client("client-a", first_sender);
+        let (second_sender, _second_receiver) = unbounded_channel::<ServerRealtimeMessage>();
+        let second_id = state.register_realtime_client("client-a", second_sender);
+
+        state.unregister_realtime_client("client-a", first_id);
+        assert_eq!(state.list_realtime_clients(), vec!["client-a".to_string()]);
+
+        state.unregister_realtime_client("client-a", second_id);
+        assert!(state.list_realtime_clients().is_empty());
+    }
+
+    #[test]
+    fn realtime_command_push_keeps_queue_until_receipt() {
+        let state = ServerState::default();
+        let (sender, mut receiver) = unbounded_channel::<ServerRealtimeMessage>();
+        state.register_realtime_client("client-a", sender);
+
+        let command = state.push_command(
+            "client-a",
+            ClientCommandRequest {
+                command_type: "startup.status".to_string(),
+                payload: serde_json::json!({}),
+            },
+        );
+
+        let frame = receiver.try_recv().expect("command frame must arrive");
+        match frame {
+            ServerRealtimeMessage::Command { command: pushed } => {
+                assert_eq!(pushed.id, command.id);
+            }
+            other => panic!("unexpected realtime frame: {other:?}"),
+        }
+        assert_eq!(state.pending_commands("client-a").len(), 1);
+
+        state.push_command_receipt(
+            "client-a",
+            ClientCommandReceiptRequest {
+                command_id: command.id,
+                command_type: "startup.status".to_string(),
+                success: true,
+                summary: "ok".to_string(),
+            },
+        );
+
+        assert!(state.pending_commands("client-a").is_empty());
+    }
+
+    #[test]
+    fn realtime_admin_receives_status_events() {
+        let state = ServerState::default();
+        let (sender, mut receiver) = unbounded_channel::<AdminRealtimeMessage>();
+        state.register_realtime_admin(sender);
+
+        state
+            .save_status(WsEnvelope::status(
+                "client-a",
+                ClientStatus::new("client-a"),
+            ))
+            .expect("status must save");
+
+        let frame = receiver.try_recv().expect("admin frame must arrive");
+        match frame {
+            AdminRealtimeMessage::ClientStatus { status } => {
+                assert_eq!(status.client_id, "client-a");
+            }
+            other => panic!("unexpected admin frame: {other:?}"),
+        }
     }
 
     fn unique_temp_dir(name: &str) -> PathBuf {

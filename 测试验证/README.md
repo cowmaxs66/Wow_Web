@@ -631,3 +631,16 @@
   - 总包 `520a28e0d3ecd85eedeff4669fb477735eb8c4962f023edeeab6acb44016513a`
   - Server 分包 `7dd2b0900e2c4d1437765d21196547a26f155ba8f27f146a2c637d515232d5b1`
   - Client 分包 `efaf93cbb15e76d76e78556afff06a2cbcab0196df0f75b6dc545b8012c267aa`
+
+## P40 WebSocket 实时通讯通道验证
+- `cargo test --workspace`：通过，Client 60 项、desktop-console 9 项、Server 56 项、shared-types 12 项、launcher 3 项测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm --prefix 实现模块/web-admin run build`：通过，Web Admin 版本为 `1.32.0`。
+- 源码 Server WS smoke：通过，`/ws/admin` 收到 `smoke-client` 的 `client_status` 事件。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Client 分包 smoke：通过，`bin/client-agent-core.exe --run-once` 输出 `release_version = v1.32.0`、`arch = x86`、Lua 启用、脚本安全关闭和 `dm.access`。
+- Server 分包 WS smoke：通过，分包 Server 启动后 `/ws/admin` 收到 `package-smoke-client` 的 `client_status` 事件。
+- 三类 zip SHA-256：
+  - 总包 `b6abf9878fa10b12abb2d5182ba9802f2e4694fdc5b6b943abd66e78967c3b5d`
+  - Server 分包 `cb4dabb94e559082e4597477988c32225476f4c2a7082720e4a7920a520a460d`
+  - Client 分包 `49ce70d6d66d34b09fc29806998a88e7aa333b3174a3eae15a7f57aaa4717c6f`

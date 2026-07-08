@@ -44,3 +44,4 @@
 | `桌面控制台UI体验优化设计.md` | 记录 P37 控制台信息架构、日志入口、移动导航和 UI QA 标准 |
 | `原生桌面控制台入口设计.md` | 记录 P38 独立桌面控制台壳、托盘启动链路和 WebView2 边界 |
 | `Lua接口表与使用说明.md` | 记录 Client Lua 全局接口、DM 接口、返回值和 BindWindow 排查方式 |
+| `WebSocket实时通讯通道设计.md` | 记录 P40 Client/Web Admin WebSocket 实时通道、HTTP 保底和命令去重边界 |

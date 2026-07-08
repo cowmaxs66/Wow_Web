@@ -22,23 +22,24 @@
 
 | 项目 | 内容 |
 |------|------|
-| 状态 | v1.31.0 本地包已生成，待 GitHub Release 上传工具 |
-| 版本 | `v1.31.0` |
-| Git tag | `v1.31.0` 已创建，随本次备份推送 |
-| 指向提交 | `b57cb7188a1dac89ea1893e090a30362bc249285` |
-| 编译包 | `WoW_Framework_v1.31.0_windows.zip`、`WoW_Server_v1.31.0_windows.zip`、`WoW_Client_v1.31.0_windows.zip` |
-| 编译包 SHA-256 | 总包 `4e03b6ac9b65b118a254c4197eda6d35efdfc8900b3f75fceba6a8f0ceac9e95`；Server `644f17810866667238496511e34ea9eed69bb2b0a5e81d762cb4ab61b5005771`；Client `e805bf15521adacac64db4afa9e59086851697f525f13ded2661c53de22d7b41` |
+| 状态 | v1.31.1 本地包已生成，待 GitHub Release 上传工具 |
+| 版本 | `v1.31.1` |
+| Git tag | `v1.31.1` 待创建 |
+| 指向提交 | 待本次提交后回写 |
+| 编译包 | `WoW_Framework_v1.31.1_windows.zip`、`WoW_Server_v1.31.1_windows.zip`、`WoW_Client_v1.31.1_windows.zip` |
+| 编译包 SHA-256 | 总包 `520a28e0d3ecd85eedeff4669fb477735eb8c4962f023edeeab6acb44016513a`；Server `7dd2b0900e2c4d1437765d21196547a26f155ba8f27f146a2c637d515232d5b1`；Client `efaf93cbb15e76d76e78556afff06a2cbcab0196df0f75b6dc545b8012c267aa` |
 
 ## 待补发历史本地包
 | 版本 | Git tag | 指向提交 | 状态 |
 |------|---------|----------|------|
+| v1.31.0 | `v1.31.0` 已推送 | `b57cb7188a1dac89ea1893e090a30362bc249285` | 本地包已生成，GitHub Release 待补发 |
 | v1.30.1 | `v1.30.1` 已推送 | `eb6d72e5a029e27f651d00b73f63de9843bf16fd` | 本地包已生成，GitHub Release 待补发 |
 | v1.30.0 | `v1.30.0` 已推送 | `dafa39eb59b7d99f3209cd4f4f62afd5243109bc` | 本地包已生成，GitHub Release 待补发 |
 | v1.29.0 | `v1.29.0` 已推送 | `fec93521a0c6399e59465f3d0ff13655c5e30d5e` | 本地包已生成，GitHub Release 待补发 |
 
 ## 安全边界
 - 总包和 Client 分包包含 `dm-bridge/Win32/dm.dll` 与 `dm-bridge/Win32/RegDll.dll`。
-- v1.31.0 Client 分包默认 `script_security.enabled = false`，用于内部测试热推送 Lua 和 DM API 自检；后台可重新开启。
+- v1.31.1 Client 分包默认 `script_security.enabled = false`，用于内部测试热推送 Lua、DM API 自检和绑定探测；后台可重新开启。
 - Server 分包未上传 `dm.dll`、`RegDll.dll` 或 `DmBridge.dll`。
 - 未上传 CHM/CHW 文档。
 - 未上传授权文件、真实账号资料、签名私钥、真实商业脚本。
@@ -84,4 +85,4 @@
 | v1.2.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.2.0 | `41ca63e6b29658fd572d83c4378b6980dbf0bd36` | 已完成 |
 
 ## 下一步建议
-优先测试本地 v1.31.0 三类包；先下发 `API 自检`，再打开目标窗口下发 `窗口 smoke`。补齐 GitHub Release 上传工具后发布远端 Release。实机通过后建议补 DM 注册/授权检测向导、Client 批量操作结果筛选和发布包签名验证。
+优先测试本地 v1.31.1 三类包；先下发 `API 自检`，再打开目标窗口下发 `窗口 smoke`，遇到 `BindWindow exception` 时下发 `绑定探测`。补齐 GitHub Release 上传工具后发布远端 Release。实机通过后建议补 DM 注册/授权检测向导、Client 批量操作结果筛选和发布包签名验证。

@@ -5,8 +5,8 @@
 
 ## 当前阶段
 - 当前阶段：P39 DM API 测试与上线准入
-- 当前版本：v1.31.0
-- 当前目标：v1.31.0 已补齐 DM/Lua API 自检脚本、窗口 smoke、Web 示例和接口说明；本地三类测试包已生成，GitHub Release 待补发
+- 当前版本：v1.31.1
+- 当前目标：v1.31.1 已补齐 DM/Lua API 自检、窗口 smoke、绑定探测、Web 示例和接口说明；本地三类测试包已生成，GitHub Release 待补发
 
 ## 第一里程碑
 已完成 P0-P39 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化、DM smoke 脚本入口、多机器通讯优化、Server 查询审计能力、DM 正式包能力、Lua 热推送能力、DM 绑定诊断能力、脚本故障恢复能力、脚本日志回执能力、桌面控制台体验优化、原生桌面控制台入口和 DM API 上线前测试：
@@ -49,7 +49,7 @@
 36. Web Admin 远程操作页可直接套用 Client 设置模板；Lua `return` 和 `log()` 会进入命令回执，并按脚本输出、脚本日志分类展示。
 37. Web Admin 桌面控制台已按用户任务流优化，新增日志导航、顶部当前目标卡片、总览 Client 列表优先和移动端两行导航。
 38. Server 托盘默认启动发布包内 `WoW-Desktop.exe` 独立桌面控制台，不再调用 `msedge.exe --app`；浏览器入口只保留为排错备用。`WoW-Desktop.exe` 直接双击时会自动启动同包内 Server core。
-39. Client 新增 `dm_api_selftest.lua` 和 `dm_window_smoke.lua`，Web 远程推送支持 API 自检和窗口 smoke，`dm.find_window` 找不到窗口返回 `0`，接口文档补齐上线准入。
+39. Client 新增 `dm_api_selftest.lua`、`dm_window_smoke.lua` 和 `dm_bind_probe.lua`，Web 远程推送支持 API 自检、窗口 smoke 和绑定探测，`dm.find_window` 找不到窗口返回 `0`，接口文档补齐上线准入。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -70,10 +70,4 @@ npm run build
 ```
 
 ## 发布归档
-当前 v1.31.0 本地测试包已生成在 `target/release-package/`，可直接测试；远端 GitHub Release 待补发。上一版 v1.30.1：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.30.1
-
-| 包 | SHA-256 |
-|----|---------|
-| `WoW_Framework_v1.31.0_windows.zip` | `4e03b6ac9b65b118a254c4197eda6d35efdfc8900b3f75fceba6a8f0ceac9e95` |
-| `WoW_Server_v1.31.0_windows.zip` | `644f17810866667238496511e34ea9eed69bb2b0a5e81d762cb4ab61b5005771` |
-| `WoW_Client_v1.31.0_windows.zip` | `e805bf15521adacac64db4afa9e59086851697f525f13ded2661c53de22d7b41` |
+当前 v1.31.1 本地测试包已生成在 `target/release-package/`；远端 GitHub Release 待补发。上一版 v1.31.0 tag 已推送。

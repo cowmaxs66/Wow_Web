@@ -8,12 +8,14 @@
 |------|-----------|------------------|------|
 | L1 基础接口自检 | `scripts/dm_api_selftest.lua` | 否 | 验证 Lua 全局接口、DmBridge 加载、dm COM 初始化、版本、取色、RGB、等待颜色、窗口探测和无效绑定处理 |
 | L2 窗口 smoke | `scripts/dm_window_smoke.lua` | 是 | 默认查找标题 `World of Warcraft`；找不到返回 `window=not_found`，找到才绑定和取色 |
-| L3 业务脚本验证 | 用户业务 Lua | 是 | 按具体脚本验证图色、键鼠、后台模式和流程控制 |
-| L4 高风险输入验证 | 手动安全窗口 | 是 | `left_click` 等会产生真实输入，只允许在安全窗口中手动验证 |
+| L3 绑定模式探测 | `scripts/dm_bind_probe.lua` | 是 | 对目标窗口逐个尝试常见低风险绑定组合，记录每个组合的结果 |
+| L4 业务脚本验证 | 用户业务 Lua | 是 | 按具体脚本验证图色、键鼠、后台模式和流程控制 |
+| L5 高风险输入验证 | 手动安全窗口 | 是 | `left_click` 等会产生真实输入，只允许在安全窗口中手动验证 |
 
 ## 上线准入
 - L1 必须通过，返回值以 `dm_api_selftest|` 开头。
 - L2 在目标游戏未打开时允许返回 `window=not_found`；目标游戏已打开时必须返回 `window=found` 或明确绑定失败原因。
+- L3 对同一目标窗口至少要有一个绑定组合返回 `ok#`，否则不能进入绑定类业务脚本。
 - Web 远程推送示例禁止使用 `dm.find_window_required`，避免目标窗口未开时让 Client monitor 持续失败。
 - 业务脚本中只有“目标窗口必须存在，否则任务无意义”时才使用 `dm.find_window_required`。
 - `dx` 后台模式必须在 `normal` 或 `gdi` 通过后再验证。
@@ -32,7 +34,7 @@
 | `dm.find_window_try` | 覆盖未找到分支 | 可业务扩展 | 返回结构化结果 |
 | `dm.find_window_required` | 文档约束 | 业务脚本按需 | 强制型接口，不放入默认 smoke |
 | `dm.safe_bind_window` | 覆盖无效 hwnd 分支 | 覆盖真实 hwnd 分支 | 推荐绑定入口 |
-| `dm.bind_window_try` | 可业务扩展 | 可业务扩展 | 结构化绑定结果 |
+| `dm.bind_window_try` | 可业务扩展 | 可业务扩展 | 结构化绑定结果，绑定探测脚本可扩展使用 |
 | `dm.bind_window` | 不默认覆盖 | 不默认覆盖 | 失败会中断脚本，业务脚本慎用 |
 | `dm.unbind_window` | - | 覆盖 | 绑定成功后执行 |
 | `dm.get_color` / `dm.get_color_rgb` | 覆盖 | 覆盖 | 图色基础能力 |
@@ -50,3 +52,11 @@ FindWindow not found: class= title=World of Warcraft
 1. 先运行 `dm_api_selftest.lua`，确认 DM 基础链路。
 2. 打开游戏窗口后再运行 `dm_window_smoke.lua`。
 3. 如果窗口标题不同，用实际标题替换脚本中的 `target_title`。
+
+## BindWindow Access violation 解释
+如果日志里已经出现 `hwnd=...`，说明窗口查找成功，失败点在大漠 COM 对该窗口执行 `BindWindow`。例如微信 Qt 窗口可能对 `normal/windows/windows/0` 不兼容，大漠内部会抛出 `EAccessViolation`。框架会捕获这个异常并返回错误，但不能保证该窗口一定可绑定。
+
+处理方式：
+1. 先运行 Web 管理端“绑定探测”或 `scripts/dm_bind_probe.lua`。
+2. 如果某个组合返回 `ok#`，业务脚本使用这个组合。
+3. 如果所有组合都返回 `fail#`，该窗口当前不适合绑定，业务脚本应停止，不要继续点击。

@@ -133,6 +133,18 @@ fn shipped_dm_window_smoke_does_not_require_window() {
     assert!(content.contains("window=not_found"));
 }
 
+#[test]
+fn shipped_dm_bind_probe_uses_safe_binding_modes() {
+    let module_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let script_path = module_dir.join("scripts/dm_bind_probe.lua");
+    let content = fs::read_to_string(script_path).expect("bind probe script must exist");
+
+    assert!(content.contains("dm.safe_bind_window"));
+    assert!(content.contains("dm.unbind_window"));
+    assert!(content.contains("dm_bind_probe"));
+    assert!(!content.contains("dm.bind_window("));
+}
+
 fn create_test_workspace(name: &str) -> PathBuf {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)

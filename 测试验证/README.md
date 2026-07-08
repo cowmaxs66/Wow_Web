@@ -616,3 +616,18 @@
   - 总包 `4e03b6ac9b65b118a254c4197eda6d35efdfc8900b3f75fceba6a8f0ceac9e95`
   - Server 分包 `644f17810866667238496511e34ea9eed69bb2b0a5e81d762cb4ab61b5005771`
   - Client 分包 `e805bf15521adacac64db4afa9e59086851697f525f13ded2661c53de22d7b41`
+
+## P39-H01 绑定探测热修复验证
+- `cargo fmt --all --check`：通过。
+- `cargo test -p client-agent shipped_dm_bind_probe_uses_safe_binding_modes`：通过。
+- `cargo test --workspace`：通过，Client 59 项、desktop-console 9 项、Server 53 项、shared-types 11 项、launcher 3 项测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.31.1`。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Client 分包绑定探测 smoke：通过，临时包执行 `scripts/dm_bind_probe.lua` 成功，输出状态包含 `release_version = v1.31.1`、`arch = x86` 和 `dm.access`。
+- 包内容检查：通过，Client 分包包含 `dm_bind_probe.lua`、`dm_api_selftest.lua`、`dm_window_smoke.lua`、`DmBridge.dll`、`dm.dll`、`RegDll.dll`。
+- 包内 README 检查：通过，Client 分包 README 显示 `v1.31.1` 和绑定探测说明。
+- 三类 zip SHA-256：
+  - 总包 `520a28e0d3ecd85eedeff4669fb477735eb8c4962f023edeeab6acb44016513a`
+  - Server 分包 `7dd2b0900e2c4d1437765d21196547a26f155ba8f27f146a2c637d515232d5b1`
+  - Client 分包 `efaf93cbb15e76d76e78556afff06a2cbcab0196df0f75b6dc545b8012c267aa`

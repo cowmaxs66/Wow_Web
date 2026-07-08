@@ -133,6 +133,48 @@ function fillDmSmokeSample(): void {
   ].join("\n");
 }
 
+function fillDmBindProbeSample(): void {
+  bootstrapName.value = "dm-bind-probe";
+  bootstrapPath.value = "scripts/dm_bind_probe_remote.lua";
+  securityEnabled.value = false;
+  activate.value = true;
+  runAfterDeploy.value = false;
+  selectedPermissions.value = [...DEFAULT_PERMISSIONS];
+  luaContent.value = [
+    "local target_class = 'Qt51514QWindowIcon'",
+    "local target_title = '微信'",
+    "local modes = {",
+    "  { 'normal', 'normal', 'normal', 0 },",
+    "  { 'normal', 'windows', 'windows', 0 },",
+    "  { 'gdi', 'windows', 'windows', 0 },",
+    "  { 'gdi2', 'windows', 'windows', 0 },",
+    "}",
+    "local hwnd = dm.find_window(target_class, target_title)",
+    "if hwnd <= 0 then",
+    "  return 'dm bind probe skipped: window not found class=' .. target_class .. ' title=' .. target_title",
+    "end",
+    "local results = {}",
+    "for index, mode in ipairs(modes) do",
+    "  local ok, err = dm.safe_bind_window(hwnd, mode[1], mode[2], mode[3], mode[4])",
+    "  local label = mode[1] .. '/' .. mode[2] .. '/' .. mode[3] .. '/' .. tostring(mode[4])",
+    "  if ok then",
+    "    local color = dm.get_color_rgb(10, 10)",
+    "    dm.unbind_window()",
+    "    local line = 'ok#' .. tostring(index) .. ':' .. label .. ':color=' .. tostring(color.hex)",
+    "    log(line)",
+    "    table.insert(results, line)",
+    "  else",
+    "    pcall(function() dm.unbind_window() end)",
+    "    local line = 'fail#' .. tostring(index) .. ':' .. label .. ':' .. tostring(err)",
+    "    log(line)",
+    "    table.insert(results, line)",
+    "  end",
+    "  dm.sleep_ms(100)",
+    "end",
+    "return 'dm bind probe hwnd=' .. tostring(hwnd) .. ' | ' .. table.concat(results, ' | ')",
+  ].join("\n");
+}
+
 function deployFingerprint(payload: ClientScriptDeployBundle): string {
   return JSON.stringify({
     targets: props.targetClientIds,
@@ -188,14 +230,20 @@ async function deployScript(): Promise<void> {
         <h3>脚本推送</h3>
         <p>选中 Client 热推送 Lua</p>
       </div>
-      <button class="sample-button" type="button" @click="fillDmApiSelfTestSample">
-        <WandSparkles :size="15" />
-        <span>API 自检</span>
-      </button>
-      <button class="sample-button" type="button" @click="fillDmSmokeSample">
-        <WandSparkles :size="15" />
-        <span>窗口 smoke</span>
-      </button>
+      <div class="sample-actions">
+        <button class="sample-button" type="button" @click="fillDmApiSelfTestSample">
+          <WandSparkles :size="15" />
+          <span>API 自检</span>
+        </button>
+        <button class="sample-button" type="button" @click="fillDmSmokeSample">
+          <WandSparkles :size="15" />
+          <span>窗口 smoke</span>
+        </button>
+        <button class="sample-button" type="button" @click="fillDmBindProbeSample">
+          <WandSparkles :size="15" />
+          <span>绑定探测</span>
+        </button>
+      </div>
     </div>
 
     <div class="field-grid">
@@ -290,8 +338,15 @@ async function deployScript(): Promise<void> {
   min-width: 0;
 }
 
-.deploy-heading .sample-button {
+.sample-actions {
   margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.deploy-heading .sample-button {
   border: 1px solid var(--color-border-strong);
   background: #ffffff;
   color: var(--color-text);
@@ -407,8 +462,9 @@ button:disabled {
     display: grid;
   }
 
-  .sample-button {
+  .sample-actions {
     margin-left: 0;
+    justify-content: flex-start;
   }
 }
 </style>

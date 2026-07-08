@@ -82,6 +82,7 @@ return "dm color=" .. color
 |------|----------|----------|----------|
 | `scripts/dm_api_selftest.lua` | 否 | `log`、`get_config`、生命周期、版本、路径、错误码、取色、RGB、等待颜色、窗口探测、无效绑定、安全等待和时间戳 | 返回以 `dm_api_selftest|` 开头的摘要 |
 | `scripts/dm_window_smoke.lua` | 是，默认标题 `World of Warcraft` | 窗口查找、`safe_bind_window`、绑定后取色、解绑 | 找到窗口时返回 `window=found`；没开窗口时返回 `window=not_found`，不算接口失败 |
+| `scripts/dm_bind_probe.lua` | 是，默认标题 `微信` | 常见低风险绑定模式逐个探测，记录每个组合的成功或失败原因 | 至少一个组合返回 `ok#` 才能把该窗口纳入绑定类业务脚本 |
 | `scripts/dm_smoke.lua` | 否 | 兼容旧版基础 smoke：ABI、初始化、版本、取色、错误码、关闭 | 返回以 `dm_smoke|` 开头的摘要 |
 
 ### 为什么不能把“窗口未找到”算接口失败
@@ -99,6 +100,7 @@ dm_bridge_bind_window，状态码 -3，消息：Access violation ...
 1. `hwnd` 是否仍有效，目标窗口是否被关闭或重建。
 2. 查找窗口先用 `dm.find_window` 或 `dm.find_window_try`，上线脚本确认必要窗口存在后才使用 `dm.find_window_required`。
 3. 先用 `dm.safe_bind_window`，不要直接用 `dm.bind_window`。
-4. 先测试 `"normal"` 或 `"gdi"`，再测试 `"dx"`。
+4. 使用 `dm_bind_probe.lua` 或 Web 管理端“绑定探测”逐个尝试 `normal/normal/normal`、`normal/windows/windows`、`gdi/windows/windows`、`gdi2/windows/windows`。
 5. 确认 Client 使用 x86 分包，并且 `dm-bridge/Win32/DmBridge.dll`、`dm.dll`、`RegDll.dll` 都存在。
 6. 确认目标机器已注册并授权大漠 COM。
+7. 如果某个窗口所有低风险组合都失败，说明该窗口不适合当前后台绑定方式；不要继续对它执行点击类业务脚本，改为换目标窗口、换绑定模式或只做非绑定屏幕取色验证。

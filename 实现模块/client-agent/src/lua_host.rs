@@ -116,6 +116,7 @@ mod tests {
                 tags: Vec::new(),
             },
             lua: LuaConfig {
+                enabled: true,
                 bootstrap_name: "test-bootstrap".to_string(),
                 bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
                 instruction_limit,

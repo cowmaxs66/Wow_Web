@@ -24,6 +24,18 @@ fn run_once_with_report(
     config: &AgentConfig,
     report_to_server: bool,
 ) -> Result<AgentRunResult, Box<dyn Error>> {
+    if !config.lua.enabled {
+        let status = AgentStatusSnapshot::online_without_script(config).into_client_status();
+        let envelope = WsEnvelope::status(config.client.id.clone(), status);
+        let ack = if report_to_server && config.server.enabled {
+            Some(StatusReporter::new(config.server.clone()).report_status(&envelope)?)
+        } else {
+            None
+        };
+
+        return Ok(AgentRunResult { envelope, ack });
+    }
+
     let script = ScriptSource::load_bootstrap(config)?;
     let report = LuaHost::new(config.clone()).run_script(&script)?;
 

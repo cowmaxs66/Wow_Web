@@ -8,14 +8,17 @@ import {
   FileText,
   MonitorCheck,
   Power,
+  Play,
   RefreshCw,
   Send,
   Settings,
   ShieldCheck,
+  Square,
   Terminal,
 } from "@lucide/vue";
 import type { Component } from "vue";
 import { computed, ref, watch } from "vue";
+import ScriptDeployPanel from "./ScriptDeployPanel.vue";
 import {
   fetchClientCommandReceipts,
   sendClientCommand,
@@ -57,6 +60,8 @@ const selectedClientIds = ref<string[]>([]);
 const receipts = ref<ClientCommandReceipt[]>([]);
 const receiptsLoading = ref(false);
 const receiptsError = ref("");
+const lastCommandFingerprint = ref("");
+const lastCommandAt = ref(0);
 
 const clientOptions = computed(() =>
   props.clients.map((client) => ({
@@ -152,6 +157,25 @@ const commandGroups: CommandGroup[] = [
         label: "重新执行 Lua",
         note: "让 Client 重新执行本机 bootstrap.lua，并按安全门校验。",
         icon: FileText,
+      },
+      {
+        value: "script.start",
+        label: "启动 Lua",
+        note: "启用当前 Lua，并立即执行一次。",
+        icon: Play,
+      },
+      {
+        value: "script.stop",
+        label: "停止 Lua",
+        note: "停止后 Client 仍在线，只是不再执行 Lua。",
+        icon: Square,
+        tone: "danger",
+      },
+      {
+        value: "script.status",
+        label: "查询 Lua 状态",
+        note: "返回当前脚本、路径、权限和安全门状态。",
+        icon: Terminal,
       },
     ],
   },
@@ -259,6 +283,10 @@ const commandGroups: CommandGroup[] = [
 ];
 
 function commandLabel(commandType: ClientCommandType): string {
+  if (commandType === "script.deploy_bundle") {
+    return "推送脚本包";
+  }
+
   if (commandType === "config.apply") {
     return "套用 Client 设置";
   }
@@ -373,6 +401,18 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
   commandResult.value = "";
 
   try {
+    const payload = {};
+    const fingerprint = JSON.stringify({
+      targets,
+      commandType,
+      payload,
+    });
+    const now = Date.now();
+    if (fingerprint === lastCommandFingerprint.value && now - lastCommandAt.value < 15000) {
+      commandResult.value = "已拦截重复命令：15 秒内不要对同一批 Client 重复下发同一命令。";
+      return;
+    }
+
     // Server 只负责写入白名单命令队列，Client monitor 轮询到后在本机执行。
     // 输入：Web 中明确选择的 Client ID 列表与命令类型。
     // 输出：对应客户端命令队列记录，后续由 Client 上报执行回执。
@@ -381,7 +421,7 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
       targets.map((clientId) =>
         sendClientCommand(props.serverUrl, clientId, {
           command_type: commandType,
-          payload: {},
+          payload,
         }),
       ),
     );
@@ -389,6 +429,8 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
       commands.length === 1
         ? `已写入命令队列：${commands[0].id}`
         : `已写入 ${commands.length} 个客户端命令队列`;
+    lastCommandFingerprint.value = fingerprint;
+    lastCommandAt.value = now;
     if (targets.length === 1) {
       await refreshReceipts();
     }
@@ -468,6 +510,12 @@ async function submitCommand(commandType: ClientCommandType): Promise<void> {
         </button>
         <p v-if="messageResult">{{ messageResult }}</p>
       </form>
+
+      <ScriptDeployPanel
+        :server-url="serverUrl"
+        :target-client-ids="targetClientIds"
+        :disabled="!!pendingCommand || !canOperateTarget"
+      />
 
       <div class="command-section">
         <h3>客户端白名单命令</h3>

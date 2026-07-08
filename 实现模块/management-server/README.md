@@ -7,7 +7,7 @@
 - WebSocket 实时推送、命令下发与结果接收。
 
 ## 当前状态
-P31 阶段已支持 `config.apply` 远程配置命令校验、`/api/client/sync` 合并同步、Client 状态分页过滤和 Server 操作审计。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列、命令执行回执和可选审计 JSONL 能力。
+P33 阶段已支持 `config.apply` 远程配置命令校验、`/api/client/sync` 合并同步、Client 状态分页过滤、Server 操作审计、Lua 热推送命令校验和 Lua 启停状态命令。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列、命令执行回执和可选审计 JSONL 能力。
 
 ## 当前 API
 | 方法 | 路径 | 说明 |
@@ -86,6 +86,13 @@ P31 阶段已支持 `config.apply` 远程配置命令校验、`/api/client/sync`
 - `MANAGEMENT_SERVER_AUDIT_PATH` 未配置时只保留进程内最近审计事件。
 - `MANAGEMENT_SERVER_AUDIT_PATH` 配置后，消息、命令和命令回执会追加写入 JSONL，Server 启动时会回放最近审计事件。
 - 审计事件只保存摘要，不保存完整 payload；JSONL 仍可能包含 Client ID 和命令摘要，不得提交到 GitHub。
+
+## P33 Lua 热推送说明
+- `POST /api/client/commands/{client_id}` 支持 `script.deploy_bundle`、`script.start`、`script.stop` 和 `script.status`。
+- `script.deploy_bundle` payload 文本上限为 200000 字符，Lua 内容上限为 120000 字符。
+- 内部测试模式允许 `security_enabled = false` 且不携带 manifest。
+- 如果 `security_enabled = true`，payload 必须同时携带 manifest 路径和 manifest 内容。
+- Server 只校验 payload 形状、路径和大小；脚本写入、配置更新和可选执行由 Client 完成并回传命令回执。
 
 ## 验证命令
 ```powershell

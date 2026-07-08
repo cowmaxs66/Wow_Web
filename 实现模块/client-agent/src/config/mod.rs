@@ -34,6 +34,8 @@ pub struct ClientConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct LuaConfig {
+    #[serde(default = "default_lua_enabled")]
+    pub enabled: bool,
     pub bootstrap_name: String,
     pub bootstrap_path: PathBuf,
     pub instruction_limit: u32,
@@ -103,6 +105,7 @@ impl AgentConfig {
             "client.display_name" => Some(self.client.display_name.clone()),
             "client.group" => Some(self.client.group.clone()),
             "client.tags" => Some(self.client.tags.join(",")),
+            "lua.enabled" => Some(self.lua.enabled.to_string()),
             "lua.bootstrap_name" => Some(self.lua.bootstrap_name.clone()),
             "lua.bootstrap_path" => Some(self.lua.bootstrap_path.display().to_string()),
             "script_security.enabled" => Some(self.script_security.enabled.to_string()),
@@ -273,6 +276,10 @@ fn default_client_group() -> String {
     "default".to_string()
 }
 
+fn default_lua_enabled() -> bool {
+    true
+}
+
 fn parse_tags(value: &str) -> Vec<String> {
     value
         .split(',')
@@ -307,6 +314,7 @@ mod tests {
                 tags: vec!["local".to_string()],
             },
             lua: LuaConfig {
+                enabled: true,
                 bootstrap_name: "bootstrap".to_string(),
                 bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
                 instruction_limit: 1000,
@@ -343,6 +351,7 @@ mod tests {
             Some("default".to_string())
         );
         assert_eq!(config.get_value("client.tags"), Some("local".to_string()));
+        assert_eq!(config.get_value("lua.enabled"), Some("true".to_string()));
         assert_eq!(
             config.get_value("lua.bootstrap_path"),
             Some("scripts/bootstrap.lua".to_string())

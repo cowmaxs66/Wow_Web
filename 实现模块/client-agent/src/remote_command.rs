@@ -1,12 +1,13 @@
 use crate::config::AgentConfig;
 use crate::local_log::LocalLog;
 use shared_types::{
-    REMOTE_COMMAND_CONFIG_APPLY, REMOTE_COMMAND_LOG_OPEN, REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP,
-    REMOTE_COMMAND_SERVICE_INSTALL, REMOTE_COMMAND_SERVICE_START, REMOTE_COMMAND_SERVICE_STATUS,
-    REMOTE_COMMAND_SERVICE_STOP, REMOTE_COMMAND_SETTINGS_OPEN, REMOTE_COMMAND_STARTUP_DISABLE,
-    REMOTE_COMMAND_STARTUP_ENABLE, REMOTE_COMMAND_STARTUP_STATUS, REMOTE_COMMAND_TRAY_OPEN,
-    REMOTE_COMMAND_UPDATE_APPLY, REMOTE_COMMAND_UPDATE_CHECK, REMOTE_COMMAND_UPDATE_DOWNLOAD,
-    is_supported_remote_command,
+    REMOTE_COMMAND_CONFIG_APPLY, REMOTE_COMMAND_LOG_OPEN, REMOTE_COMMAND_SCRIPT_DEPLOY_BUNDLE,
+    REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP, REMOTE_COMMAND_SCRIPT_START, REMOTE_COMMAND_SCRIPT_STATUS,
+    REMOTE_COMMAND_SCRIPT_STOP, REMOTE_COMMAND_SERVICE_INSTALL, REMOTE_COMMAND_SERVICE_START,
+    REMOTE_COMMAND_SERVICE_STATUS, REMOTE_COMMAND_SERVICE_STOP, REMOTE_COMMAND_SETTINGS_OPEN,
+    REMOTE_COMMAND_STARTUP_DISABLE, REMOTE_COMMAND_STARTUP_ENABLE, REMOTE_COMMAND_STARTUP_STATUS,
+    REMOTE_COMMAND_TRAY_OPEN, REMOTE_COMMAND_UPDATE_APPLY, REMOTE_COMMAND_UPDATE_CHECK,
+    REMOTE_COMMAND_UPDATE_DOWNLOAD, is_supported_remote_command,
 };
 use thiserror::Error;
 
@@ -21,6 +22,11 @@ pub fn execute_remote_command(
 
     match command_type {
         REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP => run_bootstrap_command(config),
+        REMOTE_COMMAND_SCRIPT_DEPLOY_BUNDLE => crate::script_deploy::deploy_script_bundle(payload)
+            .map_err(|error| RemoteCommandError::execute(command_type, error)),
+        REMOTE_COMMAND_SCRIPT_START => start_lua_command(),
+        REMOTE_COMMAND_SCRIPT_STOP => stop_lua_command(),
+        REMOTE_COMMAND_SCRIPT_STATUS => Ok(lua_status_summary(config)),
         REMOTE_COMMAND_STARTUP_STATUS => crate::startup::startup_status()
             .map(|status| status.summary())
             .map_err(|error| RemoteCommandError::execute(command_type, error)),
@@ -112,6 +118,52 @@ fn run_bootstrap_command(config: &AgentConfig) -> Result<String, RemoteCommandEr
     ))
 }
 
+fn start_lua_command() -> Result<String, RemoteCommandError> {
+    let config = set_lua_enabled(true)
+        .map_err(|error| RemoteCommandError::execute(REMOTE_COMMAND_SCRIPT_START, error))?;
+    let result = crate::agent::run_once(&config)
+        .map_err(|error| RemoteCommandError::execute(REMOTE_COMMAND_SCRIPT_START, error))?;
+    let script = result
+        .envelope
+        .data
+        .current_script
+        .as_deref()
+        .unwrap_or("无");
+    Ok(format!(
+        "Lua 已启动并执行一次：script={} message_id={}",
+        script, result.envelope.message_id
+    ))
+}
+
+fn stop_lua_command() -> Result<String, RemoteCommandError> {
+    let config = set_lua_enabled(false)
+        .map_err(|error| RemoteCommandError::execute(REMOTE_COMMAND_SCRIPT_STOP, error))?;
+    Ok(format!(
+        "Lua 已停止：script={}；Client monitor 仍保持在线和接收命令",
+        config.lua.bootstrap_name
+    ))
+}
+
+fn set_lua_enabled(enabled: bool) -> Result<AgentConfig, Box<dyn std::error::Error>> {
+    let config_path = crate::config::default_config_path();
+    crate::config::ensure_config_exists(&config_path)?;
+    let mut config = AgentConfig::load_file_from_path(&config_path)?;
+    config.lua.enabled = enabled;
+    config.save_to_path(&config_path)?;
+    Ok(config)
+}
+
+fn lua_status_summary(config: &AgentConfig) -> String {
+    format!(
+        "Lua 状态：enabled={} script={} path={} security_enabled={} permissions={}",
+        config.lua.enabled,
+        config.lua.bootstrap_name,
+        config.lua.bootstrap_path.display(),
+        config.script_security.enabled,
+        config.script_security.allowed_permissions.join(",")
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use crate::config::{
@@ -139,6 +191,7 @@ mod tests {
                 tags: Vec::new(),
             },
             lua: LuaConfig {
+                enabled: true,
                 bootstrap_name: "bootstrap".to_string(),
                 bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
                 instruction_limit: 10_000,

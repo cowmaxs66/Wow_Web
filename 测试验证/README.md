@@ -44,6 +44,9 @@
 | P28 DM 实机烟测验证 | DM smoke manifest、x86 Client 分包实机烟测、多机通讯规划 | 已通过 |
 | P29 多机器管理验证 | Client 身份模型、分组/标签、远程身份配置、批量确认 | 已通过 |
 | P30 通讯效率验证 | monitor jitter、`/api/client/sync`、Client sync 优先链路、包内 sync smoke | 已通过 |
+| P31 Client 分页过滤与审计持久化验证 | Server 分页过滤、审计 JSONL、Web 审计面板、本地三类包和 GitHub Release | 已通过 |
+| P32 DM 正式包与多选客户端操作验证 | 默认 DM 权限、DM DLL 随包、Web Client 多选操作、三类 zip | 已通过 |
+| P33 Lua 热推送与内部测试模式源码验证 | 默认内部测试模式、Lua 热推送、Lua 启停状态、重复下发拦截 | 已通过 |
 
 ## P0 验证记录
 - `cargo test --workspace`：通过，`shared-types` 单元测试 1 项通过。
@@ -476,3 +479,22 @@
   - 总包 `f13ac447611caef4209865cec2aeaa98a631d59b4a73ee60461d612397d2be4b`
   - Server 分包 `34a26b5a7a0cbe3b2195f7ef91c9e2dd469a7aaf77a4e218b413809bb2866822`
   - Client 分包 `06f0dd76e88a45cda55f69d0a91edc745a4377f6c75fa0925d9790947f4eb29f`
+
+## P33 Lua 热推送与内部测试模式验证
+- `cargo fmt --all --check`：通过。
+- `cargo test --workspace`：通过，Client 51 个测试、Server 52 个测试、shared-types 11 个测试、launcher 3 个测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.25.0`。
+- Client 热推送测试：通过，`script.deploy_bundle` 可在无 manifest 的内部测试模式下写入 Lua 文件。
+- Client Lua 停止测试：通过，`lua.enabled = false` 时 Client 可生成在线状态但不执行脚本。
+- Server 命令校验测试：通过，`script.deploy_bundle` 支持无 manifest 内部测试 payload，并拒绝路径穿越。
+- Web Admin 构建验证：通过，Lua 热推送面板、Lua 启停按钮和协议类型均通过 TypeScript 检查。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Client 分包 smoke：通过，`bin/client-agent-core.exe --run-once` 输出 `release_version = v1.25.0`、`arch = x86`、`lua.enabled = true`、`script_security.enabled = false` 和 `dm.access`。
+- Server 分包 health smoke：通过，临时端口 `/health` 返回 `{"status":"ok"}`。
+- Server 分包命令队列 smoke：通过，`script.deploy_bundle` 可写入并取出命令队列。
+- 包内容检查：通过，总包和 Client 分包包含 `DmBridge.dll`、`dm.dll`、`RegDll.dll`；Server 分包不包含这三个 DM 文件。
+- 三类 zip SHA-256：
+  - 总包 `08328ea5fdbc549cd6c884908c9759dda8e4881d74d87344d0e9fe6d29e2f0df`
+  - Server 分包 `e834c7890d424e6335ec645447816c638b57b9eb3070036d96e3e392699f3bfa`
+  - Client 分包 `cf0bf5c3570e0c8669a493d93c6fc1c266879ab4a29fd95088ff9ca570407938`

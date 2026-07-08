@@ -8,7 +8,7 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P32 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter、合并同步接口和默认 DM 权限。
+P33 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter、合并同步接口、默认 DM 权限、Lua 热推送和 Lua 启停状态命令。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -26,6 +26,7 @@ P32 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/settings_window_script.ps1` | 本机设置窗口 WinForms UI 模板，由 Rust 写入临时目录后启动 |
 | `src/updater.rs` | GitHub Release 检查、下载和自替换更新 |
 | `src/remote_command.rs` | Server 白名单命令执行分发 |
+| `src/script_deploy.rs` | Server 热推送 Lua 脚本包写入、可选启用和可选立即执行 |
 | `src/config/` | 配置读取、错误类型、默认路径解析和远程配置补丁写回 |
 | `src/script/` | Lua 脚本文件加载、manifest、签名、hash 和权限校验 |
 | `src/lua_host.rs` | Lua 宿主和按权限注册的白名单 API |
@@ -44,7 +45,8 @@ P32 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `scripts/README.md` | Client Lua 脚本目录说明和 DM smoke 切换方式 |
 
 ## P5 脚本安全
-- 默认启用 `script_security`。
+- v1.25.0 内部测试包默认关闭 `script_security`，方便直接修改或热推送 Lua 进行实机测试。
+- 需要重新启用安全门时，可在本机设置窗口或 Web 远程配置中打开 `script_security.enabled`。
 - manifest 必须通过 Ed25519 签名验证。
 - Lua 文件必须匹配 manifest 中的 SHA-256。
 - manifest 请求权限必须包含在本机 `allowed_permissions` 白名单内。
@@ -135,7 +137,16 @@ client-agent.exe --update-apply
 ## P32 默认 DM 权限
 - 默认 `client-agent.toml` 的 `script_security.allowed_permissions` 包含 `host.log`、`config.read` 和 `dm.access`。
 - 默认 `bootstrap.lua` 仍只请求 `host.log/config.read`，不会自动调用 DM。
-- 需要调用 DM 的脚本必须在自己的 manifest 中声明 `dm.access`，并通过签名和 hash 校验。
+- 启用 `script_security` 时，需要调用 DM 的脚本必须在自己的 manifest 中声明 `dm.access`，并通过签名和 hash 校验。
+
+## P33 Lua 热推送与内部测试模式
+- 默认 `lua.enabled = true`，Client 启动或 monitor 刷新时会执行当前 bootstrap。
+- 默认 `script_security.enabled = false`，内部测试时修改或热推送 Lua 不需要同步 manifest hash。
+- `script.deploy_bundle` 会把 Server 下发的 Lua 内容写入 Client 包内 `scripts/` 目录，可选择启用 Lua 并立即执行一次。
+- `script.start` 会把 `lua.enabled` 写为 `true`，并立即运行当前 bootstrap。
+- `script.stop` 会把 `lua.enabled` 写为 `false`，Client monitor 继续在线和拉取命令，但不再执行 Lua。
+- `script.status` 返回当前 Lua 开关、脚本路径、安全门和权限摘要。
+- 热推送只允许写入 `scripts/` 目录，避免误覆盖配置、日志或安装目录外文件。
 
 ## P29/P30 多机器与通讯效率
 - `[client]` 新增 `display_name`、`group` 和 `tags`，用于 Web 多机器管理，不替代稳定 `client.id`。

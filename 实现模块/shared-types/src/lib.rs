@@ -96,6 +96,8 @@ impl ClientRuntimeInfo {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientScriptInfo {
     pub bootstrap_name: String,
+    #[serde(default = "default_script_enabled")]
+    pub enabled: bool,
     pub instruction_limit: u32,
     pub security_enabled: bool,
     pub allowed_permissions: Vec<String>,
@@ -105,11 +107,16 @@ impl ClientScriptInfo {
     pub fn unknown() -> Self {
         Self {
             bootstrap_name: "unknown".to_string(),
+            enabled: true,
             instruction_limit: 0,
             security_enabled: false,
             allowed_permissions: Vec::new(),
         }
     }
+}
+
+fn default_script_enabled() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -289,6 +296,10 @@ pub struct ClientCommandRequest {
 }
 
 pub const REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP: &str = "script.run_bootstrap";
+pub const REMOTE_COMMAND_SCRIPT_DEPLOY_BUNDLE: &str = "script.deploy_bundle";
+pub const REMOTE_COMMAND_SCRIPT_START: &str = "script.start";
+pub const REMOTE_COMMAND_SCRIPT_STOP: &str = "script.stop";
+pub const REMOTE_COMMAND_SCRIPT_STATUS: &str = "script.status";
 pub const REMOTE_COMMAND_STARTUP_STATUS: &str = "startup.status";
 pub const REMOTE_COMMAND_STARTUP_ENABLE: &str = "startup.enable";
 pub const REMOTE_COMMAND_STARTUP_DISABLE: &str = "startup.disable";
@@ -306,6 +317,10 @@ pub const REMOTE_COMMAND_TRAY_OPEN: &str = "tray.open";
 
 pub const REMOTE_COMMAND_TYPES: &[&str] = &[
     REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP,
+    REMOTE_COMMAND_SCRIPT_DEPLOY_BUNDLE,
+    REMOTE_COMMAND_SCRIPT_START,
+    REMOTE_COMMAND_SCRIPT_STOP,
+    REMOTE_COMMAND_SCRIPT_STATUS,
     REMOTE_COMMAND_STARTUP_STATUS,
     REMOTE_COMMAND_STARTUP_ENABLE,
     REMOTE_COMMAND_STARTUP_DISABLE,
@@ -389,6 +404,27 @@ pub struct ClientConfigPatch {
     pub server: ClientServerConfigPatch,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientScriptDeployBundle {
+    pub bootstrap_name: String,
+    pub bootstrap_path: String,
+    pub lua_content: String,
+    #[serde(default)]
+    pub manifest_path: Option<String>,
+    #[serde(default)]
+    pub manifest_content: Option<String>,
+    #[serde(default)]
+    pub security_enabled: bool,
+    #[serde(default)]
+    pub allowed_permissions: Option<Vec<String>>,
+    #[serde(default)]
+    pub trusted_signer_public_key: Option<String>,
+    #[serde(default)]
+    pub activate: bool,
+    #[serde(default)]
+    pub run_after_deploy: bool,
+}
+
 impl ClientConfigPatch {
     pub fn is_empty(&self) -> bool {
         self.client.is_empty()
@@ -414,6 +450,7 @@ impl ClientIdentityConfigPatch {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientLuaConfigPatch {
+    pub enabled: Option<bool>,
     pub bootstrap_name: Option<String>,
     pub bootstrap_path: Option<String>,
     pub instruction_limit: Option<u32>,
@@ -421,7 +458,8 @@ pub struct ClientLuaConfigPatch {
 
 impl ClientLuaConfigPatch {
     fn is_empty(&self) -> bool {
-        self.bootstrap_name.is_none()
+        self.enabled.is_none()
+            && self.bootstrap_name.is_none()
             && self.bootstrap_path.is_none()
             && self.instruction_limit.is_none()
     }
@@ -711,6 +749,12 @@ mod tests {
         assert!(is_supported_remote_command(
             REMOTE_COMMAND_SCRIPT_RUN_BOOTSTRAP
         ));
+        assert!(is_supported_remote_command(
+            REMOTE_COMMAND_SCRIPT_DEPLOY_BUNDLE
+        ));
+        assert!(is_supported_remote_command(REMOTE_COMMAND_SCRIPT_START));
+        assert!(is_supported_remote_command(REMOTE_COMMAND_SCRIPT_STOP));
+        assert!(is_supported_remote_command(REMOTE_COMMAND_SCRIPT_STATUS));
         assert!(!is_supported_remote_command("shell.exec"));
     }
 

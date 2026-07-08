@@ -776,6 +776,113 @@ async fn script_run_bootstrap_client_command_is_allowed() {
     assert_eq!(commands.items[0].command_type, "script.run_bootstrap");
 }
 
+#[tokio::test]
+async fn script_deploy_bundle_can_be_created_without_manifest_for_internal_test() {
+    let app = build_router_with_web_dir(ServerState::default(), None);
+    let body = serde_json::to_vec(&ClientCommandRequest {
+        command_type: "script.deploy_bundle".to_string(),
+        payload: serde_json::json!({
+            "bootstrap_name": "bootstrap",
+            "bootstrap_path": "scripts/bootstrap.lua",
+            "lua_content": "return 'ok'",
+            "security_enabled": false,
+            "allowed_permissions": ["host.log", "config.read", "dm.access"],
+            "activate": true,
+            "run_after_deploy": false
+        }),
+    })
+    .expect("command request must serialize");
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/client/commands/client-a")
+                .header("content-type", "application/json")
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/client/commands/client-a")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    let commands: ClientCommandList =
+        serde_json::from_slice(&body).expect("command list must deserialize");
+
+    assert_eq!(commands.total, 1);
+    assert_eq!(commands.items[0].command_type, "script.deploy_bundle");
+}
+
+#[tokio::test]
+async fn script_deploy_bundle_rejects_path_traversal() {
+    let app = build_router_with_web_dir(ServerState::default(), None);
+    let body = serde_json::to_vec(&ClientCommandRequest {
+        command_type: "script.deploy_bundle".to_string(),
+        payload: serde_json::json!({
+            "bootstrap_name": "bootstrap",
+            "bootstrap_path": "../bootstrap.lua",
+            "lua_content": "return 'ok'",
+            "security_enabled": false
+        }),
+    })
+    .expect("command request must serialize");
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/client/commands/client-a")
+                .header("content-type", "application/json")
+                .body(Body::from(body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn script_start_stop_status_commands_are_allowed() {
+    let app = build_router_with_web_dir(ServerState::default(), None);
+
+    for command_type in ["script.start", "script.stop", "script.status"] {
+        let body = serde_json::to_vec(&ClientCommandRequest {
+            command_type: command_type.to_string(),
+            payload: serde_json::json!({}),
+        })
+        .expect("command request must serialize");
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/client/commands/client-a")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+}
+
 #[test]
 fn status_report_event_marks_first_online() {
     let current = WsEnvelope::status("client-a", ClientStatus::new("client-a"));

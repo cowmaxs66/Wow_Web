@@ -60,6 +60,11 @@ fn apply_patch(
 ) -> Result<(), ConfigPatchError> {
     apply_client_identity_patch(config, patch.client, changes);
 
+    if let Some(value) = patch.lua.enabled {
+        config.lua.enabled = value;
+        changes.push("lua.enabled".to_string());
+    }
+
     if let Some(value) = patch.lua.bootstrap_name {
         config.lua.bootstrap_name = value.trim().to_string();
         changes.push("lua.bootstrap_name".to_string());
@@ -252,6 +257,7 @@ mod tests {
                 "tags": ["dm", "farm", "dm"]
             },
             "lua": {
+                "enabled": true,
                 "instruction_limit": 200000
             },
             "script_security": {
@@ -276,6 +282,7 @@ mod tests {
         assert_eq!(saved.client.id, "local-dev-client");
         assert_eq!(saved.client.display_name, "Raid 主机 01");
         assert_eq!(saved.client.group, "raid-a");
+        assert!(saved.lua.enabled);
         assert_eq!(
             saved.client.tags,
             vec!["dm".to_string(), "farm".to_string()]

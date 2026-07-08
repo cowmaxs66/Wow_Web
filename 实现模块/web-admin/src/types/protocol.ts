@@ -34,6 +34,7 @@ export interface ClientRuntimeInfo {
 
 export interface ClientScriptInfo {
   bootstrap_name: string;
+  enabled: boolean;
   instruction_limit: number;
   security_enabled: boolean;
   allowed_permissions: string[];
@@ -86,6 +87,10 @@ export interface ClientMessageList {
 
 export type ClientCommandType =
   | "script.run_bootstrap"
+  | "script.deploy_bundle"
+  | "script.start"
+  | "script.stop"
+  | "script.status"
   | "startup.status"
   | "startup.enable"
   | "startup.disable"
@@ -109,6 +114,19 @@ export interface ClientConfigPatch {
   server?: ClientServerConfigPatch;
 }
 
+export interface ClientScriptDeployBundle {
+  bootstrap_name: string;
+  bootstrap_path: string;
+  lua_content: string;
+  manifest_path?: string;
+  manifest_content?: string;
+  security_enabled: boolean;
+  allowed_permissions?: string[];
+  trusted_signer_public_key?: string;
+  activate: boolean;
+  run_after_deploy: boolean;
+}
+
 export interface ClientIdentityConfigPatch {
   display_name?: string;
   group?: string;
@@ -116,6 +134,7 @@ export interface ClientIdentityConfigPatch {
 }
 
 export interface ClientLuaConfigPatch {
+  enabled?: boolean;
   bootstrap_name?: string;
   bootstrap_path?: string;
   instruction_limit?: number;
@@ -142,7 +161,7 @@ export interface ClientServerConfigPatch {
 
 export interface ClientCommandRequest {
   command_type: ClientCommandType;
-  payload: Record<string, unknown> | ClientConfigPatch;
+  payload: Record<string, unknown> | ClientConfigPatch | ClientScriptDeployBundle;
 }
 
 export interface ClientCommand {
@@ -150,7 +169,7 @@ export interface ClientCommand {
   client_id: string;
   timestamp_ms: number;
   command_type: ClientCommandType;
-  payload: Record<string, unknown> | ClientConfigPatch;
+  payload: Record<string, unknown> | ClientConfigPatch | ClientScriptDeployBundle;
 }
 
 export interface ClientCommandList {

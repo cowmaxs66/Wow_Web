@@ -33,6 +33,22 @@ impl AgentStatusSnapshot {
         }
     }
 
+    pub fn online_without_script(config: &AgentConfig) -> Self {
+        // Lua 被管理端停用时，Client 仍然保持在线和可接收命令。
+        // 输入：当前 AgentConfig。
+        // 输出：不执行 Lua 的在线状态快照。
+        // 边界：只影响脚本执行，不停止 monitor、托盘、消息和远程命令轮询。
+        Self {
+            client_id: config.client.id.clone(),
+            online: true,
+            current_script: None,
+            identity: identity_info(config),
+            runtime: runtime_info(),
+            script: script_info(config, config.lua.instruction_limit),
+            server: server_info(config),
+        }
+    }
+
     pub fn offline(config: &AgentConfig) -> Self {
         // 离线状态用于 monitor 退出时主动通知 Server。
         // 输入：当前已合并环境变量的 AgentConfig。
@@ -105,6 +121,7 @@ fn runtime_info() -> ClientRuntimeInfo {
 fn script_info(config: &AgentConfig, instruction_limit: u32) -> ClientScriptInfo {
     ClientScriptInfo {
         bootstrap_name: config.lua.bootstrap_name.clone(),
+        enabled: config.lua.enabled,
         instruction_limit,
         security_enabled: config.script_security.enabled,
         allowed_permissions: config.script_security.allowed_permissions.clone(),
@@ -147,6 +164,7 @@ mod tests {
                 tags: vec!["dm".to_string(), "dm".to_string(), "test".to_string()],
             },
             lua: LuaConfig {
+                enabled: true,
                 bootstrap_name: "bootstrap".to_string(),
                 bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
                 instruction_limit: 10_000,
@@ -188,6 +206,7 @@ mod tests {
         assert_eq!(status.current_script, Some("bootstrap".to_string()));
         assert_eq!(status.runtime.release_version, framework_release_version());
         assert_eq!(status.script.bootstrap_name, "bootstrap");
+        assert!(status.script.enabled);
         assert!(status.script.security_enabled);
         assert_eq!(
             status.script.allowed_permissions,
@@ -210,6 +229,7 @@ mod tests {
                 tags: Vec::new(),
             },
             lua: LuaConfig {
+                enabled: true,
                 bootstrap_name: "bootstrap".to_string(),
                 bootstrap_path: PathBuf::from("scripts/bootstrap.lua"),
                 instruction_limit: 10_000,

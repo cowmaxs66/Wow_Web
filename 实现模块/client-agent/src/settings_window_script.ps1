@@ -127,10 +127,11 @@ function Load-FormFromConfig {
   $clientDisplayName.Text = Get-ScalarValue $clientSection 'display_name' 'Local Dev Client'
   $clientGroupName.Text = Get-ScalarValue $clientSection 'group' 'default'
   $clientTags.Text = ((Get-ArrayItems $clientSection 'tags') -join ', ')
+  $luaEnabled.Checked = Get-BoolValue $luaSection 'enabled' $true
   $bootstrapName.Text = Get-ScalarValue $luaSection 'bootstrap_name' 'bootstrap'
   $bootstrapPath.Text = Get-ScalarValue $luaSection 'bootstrap_path' 'scripts/bootstrap.lua'
   $instructionLimit.Text = Get-ScalarValue $luaSection 'instruction_limit' '100000'
-  $securityEnabled.Checked = Get-BoolValue $securitySection 'enabled' $true
+  $securityEnabled.Checked = Get-BoolValue $securitySection 'enabled' $false
   $manifestPath.Text = Get-ScalarValue $securitySection 'manifest_path' 'scripts/bootstrap.manifest.json'
   $publicKey.Text = Get-ScalarValue $securitySection 'trusted_signer_public_key' ''
   $dmBridgePath.Text = Get-ScalarValue $dmSection 'bridge_path' 'dm-bridge/Win32/DmBridge.dll'
@@ -178,6 +179,7 @@ function Build-ConfigText {
   $tagsText = Build-TagsText
   $serverEnabledText = $serverEnabled.Checked.ToString().ToLowerInvariant()
   $securityEnabledText = $securityEnabled.Checked.ToString().ToLowerInvariant()
+  $luaEnabledText = $luaEnabled.Checked.ToString().ToLowerInvariant()
   $config = @"
 [client]
 id = "$(Escape-TomlString ($clientId.Text.Trim()))"
@@ -186,6 +188,7 @@ group = "$(Escape-TomlString ($clientGroupName.Text.Trim()))"
 tags = [$tagsText]
 
 [lua]
+enabled = $luaEnabledText
 bootstrap_name = "$(Escape-TomlString ($bootstrapName.Text.Trim()))"
 bootstrap_path = "$(Escape-TomlString ($bootstrapPath.Text.Trim()))"
 instruction_limit = $(Read-IntField $instructionLimit 'Lua 指令上限' 1 2147483647)
@@ -317,16 +320,18 @@ $luaGroup.Width = 372
 $luaGroup.Height = 178
 $form.Controls.Add($luaGroup)
 
-$luaGroup.Controls.Add((New-Label 'Bootstrap 名称' 14 30 96))
-$bootstrapName = New-TextBox 120 26 230
+$luaEnabled = New-CheckBox '启用 Lua' 14 26 100
+$luaGroup.Controls.Add($luaEnabled)
+$luaGroup.Controls.Add((New-Label 'Bootstrap 名称' 14 62 96))
+$bootstrapName = New-TextBox 120 58 230
 $luaGroup.Controls.Add($bootstrapName)
-$luaGroup.Controls.Add((New-Label 'Bootstrap 路径' 14 66 96))
-$bootstrapPath = New-TextBox 120 62 230
+$luaGroup.Controls.Add((New-Label 'Bootstrap 路径' 14 98 96))
+$bootstrapPath = New-TextBox 120 94 230
 $luaGroup.Controls.Add($bootstrapPath)
-$luaGroup.Controls.Add((New-Label '指令上限' 14 102 96))
-$instructionLimit = New-TextBox 120 98 120
+$luaGroup.Controls.Add((New-Label '指令上限' 14 134 96))
+$instructionLimit = New-TextBox 120 130 120
 $luaGroup.Controls.Add($instructionLimit)
-$luaNote = New-Label '路径相对 Client 包根目录，例如 scripts/bootstrap.lua。' 14 136 330
+$luaNote = New-Label '路径相对 Client 包根目录，例如 scripts/bootstrap.lua。' 14 158 330
 $luaNote.ForeColor = [System.Drawing.Color]::FromArgb(92, 104, 120)
 $luaGroup.Controls.Add($luaNote)
 

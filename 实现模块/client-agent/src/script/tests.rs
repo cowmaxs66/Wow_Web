@@ -166,6 +166,7 @@ fn test_config_with_name(
             tags: Vec::new(),
         },
         lua: LuaConfig {
+            enabled: true,
             bootstrap_name: bootstrap_name.to_string(),
             bootstrap_path: script_path.to_path_buf(),
             instruction_limit: 1000,

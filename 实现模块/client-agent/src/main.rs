@@ -11,6 +11,7 @@ mod notifier;
 mod ps_script;
 mod remote_command;
 mod script;
+mod script_deploy;
 mod server_reporter;
 mod service_runtime;
 mod settings_window;

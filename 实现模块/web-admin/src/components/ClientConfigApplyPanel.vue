@@ -26,10 +26,11 @@ const serverEnabled = ref(true);
 const serverHost = ref("127.0.0.1");
 const serverPort = ref(18080);
 const connectTimeoutMs = ref(3000);
+const luaEnabled = ref(true);
 const bootstrapName = ref("bootstrap");
 const bootstrapPath = ref("scripts/bootstrap.lua");
 const instructionLimit = ref(100000);
-const securityEnabled = ref(true);
+const securityEnabled = ref(false);
 const manifestPath = ref("scripts/bootstrap.manifest.json");
 const trustedSignerPublicKey = ref("");
 const allowHostLog = ref(true);
@@ -111,6 +112,7 @@ function applyStatusDefaults(): void {
   }
 
   bootstrapName.value = status.data.script.bootstrap_name || "bootstrap";
+  luaEnabled.value = status.data.script.enabled ?? true;
   displayName.value = status.data.identity.display_name || status.client_id;
   clientGroup.value = status.data.identity.group || "default";
   clientTags.value = status.data.identity.tags.join(", ");
@@ -166,6 +168,7 @@ function buildPatch(): ClientConfigPatch {
       tags: normalizedTags(),
     },
     lua: {
+      enabled: luaEnabled.value,
       bootstrap_name: bootstrapName.value.trim(),
       bootstrap_path: bootstrapPath.value.trim(),
       instruction_limit: instructionLimit.value,
@@ -321,6 +324,10 @@ async function submitConfig(): Promise<void> {
           <span>Lua 腳本</span>
         </legend>
         <div class="field-grid">
+          <label class="inline-toggle">
+            <input v-model="luaEnabled" type="checkbox" />
+            <span>啟用 Lua</span>
+          </label>
           <label>
             <span>Bootstrap 名稱</span>
             <input v-model="bootstrapName" />

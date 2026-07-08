@@ -4,12 +4,12 @@
 本项目用于沉淀一套 Windows 自动化代理框架：Rust 负责稳定核心，Lua 负责业务脚本，大漠插件通过独立桥接层接入，管理端后续提供集中监控、配置和脚本下发。
 
 ## 当前阶段
-- 当前阶段：P32 DM 正式包与多选客户端操作
-- 当前版本：v1.24.0
-- 当前目标：v1.24.0 已完成默认 DM 权限、DM 运行 DLL 随包、Web Client 勾选式批量操作、本地三类包验证和 GitHub Release
+- 当前阶段：P33 Lua 热推送与内部测试模式
+- 当前版本：v1.25.0
+- 当前目标：v1.25.0 已完成默认内部测试模式、管理端 Lua 热推送、Lua 启动/停止/状态命令和重复下发拦截，等待打包发布后实机测试
 
 ## 第一里程碑
-已完成 P0-P32 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化、DM smoke 脚本入口、多机器通讯优化、Server 查询审计能力和 DM 正式包能力：
+已完成 P0-P33 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化、DM smoke 脚本入口、多机器通讯优化、Server 查询审计能力、DM 正式包能力和 Lua 热推送能力：
 
 1. Client Agent 能执行 Lua bootstrap。
 2. DmBridge 能通过 Rust/Lua 调用大漠最小链路。
@@ -43,6 +43,7 @@
 30. Client monitor 已支持 jitter 和 `/api/client/sync` 合并同步，减少多机器轮询请求量，并保留旧接口回退链路。
 31. Server 已支持 Client 状态分页、分组、标签、在线状态和关键字查询，并把消息、命令和命令回执写入可选 JSONL 审计文件；Web Admin 已接入 Server 端筛选和审计面板。
 32. Client 默认开启 `dm.access`，总包和 Client 分包携带 `dm.dll/RegDll.dll`，Web 远程操作目标改为可勾选 Client 列表。
+33. Client 默认进入内部测试模式：Lua 开启、脚本安全校验默认关闭、已知权限默认全开；Web Admin 可向勾选 Client 热推送 Lua，并下发 Lua 启动、停止和状态查询命令。
 
 ## 目录说明
 | 目录 | 职责 |
@@ -63,4 +64,4 @@ npm run build
 ```
 
 ## 发布归档
-当前 v1.24.0 正式测试包已发布：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.24.0
+当前 v1.25.0 正式测试包待发布；上一版 v1.24.0 已发布：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.24.0

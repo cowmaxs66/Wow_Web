@@ -5,12 +5,13 @@ group = "default"
 tags = ["local", "test"]
 
 [lua]
+enabled = true
 bootstrap_name = "bootstrap"
 bootstrap_path = "scripts/bootstrap.lua"
 instruction_limit = 100000
 
 [script_security]
-enabled = true
+enabled = false
 manifest_path = "scripts/bootstrap.manifest.json"
 trusted_signer_public_key = "7f3c8268b3f403594ef6e7e681ca62851e66b07b915c48a523b0cfaf7e54bfc9"
 allowed_permissions = ["host.log", "config.read", "dm.access"]

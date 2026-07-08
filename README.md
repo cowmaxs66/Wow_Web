@@ -6,7 +6,7 @@
 ## 当前阶段
 - 当前阶段：P32 DM 正式包与多选客户端操作
 - 当前版本：v1.24.0
-- 当前目标：v1.24.0 已完成默认 DM 权限、DM 运行 DLL 随包、Web Client 勾选式批量操作和本地三类包验证，正在上传 GitHub Release
+- 当前目标：v1.24.0 已完成默认 DM 权限、DM 运行 DLL 随包、Web Client 勾选式批量操作、本地三类包验证和 GitHub Release
 
 ## 第一里程碑
 已完成 P0-P32 第一轮源码、Web 信息扩展、短期历史分析、持久化、一键运行、客户端监控、本机开机启动、正式运行基础、双击正式入口、无控制台发布入口、自动更新自替换、服务端远程更新入口、部署分包、正式体验修正、Client 直启热修复、Server 托盘、双端图标、产品控制中心、Web 使用体验与 DM/Lua 操作流、命令执行回执、工程化地基修补、Client 远程配置下发、Client 设置表单化、DM smoke 脚本入口、多机器通讯优化、Server 查询审计能力和 DM 正式包能力：
@@ -63,4 +63,4 @@ npm run build
 ```
 
 ## 发布归档
-当前 v1.24.0 正式测试包已生成，GitHub Release 上传中：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.24.0
+当前 v1.24.0 正式测试包已发布：https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.24.0

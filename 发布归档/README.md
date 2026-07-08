@@ -3,7 +3,7 @@
 本目录保存发布记录、交付包说明、版本归档和交接资料。
 
 ## 当前状态
-P38-H01 已完成 v1.30.1 桌面控制台直启热修复，并已生成本地三类 Windows 包；当前环境没有可用 GitHub Release 上传工具，远端 Release 待补发。`WoW-Desktop.exe` 直接双击时会自动启动同包内 Server core，不再显示 WebView2 默认连接拒绝页。总包和 Client 分包继续携带 `dm.dll` 与 `RegDll.dll`；源码仓库仍不提交大漠二进制、授权文件、私有脚本、JSONL 运行数据和真实账号资料。
+P39 已完成 v1.31.0 DM API 测试与上线准入，并已生成本地三类 Windows 包；当前环境没有可用 GitHub Release 上传工具，远端 Release 待补发。Client 分包内置 `dm_api_selftest.lua` 和 `dm_window_smoke.lua`，可先做基础 API 自检，再做真实窗口 smoke。总包和 Client 分包继续携带 `dm.dll` 与 `RegDll.dll`；源码仓库仍不提交大漠授权文件、私有脚本、JSONL 运行数据和真实账号资料。
 
 ## 当前文件
 | 文件 | 职责 |
@@ -41,6 +41,7 @@ P38-H01 已完成 v1.30.1 桌面控制台直启热修复，并已生成本地三
 | `v1.29.0-发布说明.md` | 说明 v1.29.0 桌面控制台 UI 体验优化和本地三类编译包 |
 | `v1.30.0-发布说明.md` | 说明 v1.30.0 独立桌面控制台壳、托盘去 Edge App 和本地三类编译包 |
 | `v1.30.1-发布说明.md` | 说明 v1.30.1 `WoW-Desktop.exe` 直启自动启动 Server 的热修复 |
+| `v1.31.0-发布说明.md` | 说明 v1.31.0 DM API 自检、窗口 smoke、接口说明和上线准入 |
 | `GitHub发布记录.md` | 记录远端 GitHub Release、tag、发布范围和安全边界 |
 | `交接清单.md` | 面向后续维护和继续开发的交接入口 |
 | `部署与运行指南.md` | 记录本地构建、启动、联调和 DmBridge 编译方式 |

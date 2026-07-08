@@ -19,7 +19,10 @@ const currentScript = computed(() => {
 
 const sampleLua = `log("dm bootstrap started")
 
-local hwnd = dm.find_window_required("", "窗口标题")
+local hwnd = dm.find_window("", "窗口标题")
+if hwnd <= 0 then
+  return "window not found"
+end
 
 local ok, err = dm.safe_bind_window(hwnd, "normal", "windows", "windows", 0)
 if not ok then
@@ -96,6 +99,7 @@ async function copySample(): Promise<void> {
         <li>在「遠程操作」勾選 Client，使用 Lua 熱推送直接寫入 <code>scripts/bootstrap.lua</code>。</li>
         <li>需要手動放置腳本時，在 <code>config/client-agent.toml</code> 指定 <code>lua.bootstrap_path</code> 和 <code>dm.bridge_path</code>。</li>
         <li>內部測試模式可不啟用 manifest；重新開啟安全門後，manifest 和 TOML 都要允許 <code>dm.access</code>。</li>
+        <li>查找窗口先用 <code>dm.find_window</code> 或 <code>dm.find_window_try</code>；只有业务必须要求窗口存在时才用 <code>dm.find_window_required</code>。</li>
         <li>绑定窗口优先用 <code>dm.safe_bind_window</code>；<code>dx</code> 模式失败时先试 <code>normal</code> 或 <code>gdi</code>。</li>
       </ol>
     </div>

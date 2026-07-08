@@ -233,4 +233,15 @@ mod tests {
         assert!(!color.trim().is_empty());
         assert_eq!(move_ret, 1);
     }
+
+    #[test]
+    fn find_window_not_found_error_is_classified() {
+        let error = DmBridgeError::BridgeFailed {
+            context: "dm_bridge_find_window",
+            status: 0,
+            message: "FindWindow not found: class= title=World of Warcraft".to_string(),
+        };
+
+        assert!(error.is_find_window_not_found());
+    }
 }

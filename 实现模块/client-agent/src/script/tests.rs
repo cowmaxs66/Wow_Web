@@ -102,6 +102,37 @@ fn shipped_dm_smoke_manifest_matches_script_and_permissions() {
     assert!(!script.permissions.allows(PERMISSION_CONFIG_READ));
 }
 
+#[test]
+fn shipped_dm_api_selftest_loads_in_internal_test_mode() {
+    let module_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let script_path = module_dir.join("scripts/dm_api_selftest.lua");
+    let manifest_path = module_dir.join("scripts/bootstrap.manifest.json");
+    let mut config = test_config_with_name(
+        "dm-api-selftest",
+        &script_path,
+        &manifest_path,
+        &["host.log", "config.read", "dm.access"],
+    );
+    config.script_security.enabled = false;
+
+    let script = ScriptSource::load_bootstrap(&config).expect("dm api selftest must load");
+
+    assert_eq!(script.name, "dm-api-selftest");
+    assert!(script.content.contains("dm_api_selftest"));
+    assert!(script.permissions.allows(PERMISSION_DM_ACCESS));
+}
+
+#[test]
+fn shipped_dm_window_smoke_does_not_require_window() {
+    let module_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let script_path = module_dir.join("scripts/dm_window_smoke.lua");
+    let content = fs::read_to_string(script_path).expect("window smoke script must exist");
+
+    assert!(content.contains("dm.find_window("));
+    assert!(!content.contains("find_window_required"));
+    assert!(content.contains("window=not_found"));
+}
+
 fn create_test_workspace(name: &str) -> PathBuf {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)

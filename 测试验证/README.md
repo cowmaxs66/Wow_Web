@@ -602,3 +602,17 @@
   - 总包 `ceaa6d95f968c4928e4d849103584d98f6fc7a19ebada1a3cfbebfd1a339e4f8`
   - Server 分包 `16ded0bc0527faf9b3f0545d5521cb38d8a9313734c025b1277fa82ddacf2cb0`
   - Client 分包 `d8f39ad3a9fdb91ba39dfd1b2cd2d5808d1e63f585fc92d5d42cd8f6507e40d8`
+
+## P39 DM API 测试与上线准入验证
+- `cargo fmt --all --check`：通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo test --workspace`：通过，Client 58 项、desktop-console 9 项、Server 53 项、shared-types 11 项、launcher 3 项测试全部通过。
+- `npm run build`：通过，Web Admin 版本为 `1.31.0`。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Client 分包 DM API 自检 smoke：通过，临时包执行 `scripts/dm_api_selftest.lua` 成功，输出状态包含 `release_version = v1.31.0`、`arch = x86`、`script_security.enabled = false` 和 `dm.access`。
+- Client 分包窗口 smoke：通过，临时包执行 `scripts/dm_window_smoke.lua` 成功；未打开 `World of Warcraft` 时不会让 Client monitor 报错中断。
+- 包内容检查：通过，Client 分包包含 `dm_api_selftest.lua`、`dm_window_smoke.lua`、`DmBridge.dll`、`dm.dll`、`RegDll.dll`。
+- 三类 zip SHA-256：
+  - 总包 `4e03b6ac9b65b118a254c4197eda6d35efdfc8900b3f75fceba6a8f0ceac9e95`
+  - Server 分包 `644f17810866667238496511e34ea9eed69bb2b0a5e81d762cb4ab61b5005771`
+  - Client 分包 `e805bf15521adacac64db4afa9e59086851697f525f13ded2661c53de22d7b41`

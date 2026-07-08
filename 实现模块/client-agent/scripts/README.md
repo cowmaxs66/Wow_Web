@@ -5,13 +5,20 @@
 |------|------|
 | `bootstrap.lua` | 默认安全启动脚本，只验证 Lua 宿主和配置读取 |
 | `bootstrap.manifest.json` | 默认脚本 manifest、hash、权限和签名 |
+| `dm_api_selftest.lua` | DM/Lua 上线前基础接口自检，不依赖目标窗口，不点击 |
+| `dm_window_smoke.lua` | WoW 窗口实机 smoke，找不到窗口时返回 `window=not_found`，不让 monitor 失败 |
 | `dm_smoke.lua` | DM 实机烟测脚本，只读取 ABI、版本、屏幕颜色并关闭 Bridge，不点击、不绑定窗口 |
 | `dm_smoke.manifest.json` | DM 烟测脚本 manifest，权限限定为 `host.log` 和 `dm.access` |
 
 ## Lua 接口说明
 完整接口表见：`技术设计/Lua接口表与使用说明.md`。
 
-脚本中推荐优先使用 `dm.safe_bind_window` 或 `dm.bind_window_try`，避免窗口句柄失效、后台模式不兼容时直接中断整个 Client monitor。
+脚本中推荐优先使用 `dm.find_window` / `dm.find_window_try` 做探测，再使用 `dm.safe_bind_window` 或 `dm.bind_window_try`，避免目标窗口未打开、句柄失效、后台模式不兼容时直接中断整个 Client monitor。
+
+## 上线前测试顺序
+1. 先运行 `dm_api_selftest.lua`，确认 DmBridge、dm COM、Lua 全局接口和图色基础接口可用。
+2. 再打开目标游戏窗口，运行 `dm_window_smoke.lua`，确认窗口标题、绑定模式和绑定后取色可用。
+3. 最后再推送业务 Lua。业务 Lua 中只有“目标窗口必须存在”时才使用 `dm.find_window_required`。
 
 ## DM 烟测使用方式
 在 Client 设置窗口中切换以下字段：

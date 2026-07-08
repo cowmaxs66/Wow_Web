@@ -78,15 +78,50 @@ function buildPayload(): ClientScriptDeployBundle {
   return payload;
 }
 
-function fillDmSmokeSample(): void {
-  bootstrapName.value = "dm-smoke";
-  bootstrapPath.value = "scripts/dm_smoke_remote.lua";
+function fillDmApiSelfTestSample(): void {
+  bootstrapName.value = "dm-api-selftest";
+  bootstrapPath.value = "scripts/dm_api_selftest_remote.lua";
   securityEnabled.value = false;
   activate.value = true;
   runAfterDeploy.value = false;
   selectedPermissions.value = [...DEFAULT_PERMISSIONS];
   luaContent.value = [
-    "local hwnd = dm.find_window_required('', 'World of Warcraft')",
+    "log('dm api selftest started')",
+    "local abi = dm.abi_version()",
+    "dm.init('')",
+    "local version = dm.ver()",
+    "dm.set_path('.')",
+    "local color = dm.get_color_rgb(0, 0)",
+    "local wait_ok, wait_color = dm.wait_color(0, 0, color.hex, 300, 50)",
+    "local missing_hwnd = dm.find_window('', '__WOW_FRAMEWORK_SELFTEST_WINDOW_SHOULD_NOT_EXIST__')",
+    "local bind_ok, bind_err = dm.safe_bind_window(0, 'normal', 'windows', 'windows', 0)",
+    "local bridge_error = dm.last_bridge_error()",
+    "local dm_error = dm.last_dm_error()",
+    "dm.shutdown()",
+    "return 'dm api selftest ok: abi=' .. tostring(abi)",
+    "  .. ' ver=' .. tostring(version)",
+    "  .. ' color=' .. tostring(color.hex)",
+    "  .. ' wait=' .. tostring(wait_ok) .. '/' .. tostring(wait_color)",
+    "  .. ' missing_hwnd=' .. tostring(missing_hwnd)",
+    "  .. ' invalid_bind_ok=' .. tostring(bind_ok)",
+    "  .. ' bridge_error=' .. tostring(bridge_error)",
+    "  .. ' dm_error=' .. tostring(dm_error)",
+  ].join("\n");
+}
+
+function fillDmSmokeSample(): void {
+  bootstrapName.value = "dm-window-smoke";
+  bootstrapPath.value = "scripts/dm_window_smoke_remote.lua";
+  securityEnabled.value = false;
+  activate.value = true;
+  runAfterDeploy.value = false;
+  selectedPermissions.value = [...DEFAULT_PERMISSIONS];
+  luaContent.value = [
+    "local hwnd = dm.find_window('', 'World of Warcraft')",
+    "if hwnd <= 0 then",
+    "  log('未找到 World of Warcraft 窗口，跳过绑定测试')",
+    "  return 'dm window smoke skipped: World of Warcraft not found'",
+    "end",
     "local ok, err = dm.safe_bind_window(hwnd, 'normal', 'windows', 'windows', 0)",
     "if not ok then",
     "  log('DM 绑定失败：' .. err)",
@@ -94,7 +129,7 @@ function fillDmSmokeSample(): void {
     "end",
     "local color = dm.get_color_rgb(0, 0)",
     "dm.unbind_window()",
-    "return 'dm smoke ok: ' .. color.hex",
+    "return 'dm window smoke ok: ' .. color.hex",
   ].join("\n");
 }
 
@@ -153,9 +188,13 @@ async function deployScript(): Promise<void> {
         <h3>脚本推送</h3>
         <p>选中 Client 热推送 Lua</p>
       </div>
+      <button class="sample-button" type="button" @click="fillDmApiSelfTestSample">
+        <WandSparkles :size="15" />
+        <span>API 自检</span>
+      </button>
       <button class="sample-button" type="button" @click="fillDmSmokeSample">
         <WandSparkles :size="15" />
-        <span>填入 DM 示例</span>
+        <span>窗口 smoke</span>
       </button>
     </div>
 

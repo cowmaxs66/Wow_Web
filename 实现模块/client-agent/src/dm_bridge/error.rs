@@ -45,6 +45,17 @@ impl DmBridgeError {
             message: message.into(),
         }
     }
+
+    pub fn is_find_window_not_found(&self) -> bool {
+        matches!(
+            self,
+            Self::BridgeFailed {
+                context: "dm_bridge_find_window",
+                message,
+                ..
+            } if message.contains("FindWindow not found")
+        )
+    }
 }
 
 impl Display for DmBridgeError {

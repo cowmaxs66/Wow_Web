@@ -114,9 +114,14 @@ fn register_window_and_bind(
     table.set(
         "find_window",
         lua.create_function(move |_, (class_name, title_name): (String, String)| {
-            with_bridge_initialized(&fn_config, &state, "", |bridge| {
+            let result = with_bridge_initialized_result(&fn_config, &state, "", |bridge| {
                 bridge.find_window(&class_name, &title_name)
-            })
+            });
+            match result {
+                Ok(hwnd) => Ok(hwnd),
+                Err(error) if error.is_find_window_not_found() => Ok(0),
+                Err(error) => Err(lua_dm_error(error)),
+            }
         })?,
     )?;
 
@@ -125,15 +130,53 @@ fn register_window_and_bind(
     table.set(
         "find_window_required",
         lua.create_function(move |_, (class_name, title_name): (String, String)| {
-            let hwnd = with_bridge_initialized(&fn_config, &state, "", |bridge| {
+            let result = with_bridge_initialized_result(&fn_config, &state, "", |bridge| {
                 bridge.find_window(&class_name, &title_name)
-            })?;
+            });
+            let hwnd = match result {
+                Ok(hwnd) => hwnd,
+                Err(error) if error.is_find_window_not_found() => 0,
+                Err(error) => return Err(lua_dm_error(error)),
+            };
             if hwnd <= 0 {
                 return Err(LuaError::runtime(format!(
                     "窗口不存在：class={class_name} title={title_name}"
                 )));
             }
             Ok(hwnd)
+        })?,
+    )?;
+
+    let fn_config = config.clone();
+    let state = Rc::clone(bridge_state);
+    table.set(
+        "find_window_try",
+        lua.create_function(move |lua, (class_name, title_name): (String, String)| {
+            let result = with_bridge_initialized_result(&fn_config, &state, "", |bridge| {
+                bridge.find_window(&class_name, &title_name)
+            });
+            let table = lua.create_table()?;
+            match result {
+                Ok(hwnd) => {
+                    table.set("ok", true)?;
+                    table.set("hwnd", hwnd)?;
+                    table.set("error", "")?;
+                }
+                Err(error) if error.is_find_window_not_found() => {
+                    table.set("ok", true)?;
+                    table.set("hwnd", 0)?;
+                    table.set(
+                        "error",
+                        format!("窗口不存在：class={class_name} title={title_name}"),
+                    )?;
+                }
+                Err(error) => {
+                    table.set("ok", false)?;
+                    table.set("hwnd", 0)?;
+                    table.set("error", error.to_string())?;
+                }
+            }
+            Ok(table)
         })?,
     )?;
 

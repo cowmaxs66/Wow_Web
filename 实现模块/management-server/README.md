@@ -7,7 +7,7 @@
 - WebSocket 实时推送、命令下发与结果接收。
 
 ## 当前状态
-P33 阶段已支持 `config.apply` 远程配置命令校验、`/api/client/sync` 合并同步、Client 状态分页过滤、Server 操作审计、Lua 热推送命令校验和 Lua 启停状态命令。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列、命令执行回执和可选审计 JSONL 能力。
+P34 阶段已支持 `config.apply` 远程配置命令校验、`/api/client/sync` 合并同步、Client 状态分页过滤、Server 操作审计、Lua 热推送命令校验、Lua 启停状态命令和桌面控制台入口。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列、命令执行回执和可选审计 JSONL 能力。
 
 ## 当前 API
 | 方法 | 路径 | 说明 |
@@ -93,6 +93,11 @@ P33 阶段已支持 `config.apply` 远程配置命令校验、`/api/client/sync`
 - 内部测试模式允许 `security_enabled = false` 且不携带 manifest。
 - 如果 `security_enabled = true`，payload 必须同时携带 manifest 路径和 manifest 内容。
 - Server 只校验 payload 形状、路径和大小；脚本写入、配置更新和可选执行由 Client 完成并回传命令回执。
+
+## P34 桌面控制台说明
+- Server 托盘启动后默认打开 Edge App 模式窗口，不再打开普通浏览器标签页。
+- 托盘菜单保留“浏览器打开 Web 管理页”作为排错入口。
+- Edge App 模式使用系统浏览器内核和系统 DPI 缩放；目标机器缺少 Edge 时会回退到默认浏览器。
 
 ## 验证命令
 ```powershell

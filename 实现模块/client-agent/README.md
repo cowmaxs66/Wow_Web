@@ -8,7 +8,7 @@
 - 后续再接入实时通讯和命令执行。
 
 ## 当前状态
-P33 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter、合并同步接口、默认 DM 权限、Lua 热推送和 Lua 启停状态命令。
+P34 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出、结构化日志、DmBridge 最小 Lua 高层 API、Server 状态上报、脚本安全门、运行详情摘要、Web 展示联调、普通编译包路径兼容、monitor/setup/open-log/notify、当前用户开机启动、Windows Service、托盘、表单化设置窗口、日志查看窗口、更新检查/下载/自替换、远程命令入口、`config.apply` 受控配置写回、DM smoke 脚本样例、多机器身份字段、monitor jitter、合并同步接口、默认 DM 权限、Lua 热推送、Lua 启停状态命令和 Lua 常用接口扩展。
 
 ## 当前目录
 | 路径 | 职责 |
@@ -18,6 +18,7 @@ P33 阶段已完成配置读取、Lua 文件加载、指令上限、状态输出
 | `src/cli.rs` | monitor、setup、open-log、notify、startup、service、tray、settings 和 update 参数解析 |
 | `src/monitor.rs` | 常驻监控、jitter 周期、合并同步、旧轮询回退，并在每轮重载配置 |
 | `src/local_log.rs` | 本地事件日志和状态 JSONL |
+| `src/log_window.rs` | WinForms 本机日志查看窗口，支持 DPI 缩放和定时刷新 |
 | `src/notifier.rs` | Windows 通知气泡 |
 | `src/startup.rs` | 当前用户开机启动查询、启用和停用 |
 | `src/service_runtime.rs` | Windows Service 运行入口和管理命令 |
@@ -76,6 +77,7 @@ client-agent.exe --run-once
 client-agent.exe --monitor
 client-agent.exe --setup
 client-agent.exe --open-log
+client-agent.exe --log-window
 client-agent.exe --notify
 client-agent.exe --startup-status
 client-agent.exe --enable-startup
@@ -97,6 +99,7 @@ client-agent.exe --update-apply
 - `--monitor` 常驻运行，周期上报状态、轮询 Server 消息、写入本地日志并弹出通知。
 - `--setup` 打开本机配置文件。
 - `--open-log` 打开 `logs/client-agent.log`。
+- `--log-window` 打开日志查看窗口，默认显示最近 800 行并自动刷新。
 - `--notify` 执行一次后弹出状态通知。
 
 ## P12 开机启动入口
@@ -147,6 +150,13 @@ client-agent.exe --update-apply
 - `script.stop` 会把 `lua.enabled` 写为 `false`，Client monitor 继续在线和拉取命令，但不再执行 Lua。
 - `script.status` 返回当前 Lua 开关、脚本路径、安全门和权限摘要。
 - 热推送只允许写入 `scripts/` 目录，避免误覆盖配置、日志或安装目录外文件。
+
+## P34 Lua 常用接口与日志 UI
+- Lua 新增 `dm.safe_bind_window` 和 `dm.bind_window_try`，用于处理 `BindWindow` 失败而不中断脚本。
+- Lua 新增 `dm.with_bound_window`，自动绑定、执行回调并解绑。
+- Lua 新增 `dm.get_color_rgb`、`dm.wait_color`、`dm.sleep_ms` 和 `dm.now_ms`。
+- `--log-window` 和托盘“查看日志窗口”可在 UI 内查看 Client 日志。
+- 完整接口表见 `技术设计/Lua接口表与使用说明.md`。
 
 ## P29/P30 多机器与通讯效率
 - `[client]` 新增 `display_name`、`group` 和 `tags`，用于 Web 多机器管理，不替代稳定 `client.id`。

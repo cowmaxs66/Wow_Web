@@ -20,6 +20,10 @@ pub enum DmBridgeError {
         expected: i32,
         actual: i32,
     },
+    InvalidInput {
+        context: &'static str,
+        message: String,
+    },
     BridgeFailed {
         context: &'static str,
         status: i32,
@@ -75,6 +79,9 @@ impl Display for DmBridgeError {
                     formatter,
                     "DmBridge ABI 版本不匹配：期望 {expected}，实际 {actual}"
                 )
+            }
+            Self::InvalidInput { context, message } => {
+                write!(formatter, "DmBridge 参数无效：{context}，原因：{message}")
             }
             Self::BridgeFailed {
                 context,

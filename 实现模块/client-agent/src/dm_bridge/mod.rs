@@ -89,6 +89,21 @@ impl DmBridge {
         keypad: &str,
         mode: i32,
     ) -> Result<i32, DmBridgeError> {
+        if hwnd <= 0 {
+            return Err(DmBridgeError::InvalidInput {
+                context: "dm_bridge_bind_window",
+                message: format!("hwnd 必须是正整数，实际 {hwnd}"),
+            });
+        }
+        if display.trim().is_empty() || mouse.trim().is_empty() || keypad.trim().is_empty() {
+            return Err(DmBridgeError::InvalidInput {
+                context: "dm_bridge_bind_window",
+                message: format!(
+                    "display/mouse/keypad 不能为空，实际 display={display} mouse={mouse} keypad={keypad}"
+                ),
+            });
+        }
+
         let display = to_wide_nul(display);
         let mouse = to_wide_nul(mouse);
         let keypad = to_wide_nul(keypad);

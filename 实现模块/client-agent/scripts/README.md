@@ -8,6 +8,11 @@
 | `dm_smoke.lua` | DM 实机烟测脚本，只读取 ABI、版本、屏幕颜色并关闭 Bridge，不点击、不绑定窗口 |
 | `dm_smoke.manifest.json` | DM 烟测脚本 manifest，权限限定为 `host.log` 和 `dm.access` |
 
+## Lua 接口说明
+完整接口表见：`技术设计/Lua接口表与使用说明.md`。
+
+脚本中推荐优先使用 `dm.safe_bind_window` 或 `dm.bind_window_try`，避免窗口句柄失效、后台模式不兼容时直接中断整个 Client monitor。
+
 ## DM 烟测使用方式
 在 Client 设置窗口中切换以下字段：
 - `Bootstrap 名称`：`dm-smoke`

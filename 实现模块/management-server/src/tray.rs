@@ -106,6 +106,22 @@ function Restart-Server {
   Start-Server
 }
 
+function Open-DesktopConsole {
+  $programFilesX86 = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
+  $programFiles = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFiles)
+  $edgeCandidates = @(
+    (Join-Path $programFilesX86 'Microsoft\Edge\Application\msedge.exe'),
+    (Join-Path $programFiles 'Microsoft\Edge\Application\msedge.exe')
+  )
+  $edge = $edgeCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+  if ($edge) {
+    Start-Process -FilePath $edge -ArgumentList @("--app=$serverUrl", '--window-size=1280,860')
+    return
+  }
+
+  Start-Process -FilePath $serverUrl
+}
+
 function Open-Web {
   Start-Process -FilePath $serverUrl
 }
@@ -142,7 +158,8 @@ Add-Item '启动 Server' { Start-Server }
 Add-Item '关闭 Server' { Stop-Server }
 Add-Item '重启 Server' { Restart-Server }
 [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
-Add-Item '打开 Web 管理页' { Open-Web }
+Add-Item '打开桌面控制台' { Open-DesktopConsole }
+Add-Item '浏览器打开 Web 管理页' { Open-Web }
 Add-Item '打开日志目录' { Open-LogDir }
 [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
 Add-Item '仅退出托盘' { Dispose-Tray }
@@ -152,9 +169,9 @@ Add-Item '退出托盘并关闭 Server' {
 }
 
 $notify.ContextMenuStrip = $menu
-$notify.add_DoubleClick({ Open-Web })
+$notify.add_DoubleClick({ Open-DesktopConsole })
 Start-Server
-Open-Web
+Open-DesktopConsole
 [System.Windows.Forms.Application]::Run()
 "#
     .replace("__EXE__", &escape_ps_single(exe_path))

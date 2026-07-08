@@ -4,7 +4,7 @@
 大漠插件桥接层，后续使用 Delphi DLL 通过 C ABI 暴露稳定函数给 Rust 调用。
 
 ## 当前状态
-P2 已完成 DmBridge 最小桥接链路，Win32 DLL 可由 32 位 Rust `libloading` 加载，并已通过 Rust/Lua COM 烟测。
+P34 已完成 DmBridge 最小桥接链路和 BindWindow 诊断增强，Win32 DLL 可由 32 位 Rust `libloading` 加载，并已通过 Rust/Lua COM 烟测。
 
 当前只实现 P2 烟测链路：
 - `dm_bridge_abi_version`
@@ -70,6 +70,13 @@ target/dm-bridge/Win32/DmBridge.dll
 - 当前不实现大漠全量接口，只实现烟测链路。
 - 自动烟测验证 `MoveTo`，不自动执行 `LeftClick`，避免误点击。
 - 当前不复制 `dm.dll`、`RegDll.dll`、CHM、授权资料到仓库；P32 起 release 总包和 Client 分包会把 `dm.dll` / `RegDll.dll` 放入 `dm-bridge/Win32/`。
+
+## P34 BindWindow 诊断
+- `dm_bridge_bind_window` 会先校验 `hwnd > 0` 和 `IsWindow(hwnd)`。
+- `display/mouse/keypad` 不能为空。
+- 绑定失败或大漠 COM 抛出异常时，错误消息会包含 `hwnd/display/mouse/keypad/mode/last_dm_error`。
+- `dm_bridge_find_window` 找不到窗口时，错误消息会包含 class/title。
+- 这不会保证 `"dx"` 模式兼容所有窗口；实机脚本应先用 `normal/gdi` 验证，再尝试 `dx`。
 
 ## 契约文档
 详见：`技术设计/DmBridge_C_ABI契约设计.md`

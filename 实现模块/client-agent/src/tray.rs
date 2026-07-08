@@ -112,7 +112,8 @@ Add-Item '启动 Monitor' {{ Start-Monitor }}
 Add-Item '停止 Monitor' {{ Stop-Monitor }}
 [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
 Add-Item '打开设置窗口' {{ Start-Process -FilePath $exe -ArgumentList '--settings-window' -WindowStyle Hidden }}
-Add-Item '打开日志' {{ Start-Process -FilePath $exe -ArgumentList '--open-log' -WindowStyle Hidden }}
+Add-Item '查看日志窗口' {{ Start-Process -FilePath $exe -ArgumentList '--log-window' -WindowStyle Hidden }}
+Add-Item '用默认程序打开日志' {{ Start-Process -FilePath $exe -ArgumentList '--open-log' -WindowStyle Hidden }}
 [void]$menu.Items.Add((New-Object System.Windows.Forms.ToolStripSeparator))
 Add-Item '查询开机启动' {{ Run-Agent '--startup-status' '开机启动状态' }}
 Add-Item '启用开机启动' {{ Run-Agent '--enable-startup' '开机启动' }}

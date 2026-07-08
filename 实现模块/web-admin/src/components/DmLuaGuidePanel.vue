@@ -26,7 +26,13 @@ if hwnd <= 0 then
   return "window not found"
 end
 
-dm.bind_window(hwnd, "dx", "windows", "windows", 0)
+local ok, err = dm.safe_bind_window(hwnd, "normal", "windows", "windows", 0)
+if not ok then
+  log("bind failed: " .. err)
+  dm.shutdown()
+  return "bind failed"
+end
+
 local color = dm.get_color(10, 10)
 dm.unbind_window()
 dm.shutdown()
@@ -72,7 +78,7 @@ async function copySample(): Promise<void> {
         <PlayCircle :size="18" />
         <div>
           <strong>Lua 何時執行</strong>
-          <span>Client 啟動、monitor 每輪刷新、或收到「重新執行 Lua」命令時，會執行目前配置的 bootstrap。</span>
+          <span>Client 啟動、monitor 每輪刷新、收到「重新執行 Lua」或熱推送後立即執行時，會執行目前配置的 bootstrap。</span>
         </div>
       </article>
       <article>
@@ -94,10 +100,10 @@ async function copySample(): Promise<void> {
     <div class="checklist">
       <h3>最小落地步驟</h3>
       <ol>
-        <li>把腳本放到 Client 包的 <code>scripts/bootstrap.lua</code>。</li>
-        <li>在 <code>config/client-agent.toml</code> 指定 <code>lua.bootstrap_path</code> 和 <code>dm.bridge_path</code>。</li>
-        <li>需要 DM 時，在 manifest 的 <code>permissions</code> 和 TOML 的 <code>allowed_permissions</code> 同時加入 <code>dm.access</code>。</li>
-        <li>重啟 Client，或在「遠程操作」中對該 Client 下發「重新執行 Lua」。</li>
+        <li>在「遠程操作」勾選 Client，使用 Lua 熱推送直接寫入 <code>scripts/bootstrap.lua</code>。</li>
+        <li>需要手動放置腳本時，在 <code>config/client-agent.toml</code> 指定 <code>lua.bootstrap_path</code> 和 <code>dm.bridge_path</code>。</li>
+        <li>內部測試模式可不啟用 manifest；重新開啟安全門後，manifest 和 TOML 都要允許 <code>dm.access</code>。</li>
+        <li>绑定窗口优先用 <code>dm.safe_bind_window</code>；<code>dx</code> 模式失败时先试 <code>normal</code> 或 <code>gdi</code>。</li>
       </ol>
     </div>
 

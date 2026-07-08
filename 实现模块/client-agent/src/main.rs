@@ -3,6 +3,7 @@ mod cli;
 mod config;
 mod dm_bridge;
 mod local_log;
+mod log_window;
 mod logging;
 mod lua_dm;
 mod lua_host;
@@ -46,6 +47,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     if command == AgentCommand::OpenLog {
         LocalLog::default().open_event_log()?;
+        return Ok(());
+    }
+
+    if command == AgentCommand::LogWindow {
+        log_window::open_log_window()?;
         return Ok(());
     }
 

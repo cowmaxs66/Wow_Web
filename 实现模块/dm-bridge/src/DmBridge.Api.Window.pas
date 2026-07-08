@@ -10,6 +10,7 @@ function dm_bridge_find_window(ClassName, TitleName: PWideChar; OutHwnd: PIntege
 implementation
 
 uses
+  System.SysUtils,
   DmBridge.Types,
   DmBridge.Strings,
   DmBridge.Errors,
@@ -40,7 +41,13 @@ begin
 
   OutHwnd^ := Hwnd;
   if (Result = DM_BRIDGE_OK) and (Hwnd = 0) then
+  begin
+    SetBridgeError(
+      DM_BRIDGE_DM_FAILED,
+      Format('FindWindow not found: class=%s title=%s', [ClassText, TitleText])
+    );
     Result := DM_BRIDGE_DM_FAILED;
+  end;
 end;
 
 end.

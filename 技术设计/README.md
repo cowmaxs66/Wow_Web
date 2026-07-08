@@ -37,3 +37,5 @@
 | `Client分页过滤与审计持久化设计.md` | 记录 P31 Server 分页过滤、审计 JSONL 和 Web 审计面板边界 |
 | `DM正式包与多选客户端操作设计.md` | 记录 P32 默认 DM 权限、DM DLL 随包和 Web 多选下发边界 |
 | `Lua热推送与内部测试模式设计.md` | 记录 P33 Lua 热推送、Lua 启停、内部测试默认配置和重复下发拦截设计 |
+| `DM绑定诊断与桌面控制台设计.md` | 记录 P34 BindWindow 诊断增强、桌面控制台、日志 UI 和 Lua 常用接口扩展 |
+| `Lua接口表与使用说明.md` | 记录 Client Lua 全局接口、DM 接口、返回值和 BindWindow 排查方式 |

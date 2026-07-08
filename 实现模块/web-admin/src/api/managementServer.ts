@@ -6,7 +6,9 @@ import type {
   ClientMessageRequest,
   ClientStatusHistory,
   ClientStatusEnvelope,
+  ClientStatusPage,
   HealthResponse,
+  ServerAuditEventList,
 } from "../types/protocol";
 
 export class ManagementServerError extends Error {
@@ -27,6 +29,39 @@ export async function fetchClientStatuses(
   baseUrl: string,
 ): Promise<ClientStatusEnvelope[]> {
   return readJson<ClientStatusEnvelope[]>(baseUrl, "/api/client/status");
+}
+
+export interface ClientStatusPageQuery {
+  page: number;
+  pageSize: number;
+  group?: string;
+  tag?: string;
+  online?: boolean | null;
+  search?: string;
+}
+
+export async function fetchClientStatusPage(
+  baseUrl: string,
+  query: ClientStatusPageQuery,
+): Promise<ClientStatusPage> {
+  const params = new URLSearchParams();
+  params.set("page", String(query.page));
+  params.set("page_size", String(query.pageSize));
+
+  if (query.group?.trim()) {
+    params.set("group", query.group.trim());
+  }
+  if (query.tag?.trim()) {
+    params.set("tag", query.tag.trim());
+  }
+  if (typeof query.online === "boolean") {
+    params.set("online", String(query.online));
+  }
+  if (query.search?.trim()) {
+    params.set("search", query.search.trim());
+  }
+
+  return readJson<ClientStatusPage>(baseUrl, `/api/client/status-page?${params.toString()}`);
 }
 
 export async function fetchClientStatus(
@@ -81,6 +116,13 @@ export async function fetchClientCommandReceipts(
     baseUrl,
     `/api/client/command-receipts/${encodeURIComponent(clientId)}`,
   );
+}
+
+export async function fetchServerAuditEvents(
+  baseUrl: string,
+  limit = 50,
+): Promise<ServerAuditEventList> {
+  return readJson<ServerAuditEventList>(baseUrl, `/api/server/audit?limit=${limit}`);
 }
 
 function normalizeBaseUrl(baseUrl: string): string {

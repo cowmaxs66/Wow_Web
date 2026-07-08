@@ -5,6 +5,7 @@ use std::path::PathBuf;
 pub struct ServerConfig {
     pub bind_addr: SocketAddr,
     pub history_path: Option<PathBuf>,
+    pub audit_path: Option<PathBuf>,
     pub web_dir: Option<PathBuf>,
 }
 
@@ -14,6 +15,7 @@ impl ServerConfig {
             .unwrap_or_else(|_| "127.0.0.1:18080".to_string());
         let history_path =
             history_path_from_value(std::env::var("MANAGEMENT_SERVER_HISTORY_PATH").ok());
+        let audit_path = audit_path_from_value(std::env::var("MANAGEMENT_SERVER_AUDIT_PATH").ok());
         let web_dir = optional_path_from_value(std::env::var("MANAGEMENT_SERVER_WEB_DIR").ok());
 
         // P3 只支持本机开发期绑定地址，避免一开始暴露公网监听。
@@ -23,12 +25,17 @@ impl ServerConfig {
         Ok(Self {
             bind_addr: bind_text.parse()?,
             history_path,
+            audit_path,
             web_dir,
         })
     }
 }
 
 fn history_path_from_value(value: Option<String>) -> Option<PathBuf> {
+    optional_path_from_value(value)
+}
+
+fn audit_path_from_value(value: Option<String>) -> Option<PathBuf> {
     optional_path_from_value(value)
 }
 
@@ -53,6 +60,7 @@ mod tests {
         let config = ServerConfig {
             bind_addr: "127.0.0.1:18080".parse().unwrap(),
             history_path: None,
+            audit_path: None,
             web_dir: None,
         };
 
@@ -72,6 +80,14 @@ mod tests {
         assert_eq!(
             history_path_from_value(Some("data/status-history.jsonl".to_string())),
             Some(PathBuf::from("data/status-history.jsonl"))
+        );
+    }
+
+    #[test]
+    fn non_empty_audit_path_is_enabled() {
+        assert_eq!(
+            audit_path_from_value(Some("data/server-audit.jsonl".to_string())),
+            Some(PathBuf::from("data/server-audit.jsonl"))
         );
     }
 

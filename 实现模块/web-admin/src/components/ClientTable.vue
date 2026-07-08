@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { MonitorCheck, Search } from "@lucide/vue";
 import type { ClientStatusEnvelope } from "../types/protocol";
 import { formatRelativeAge, formatTimestamp } from "../types/protocol";
@@ -9,23 +9,33 @@ const props = defineProps<{
   clients: ClientStatusEnvelope[];
   selectedClientId: string;
   loading: boolean;
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+  searchText: string;
+  groupFilter: string;
+  tagFilter: string;
+  onlineFilter: ClientFilter;
 }>();
 
 defineEmits<{
   select: [clientId: string];
+  "update:searchText": [value: string];
+  "update:groupFilter": [value: string];
+  "update:tagFilter": [value: string];
+  "update:onlineFilter": [value: ClientFilter];
+  "update:pageSize": [value: number];
+  applyFilters: [];
+  pageChange: [page: number];
 }>();
 
-type ClientFilter = "all" | "online" | "offline" | "dm" | "script";
-
-const searchText = ref("");
-const activeFilter = ref<ClientFilter>("all");
+type ClientFilter = "all" | "online" | "offline";
 
 const filterOptions: Array<{ value: ClientFilter; label: string }> = [
   { value: "all", label: "全部" },
   { value: "online", label: "在線" },
   { value: "offline", label: "離線" },
-  { value: "dm", label: "DM 權限" },
-  { value: "script", label: "有腳本" },
 ];
 
 const onlineCount = computed(() =>
@@ -49,54 +59,6 @@ const groupCount = computed(() => {
   return groups.size;
 });
 
-const filteredClients = computed(() => {
-  const keyword = searchText.value.trim().toLocaleLowerCase();
-
-  return props.clients.filter((client) => {
-    if (!matchesFilter(client, activeFilter.value)) {
-      return false;
-    }
-
-    if (!keyword) {
-      return true;
-    }
-
-    // 搜索只匹配用户能在列表上看到的字段，避免隐藏条件造成结果难以理解。
-    // 输入：Client ID、显示名、分组、标签、脚本名、版本号与架构。
-    // 输出：符合当前筛选和关键字的客户端列表。
-    // 边界：空关键字只按筛选条件返回，不做历史数据搜索。
-    const haystack = [
-      client.client_id,
-      client.data.identity.display_name,
-      client.data.identity.group,
-      client.data.identity.tags.join(","),
-      client.data.current_script ?? "",
-      client.data.runtime.release_version,
-      client.data.runtime.arch,
-      client.data.server.report_target,
-    ]
-      .join("\n")
-      .toLocaleLowerCase();
-
-    return haystack.includes(keyword);
-  });
-});
-
-function matchesFilter(client: ClientStatusEnvelope, filter: ClientFilter): boolean {
-  switch (filter) {
-    case "online":
-      return client.data.online;
-    case "offline":
-      return !client.data.online;
-    case "dm":
-      return client.data.script.allowed_permissions.includes("dm.access");
-    case "script":
-      return !!client.data.current_script;
-    default:
-      return true;
-  }
-}
-
 function runtimeMode(client: ClientStatusEnvelope): string {
   const arch = client.data.runtime.arch || "unknown";
   const hasDm = client.data.script.allowed_permissions.includes("dm.access");
@@ -108,6 +70,14 @@ function tagText(client: ClientStatusEnvelope): string {
     ? client.data.identity.tags.join(", ")
     : "無標籤";
 }
+
+const pageSummary = computed(() => {
+  if (props.total === 0) {
+    return "0 / 0";
+  }
+
+  return `${props.page} / ${props.totalPages || 1}`;
+});
 </script>
 
 <template>
@@ -121,16 +91,55 @@ function tagText(client: ClientStatusEnvelope): string {
 
     <div class="list-toolbar">
       <div class="summary-strip" aria-label="客戶端摘要">
-        <span>總數 <strong>{{ clients.length }}</strong></span>
+        <span>總數 <strong>{{ total }}</strong></span>
         <span>在線 <strong>{{ onlineCount }}</strong></span>
         <span>分組 <strong>{{ groupCount }}</strong></span>
         <span>DM <strong>{{ dmEnabledCount }}</strong></span>
         <span>腳本 <strong>{{ scriptCount }}</strong></span>
+        <span>頁碼 <strong>{{ pageSummary }}</strong></span>
       </div>
       <label class="search-box">
         <Search :size="15" />
-        <input v-model="searchText" placeholder="搜尋 Client / 分組 / 標籤 / 腳本" />
+        <input
+          :value="searchText"
+          placeholder="搜尋 Client / 分組 / 標籤 / 腳本"
+          @input="$emit('update:searchText', ($event.target as HTMLInputElement).value)"
+        />
       </label>
+    </div>
+
+    <div class="server-filter-row" aria-label="Server 端篩選">
+      <label>
+        <span>分組</span>
+        <input
+          :value="groupFilter"
+          placeholder="default / raid-a"
+          @input="$emit('update:groupFilter', ($event.target as HTMLInputElement).value)"
+        />
+      </label>
+      <label>
+        <span>標籤</span>
+        <input
+          :value="tagFilter"
+          placeholder="dm / farm"
+          @input="$emit('update:tagFilter', ($event.target as HTMLInputElement).value)"
+        />
+      </label>
+      <label>
+        <span>每頁</span>
+        <select
+          :value="pageSize"
+          @change="$emit('update:pageSize', Number(($event.target as HTMLSelectElement).value)); $emit('applyFilters')"
+        >
+          <option :value="10">10</option>
+          <option :value="25">25</option>
+          <option :value="50">50</option>
+          <option :value="100">100</option>
+        </select>
+      </label>
+      <button type="button" :disabled="loading" @click="$emit('applyFilters')">
+        套用篩選
+      </button>
     </div>
 
     <div class="filter-row" aria-label="客戶端篩選">
@@ -138,8 +147,8 @@ function tagText(client: ClientStatusEnvelope): string {
         v-for="option in filterOptions"
         :key="option.value"
         type="button"
-        :class="{ active: activeFilter === option.value }"
-        @click="activeFilter = option.value"
+        :class="{ active: onlineFilter === option.value }"
+        @click="$emit('update:onlineFilter', option.value); $emit('applyFilters')"
       >
         {{ option.label }}
       </button>
@@ -151,7 +160,7 @@ function tagText(client: ClientStatusEnvelope): string {
       <span>啟動 Client Agent 並開啟 Server 上報後，這裡會顯示最新狀態。</span>
     </div>
 
-    <div v-else-if="filteredClients.length === 0" class="empty-state">
+    <div v-else-if="clients.length === 0" class="empty-state">
       <MonitorCheck :size="34" :stroke-width="1.8" />
       <strong>沒有符合條件的 Client</strong>
       <span>清除搜尋字或切換篩選條件後再查看。</span>
@@ -172,7 +181,7 @@ function tagText(client: ClientStatusEnvelope): string {
         </thead>
         <tbody>
           <tr
-            v-for="client in filteredClients"
+            v-for="client in clients"
             :key="client.client_id"
             :class="{ selected: client.client_id === selectedClientId }"
             @click="$emit('select', client.client_id)"
@@ -207,6 +216,24 @@ function tagText(client: ClientStatusEnvelope): string {
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <div v-if="total > 0" class="pager-row">
+      <button
+        type="button"
+        :disabled="loading || page <= 1"
+        @click="$emit('pageChange', page - 1)"
+      >
+        上一頁
+      </button>
+      <span>{{ pageSummary }}，共 {{ total }} 台</span>
+      <button
+        type="button"
+        :disabled="loading || page >= totalPages"
+        @click="$emit('pageChange', page + 1)"
+      >
+        下一頁
+      </button>
     </div>
   </section>
 </template>
@@ -284,6 +311,39 @@ header {
   padding: var(--space-3) var(--space-5);
 }
 
+.server-filter-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-5);
+}
+
+.server-filter-row label {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.server-filter-row span {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.server-filter-row input,
+.server-filter-row select {
+  width: 100%;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--color-text);
+  padding: 8px var(--space-3);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
 .filter-row button {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
@@ -292,6 +352,29 @@ header {
   padding: 7px var(--space-3);
   font-size: 12px;
   font-weight: 780;
+}
+
+.server-filter-row button,
+.pager-row button {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: var(--color-text);
+  padding: 8px var(--space-3);
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.server-filter-row button:hover:not(:disabled),
+.pager-row button:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.server-filter-row button:disabled,
+.pager-row button:disabled {
+  opacity: 0.55;
 }
 
 .filter-row button.active,
@@ -435,6 +518,18 @@ td button small,
   line-height: 1.6;
 }
 
+.pager-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-5);
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
 @media (max-width: 720px) {
   .list-toolbar {
     grid-template-columns: 1fr;
@@ -442,6 +537,16 @@ td button small,
   }
 
   .filter-row {
+    padding: var(--space-3);
+  }
+
+  .server-filter-row {
+    grid-template-columns: 1fr;
+    padding: var(--space-3);
+  }
+
+  .pager-row {
+    justify-content: stretch;
     padding: var(--space-3);
   }
 

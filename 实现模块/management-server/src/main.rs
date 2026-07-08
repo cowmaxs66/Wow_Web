@@ -28,15 +28,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     let config = ServerConfig::from_env()?;
-    let state = match config.history_path.clone() {
-        Some(path) => state::ServerState::with_persistence(path)?,
-        None => state::ServerState::default(),
-    };
+    let state =
+        state::ServerState::from_paths(config.history_path.clone(), config.audit_path.clone())?;
 
     let listener = TcpListener::bind(config.bind_addr).await?;
     tracing::info!(
         bind = %config.bind_addr,
         history_path = ?config.history_path,
+        audit_path = ?config.audit_path,
         web_dir = ?config.web_dir,
         embedded_web_assets = embedded_web::asset_count(),
         "Management Server 已启动"

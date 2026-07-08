@@ -57,6 +57,14 @@ export interface ClientStatusHistory {
   items: ClientStatusEnvelope[];
 }
 
+export interface ClientStatusPage {
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+  items: ClientStatusEnvelope[];
+}
+
 export interface ClientMessageRequest {
   title: string;
   body: string;
@@ -172,6 +180,22 @@ export interface ClientCommandReceiptList {
   client_id: string;
   total: number;
   items: ClientCommandReceipt[];
+}
+
+export interface ServerAuditEvent {
+  id: string;
+  timestamp_ms: number;
+  event_type: string;
+  client_id: string;
+  command_type: string | null;
+  success: boolean | null;
+  summary: string;
+}
+
+export interface ServerAuditEventList {
+  total: number;
+  limit: number;
+  items: ServerAuditEvent[];
 }
 
 export function formatTimestamp(timestampMs: number): string {

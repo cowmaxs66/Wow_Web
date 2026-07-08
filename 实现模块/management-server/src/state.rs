@@ -1,7 +1,8 @@
-use crate::persistence::{HistoryPersistence, PersistenceError};
+use crate::persistence::{AuditPersistence, HistoryPersistence, PersistenceError};
 use shared_types::{
     ClientCommand, ClientCommandReceipt, ClientCommandReceiptRequest, ClientCommandRequest,
-    ClientMessage, ClientMessageRequest, ClientStatus, WsEnvelope,
+    ClientMessage, ClientMessageRequest, ClientStatus, ClientStatusPage, ServerAuditEvent,
+    WsEnvelope,
 };
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -14,6 +15,17 @@ pub const CLIENT_MESSAGE_LIMIT: usize = 100;
 pub const CLIENT_COMMAND_LIMIT: usize = 100;
 pub const CLIENT_COMMAND_RECEIPT_LIMIT: usize = 100;
 pub const CLIENT_ONLINE_STALE_MS: u128 = 30_000;
+pub const SERVER_AUDIT_LIMIT: usize = 500;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ClientStatusPageFilter {
+    pub page: usize,
+    pub page_size: usize,
+    pub group: Option<String>,
+    pub tag: Option<String>,
+    pub online: Option<bool>,
+    pub search: Option<String>,
+}
 
 #[derive(Debug, Clone, Default)]
 pub struct ServerState {
@@ -22,19 +34,40 @@ pub struct ServerState {
     messages: Arc<RwLock<HashMap<String, VecDeque<ClientMessage>>>>,
     commands: Arc<RwLock<HashMap<String, VecDeque<ClientCommand>>>>,
     command_receipts: Arc<RwLock<HashMap<String, VecDeque<ClientCommandReceipt>>>>,
+    audit_events: Arc<RwLock<VecDeque<ServerAuditEvent>>>,
     persistence: Option<HistoryPersistence>,
+    audit_persistence: Option<AuditPersistence>,
 }
 
 impl ServerState {
-    pub fn with_persistence(path: PathBuf) -> Result<Self, PersistenceError> {
-        let persistence = HistoryPersistence::open(path.clone())?;
+    pub fn from_paths(
+        history_path: Option<PathBuf>,
+        audit_path: Option<PathBuf>,
+    ) -> Result<Self, PersistenceError> {
+        let persistence = history_path
+            .as_ref()
+            .map(|path| HistoryPersistence::open(path.clone()))
+            .transpose()?;
+        let audit_persistence = audit_path
+            .as_ref()
+            .map(|path| AuditPersistence::open(path.clone()))
+            .transpose()?;
         let state = Self {
-            persistence: Some(persistence),
+            persistence,
+            audit_persistence,
             ..Self::default()
         };
 
-        for envelope in HistoryPersistence::load(&path)? {
-            state.save_status_in_memory(envelope);
+        if let Some(path) = history_path {
+            for envelope in HistoryPersistence::load(&path)? {
+                state.save_status_in_memory(envelope);
+            }
+        }
+
+        if let Some(path) = audit_path {
+            for event in AuditPersistence::load(&path)? {
+                state.save_audit_in_memory(event);
+            }
         }
 
         Ok(state)
@@ -93,6 +126,21 @@ impl ServerState {
         statuses
     }
 
+    pub fn list_status_page(&self, filter: ClientStatusPageFilter) -> ClientStatusPage {
+        let page = filter.page.max(1);
+        let page_size = filter.page_size.clamp(1, 100);
+        let filtered: Vec<_> = self
+            .list_statuses()
+            .into_iter()
+            .filter(|status| status_matches_filter(status, &filter))
+            .collect();
+        let total = filtered.len();
+        let start = page.saturating_sub(1).saturating_mul(page_size);
+        let items = filtered.into_iter().skip(start).take(page_size).collect();
+
+        ClientStatusPage::new(page, page_size, total, items)
+    }
+
     pub fn get_history(&self, client_id: &str) -> Vec<WsEnvelope<ClientStatus>> {
         self.histories
             .read()
@@ -116,6 +164,13 @@ impl ServerState {
             queue.pop_front();
         }
 
+        let _ = self.record_audit_event(ServerAuditEvent::new(
+            "message.created",
+            client_id,
+            None,
+            None,
+            format!("写入 Server 消息：{}", message.title),
+        ));
         message
     }
 
@@ -129,6 +184,7 @@ impl ServerState {
     }
 
     pub fn push_command(&self, client_id: &str, request: ClientCommandRequest) -> ClientCommand {
+        let command_type = request.command_type.clone();
         let command = ClientCommand::new(client_id.to_string(), request);
         let mut commands = self.commands.write().expect("client command lock poisoned");
         let queue = commands.entry(client_id.to_string()).or_default();
@@ -142,6 +198,13 @@ impl ServerState {
             queue.pop_front();
         }
 
+        let _ = self.record_audit_event(ServerAuditEvent::new(
+            "command.created",
+            client_id,
+            Some(command_type.clone()),
+            None,
+            format!("写入 Client 命令队列：{command_type}"),
+        ));
         command
     }
 
@@ -175,6 +238,13 @@ impl ServerState {
             queue.pop_front();
         }
 
+        let _ = self.record_audit_event(ServerAuditEvent::new(
+            "command.receipt",
+            client_id,
+            Some(receipt.command_type.clone()),
+            Some(receipt.success),
+            receipt.summary.clone(),
+        ));
         receipt
     }
 
@@ -186,6 +256,104 @@ impl ServerState {
             .map(|receipts| receipts.iter().cloned().collect())
             .unwrap_or_default()
     }
+
+    pub fn record_audit_event(&self, event: ServerAuditEvent) -> Result<(), PersistenceError> {
+        // 审计事件先写入内存，再尝试落盘。
+        // 输入：Server 操作或 Client 回执生成的事件。
+        // 输出：Web 能立即看到最近事件；配置文件路径有效时追加 JSONL。
+        // 边界：落盘失败会返回错误，但调用方可选择不阻断主流程。
+        self.save_audit_in_memory(event.clone());
+
+        if let Some(persistence) = &self.audit_persistence {
+            persistence.append(&event)?;
+        }
+
+        Ok(())
+    }
+
+    fn save_audit_in_memory(&self, event: ServerAuditEvent) {
+        let mut audit_events = self
+            .audit_events
+            .write()
+            .expect("server audit lock poisoned");
+        audit_events.push_back(event);
+
+        while audit_events.len() > SERVER_AUDIT_LIMIT {
+            audit_events.pop_front();
+        }
+    }
+
+    pub fn list_audit_events(&self, limit: usize) -> Vec<ServerAuditEvent> {
+        let limit = limit.clamp(1, SERVER_AUDIT_LIMIT);
+        let audit_events = self
+            .audit_events
+            .read()
+            .expect("server audit lock poisoned");
+
+        audit_events.iter().rev().take(limit).cloned().collect()
+    }
+}
+
+fn status_matches_filter(
+    envelope: &WsEnvelope<ClientStatus>,
+    filter: &ClientStatusPageFilter,
+) -> bool {
+    if let Some(online) = filter.online
+        && envelope.data.online != online
+    {
+        return false;
+    }
+
+    if let Some(group) = trimmed_filter(&filter.group)
+        && !text_eq(&envelope.data.identity.group, group)
+    {
+        return false;
+    }
+
+    if let Some(tag) = trimmed_filter(&filter.tag)
+        && !envelope
+            .data
+            .identity
+            .tags
+            .iter()
+            .any(|value| text_eq(value, tag))
+    {
+        return false;
+    }
+
+    if let Some(search) = trimmed_filter(&filter.search)
+        && !status_search_text(envelope).contains(&search.to_lowercase())
+    {
+        return false;
+    }
+
+    true
+}
+
+fn trimmed_filter(value: &Option<String>) -> Option<&str> {
+    value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+}
+
+fn text_eq(left: &str, right: &str) -> bool {
+    left.trim().eq_ignore_ascii_case(right.trim())
+}
+
+fn status_search_text(envelope: &WsEnvelope<ClientStatus>) -> String {
+    [
+        envelope.client_id.as_str(),
+        envelope.data.identity.display_name.as_str(),
+        envelope.data.identity.group.as_str(),
+        &envelope.data.identity.tags.join(" "),
+        envelope.data.current_script.as_deref().unwrap_or_default(),
+        envelope.data.runtime.release_version.as_str(),
+        envelope.data.runtime.arch.as_str(),
+        envelope.data.server.report_target.as_str(),
+    ]
+    .join("\n")
+    .to_lowercase()
 }
 
 fn mark_stale_status(mut envelope: WsEnvelope<ClientStatus>) -> WsEnvelope<ClientStatus> {
@@ -257,6 +425,49 @@ mod tests {
     }
 
     #[test]
+    fn state_pages_and_filters_client_statuses() {
+        let state = ServerState::default();
+
+        for (client_id, group, tags) in [
+            ("client-a", "raid-a", vec!["dm".to_string()]),
+            ("client-b", "raid-a", vec!["farm".to_string()]),
+            ("client-c", "raid-b", vec!["dm".to_string()]),
+        ] {
+            let mut status = ClientStatus::new(client_id);
+            status.identity.group = group.to_string();
+            status.identity.tags = tags;
+            state
+                .save_status(WsEnvelope::status(client_id, status))
+                .expect("status must save");
+        }
+
+        let page = state.list_status_page(ClientStatusPageFilter {
+            page: 1,
+            page_size: 1,
+            group: Some("raid-a".to_string()),
+            tag: None,
+            online: Some(true),
+            search: None,
+        });
+
+        assert_eq!(page.total, 2);
+        assert_eq!(page.total_pages, 2);
+        assert_eq!(page.items.len(), 1);
+        assert_eq!(page.items[0].client_id, "client-a");
+
+        let page = state.list_status_page(ClientStatusPageFilter {
+            page: 1,
+            page_size: 10,
+            group: None,
+            tag: Some("dm".to_string()),
+            online: None,
+            search: None,
+        });
+
+        assert_eq!(page.total, 2);
+    }
+
+    #[test]
     fn state_marks_stale_latest_status_offline() {
         let state = ServerState::default();
         let mut envelope = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
@@ -309,7 +520,7 @@ mod tests {
     fn state_replays_persisted_history_on_startup() {
         let dir = unique_temp_dir("state-replay");
         let path = dir.join("status-history.jsonl");
-        let state = ServerState::with_persistence(path.clone()).expect("state must open");
+        let state = ServerState::from_paths(Some(path.clone()), None).expect("state must open");
 
         for index in 0..3 {
             let mut envelope = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
@@ -318,7 +529,7 @@ mod tests {
             state.save_status(envelope).expect("status must persist");
         }
 
-        let reloaded = ServerState::with_persistence(path).expect("state must replay");
+        let reloaded = ServerState::from_paths(Some(path), None).expect("state must replay");
         let history = reloaded.get_history("client-a");
 
         assert_eq!(history.len(), 3);
@@ -398,6 +609,32 @@ mod tests {
         assert_eq!(receipts.len(), CLIENT_COMMAND_RECEIPT_LIMIT);
         assert_eq!(receipts[0].command_id, "cmd-2");
         assert!(state.list_command_receipts("missing").is_empty());
+    }
+
+    #[test]
+    fn state_records_recent_audit_events() {
+        let state = ServerState::default();
+
+        state.push_command(
+            "client-a",
+            ClientCommandRequest {
+                command_type: "startup.status".to_string(),
+                payload: serde_json::json!({}),
+            },
+        );
+        state.push_message(
+            "client-a",
+            ClientMessageRequest {
+                title: "hello".to_string(),
+                body: "body".to_string(),
+            },
+        );
+
+        let events = state.list_audit_events(10);
+
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].event_type, "message.created");
+        assert_eq!(events[1].event_type, "command.created");
     }
 
     fn unique_temp_dir(name: &str) -> PathBuf {

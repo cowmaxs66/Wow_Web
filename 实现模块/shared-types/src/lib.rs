@@ -179,6 +179,42 @@ pub struct ClientStatusHistory {
     pub items: Vec<WsEnvelope<ClientStatus>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClientStatusPage {
+    pub page: usize,
+    pub page_size: usize,
+    pub total: usize,
+    pub total_pages: usize,
+    pub items: Vec<WsEnvelope<ClientStatus>>,
+}
+
+impl ClientStatusPage {
+    pub fn new(
+        page: usize,
+        page_size: usize,
+        total: usize,
+        items: Vec<WsEnvelope<ClientStatus>>,
+    ) -> Self {
+        let total_pages = if total == 0 {
+            0
+        } else {
+            total.div_ceil(page_size.max(1))
+        };
+
+        // 分页响应只描述当前过滤后的最新状态，不替代历史趋势 API。
+        // 输入：已过滤、已分页的 Client 最新状态列表。
+        // 输出：Web Admin 可直接渲染的分页元数据和当前页数据。
+        // 边界：page_size 至少按 1 计算，避免除 0。
+        Self {
+            page,
+            page_size,
+            total,
+            total_pages,
+            items,
+        }
+    }
+}
+
 impl ClientStatusHistory {
     pub fn new(
         client_id: impl Into<String>,
@@ -496,6 +532,62 @@ impl ClientCommandReceiptList {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServerAuditEvent {
+    pub id: String,
+    pub timestamp_ms: u128,
+    pub event_type: String,
+    pub client_id: String,
+    pub command_type: Option<String>,
+    pub success: Option<bool>,
+    pub summary: String,
+}
+
+impl ServerAuditEvent {
+    pub fn new(
+        event_type: impl Into<String>,
+        client_id: impl Into<String>,
+        command_type: Option<String>,
+        success: Option<bool>,
+        summary: impl Into<String>,
+    ) -> Self {
+        let timestamp_ms = current_timestamp_ms();
+        let event_type = event_type.into();
+        let client_id = client_id.into();
+
+        // 审计事件保存“谁被操作、操作类型、结果摘要”，不保存完整 payload。
+        // 输入：Server handler 或 state 生成的操作摘要。
+        // 输出：可写入 JSONL 的审计事件。
+        // 边界：当前操作者身份尚未接入鉴权，后续再扩展 operator_id。
+        Self {
+            id: format!("{client_id}-{event_type}-{timestamp_ms}"),
+            timestamp_ms,
+            event_type,
+            client_id,
+            command_type,
+            success,
+            summary: summary.into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServerAuditEventList {
+    pub total: usize,
+    pub limit: usize,
+    pub items: Vec<ServerAuditEvent>,
+}
+
+impl ServerAuditEventList {
+    pub fn new(limit: usize, items: Vec<ServerAuditEvent>) -> Self {
+        Self {
+            total: items.len(),
+            limit,
+            items,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ClientSyncRequest {
     pub status: WsEnvelope<ClientStatus>,
 }
@@ -563,6 +655,17 @@ mod tests {
         assert_eq!(history.client_id, "client-a");
         assert_eq!(history.limit, 50);
         assert_eq!(history.total, 1);
+    }
+
+    #[test]
+    fn status_page_computes_total_pages() {
+        let item = WsEnvelope::status("client-a", ClientStatus::new("client-a"));
+        let page = ClientStatusPage::new(2, 10, 21, vec![item]);
+
+        assert_eq!(page.page, 2);
+        assert_eq!(page.total_pages, 3);
+        assert_eq!(page.total, 21);
+        assert_eq!(page.items.len(), 1);
     }
 
     #[test]
@@ -668,6 +771,23 @@ mod tests {
         assert_eq!(receipt.command_id, "cmd-1");
         assert_eq!(receipt.command_type, "startup.status");
         assert!(receipt.success);
+        assert_eq!(list.total, 1);
+    }
+
+    #[test]
+    fn audit_event_keeps_operation_summary() {
+        let event = ServerAuditEvent::new(
+            "command.created",
+            "client-a",
+            Some(REMOTE_COMMAND_STARTUP_STATUS.to_string()),
+            None,
+            "queued startup.status",
+        );
+        let list = ServerAuditEventList::new(50, vec![event.clone()]);
+
+        assert!(event.id.contains("client-a-command.created"));
+        assert_eq!(event.client_id, "client-a");
+        assert_eq!(event.command_type, Some("startup.status".to_string()));
         assert_eq!(list.total, 1);
     }
 }

@@ -444,3 +444,20 @@
   - 总包 `0c5aa5df8f17fb2b99f23c37be6b489b5f22fa3b68351acd5fb41587c46c2795`
   - Server 分包 `cbbbffc9e925312eb27a15884f1817da9effd06bd56dc3b41ca0dba713a3c7c6`
   - Client 分包 `59d576f3be4fb98adcec91976366a0bda65dbae0f016abe7bd814bcac563824f`
+
+## P31 Client 分页过滤与审计持久化验证
+- `cargo fmt --all --check`：通过。
+- `cargo test --workspace`：通过，Client 48 个测试、Server 49 个测试、shared-types 11 个测试、launcher 3 个测试全部通过。
+- `cargo clippy --workspace -- -D warnings`：通过。
+- `cargo build --workspace`：通过。
+- `npm run build`：通过，Web Admin 版本为 `1.23.0`。
+- Server 分页过滤 API 测试：通过，`GET /api/client/status-page` 支持分组、标签、在线和分页元数据。
+- Server 审计 API 测试：通过，消息、命令和命令回执会生成 `ServerAuditEvent` 并可由 `/api/server/audit` 查询。
+- 审计 JSONL 持久化测试：通过，`AuditPersistence` 可追加并回放 JSONL 事件。
+- `tools/package-release.ps1`：通过，三类 Windows zip 已生成。
+- Client 分包 smoke：通过，`bin/client-agent-core.exe --run-once` 输出 `release_version = v1.23.0`、`identity.group = default`、`tags = local,test`。
+- Server 分包分页与审计 smoke：通过，临时端口 `/health` 返回 `ok`，`raid-a` 分页返回 `total = 2`、`total_pages = 2`，`dm` 标签过滤返回 `total = 2`，审计 API 返回 3 条事件，审计 JSONL 写入 3 行。
+- 三类 zip SHA-256：
+  - 总包 `d450d43db072c35c983689208e098c42959590aebf2175f4e10eac23dd1bf9ab`
+  - Server 分包 `f80de951b25743b28d435a8581e93d4267341259e50afa60f7d8e9be83537e02`
+  - Client 分包 `76b34c27c67ceb5298f0dddd33c5ed8949337218bf30d7ec4f61823dbe45fc12`

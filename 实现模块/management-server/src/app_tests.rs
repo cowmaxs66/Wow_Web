@@ -115,6 +115,59 @@ async fn status_list_returns_all_latest_clients() {
 }
 
 #[tokio::test]
+async fn status_page_filters_by_group_tag_and_paginates() {
+    let app = build_router_with_web_dir(ServerState::default(), None);
+
+    for (client_id, group, tags) in [
+        ("client-a", "raid-a", vec!["dm".to_string()]),
+        ("client-b", "raid-a", vec!["farm".to_string()]),
+        ("client-c", "raid-b", vec!["dm".to_string()]),
+    ] {
+        let mut status = ClientStatus::new(client_id);
+        status.identity.group = group.to_string();
+        status.identity.tags = tags;
+        let envelope = WsEnvelope::status(client_id, status);
+        let body = serde_json::to_vec(&envelope).expect("status must serialize");
+
+        let response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/client/status")
+                    .header("content-type", "application/json")
+                    .body(Body::from(body))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/client/status-page?group=raid-a&page=1&page_size=1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    let page: ClientStatusPage =
+        serde_json::from_slice(&body).expect("status page must deserialize");
+
+    assert_eq!(page.page, 1);
+    assert_eq!(page.page_size, 1);
+    assert_eq!(page.total, 2);
+    assert_eq!(page.total_pages, 2);
+    assert_eq!(page.items[0].client_id, "client-a");
+}
+
+#[tokio::test]
 async fn status_history_returns_samples_for_client() {
     let app = build_router_with_web_dir(ServerState::default(), None);
 
@@ -230,6 +283,69 @@ async fn client_message_can_be_created_and_listed() {
     assert_eq!(messages.client_id, "client-a");
     assert_eq!(messages.total, 1);
     assert_eq!(messages.items[0].title, "测试消息");
+}
+
+#[tokio::test]
+async fn server_audit_lists_recent_message_and_command_events() {
+    let app = build_router_with_web_dir(ServerState::default(), None);
+    let message_body = serde_json::to_vec(&ClientMessageRequest {
+        title: "审计消息".to_string(),
+        body: "hello audit".to_string(),
+    })
+    .expect("message request must serialize");
+    let command_body = serde_json::to_vec(&ClientCommandRequest {
+        command_type: "startup.status".to_string(),
+        payload: serde_json::json!({}),
+    })
+    .expect("command request must serialize");
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/client/messages/client-a")
+                .header("content-type", "application/json")
+                .body(Body::from(message_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/client/commands/client-a")
+                .header("content-type", "application/json")
+                .body(Body::from(command_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let response = app
+        .oneshot(
+            Request::builder()
+                .method("GET")
+                .uri("/api/server/audit?limit=10")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = to_bytes(response.into_body(), 1024 * 1024).await.unwrap();
+    let audit: ServerAuditEventList =
+        serde_json::from_slice(&body).expect("audit list must deserialize");
+
+    assert_eq!(audit.total, 2);
+    assert_eq!(audit.items[0].event_type, "command.created");
+    assert_eq!(audit.items[1].event_type, "message.created");
 }
 
 #[tokio::test]

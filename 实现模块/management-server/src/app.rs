@@ -7,14 +7,15 @@ use app_validation::{
     validate_command_receipt_request, validate_command_request, validate_message_request,
     validate_status_envelope,
 };
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::{Json, Router};
+use serde::Deserialize;
 use shared_types::{
     ClientCommand, ClientCommandList, ClientCommandReceipt, ClientCommandReceiptList,
     ClientCommandReceiptRequest, ClientCommandRequest, ClientMessage, ClientMessageList,
-    ClientMessageRequest, ClientStatus, ClientStatusHistory, ClientSyncRequest, ClientSyncResponse,
-    HealthResponse, StatusAck, WsEnvelope,
+    ClientMessageRequest, ClientStatus, ClientStatusHistory, ClientStatusPage, ClientSyncRequest,
+    ClientSyncResponse, HealthResponse, ServerAuditEventList, StatusAck, WsEnvelope,
 };
 use std::path::PathBuf;
 use tower_http::cors::CorsLayer;
@@ -24,6 +25,7 @@ pub fn build_router_with_web_dir(state: ServerState, web_dir: Option<PathBuf>) -
     let router = Router::new()
         .route("/health", get(health))
         .route("/api/client/status", get(list_statuses).post(report_status))
+        .route("/api/client/status-page", get(list_status_page))
         .route("/api/client/sync", axum::routing::post(sync_client))
         .route("/api/client/status/{client_id}", get(get_status))
         .route("/api/client/history/{client_id}", get(get_history))
@@ -39,6 +41,7 @@ pub fn build_router_with_web_dir(state: ServerState, web_dir: Option<PathBuf>) -
             "/api/client/command-receipts/{client_id}",
             get(list_command_receipts).post(push_command_receipt),
         )
+        .route("/api/server/audit", get(list_audit_events))
         .with_state(state)
         // P4 只用于本机 Web Admin 开发联调。生产部署前必须改为明确来源白名单。
         .layer(CorsLayer::permissive());
@@ -122,6 +125,13 @@ async fn list_statuses(State(state): State<ServerState>) -> Json<Vec<WsEnvelope<
     Json(state.list_statuses())
 }
 
+async fn list_status_page(
+    State(state): State<ServerState>,
+    Query(query): Query<StatusPageQuery>,
+) -> Json<ClientStatusPage> {
+    Json(state.list_status_page(query.into_filter()))
+}
+
 async fn get_history(
     State(state): State<ServerState>,
     Path(client_id): Path<String>,
@@ -188,6 +198,45 @@ async fn list_command_receipts(
         client_id.clone(),
         state.list_command_receipts(&client_id),
     ))
+}
+
+async fn list_audit_events(
+    State(state): State<ServerState>,
+    Query(query): Query<AuditQuery>,
+) -> Json<ServerAuditEventList> {
+    let limit = query.limit.unwrap_or(50).clamp(1, 200);
+    Json(ServerAuditEventList::new(
+        limit,
+        state.list_audit_events(limit),
+    ))
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct StatusPageQuery {
+    page: Option<usize>,
+    page_size: Option<usize>,
+    group: Option<String>,
+    tag: Option<String>,
+    online: Option<bool>,
+    search: Option<String>,
+}
+
+impl StatusPageQuery {
+    fn into_filter(self) -> crate::state::ClientStatusPageFilter {
+        crate::state::ClientStatusPageFilter {
+            page: self.page.unwrap_or(1),
+            page_size: self.page_size.unwrap_or(50),
+            group: self.group,
+            tag: self.tag,
+            online: self.online,
+            search: self.search,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+struct AuditQuery {
+    limit: Option<usize>,
 }
 
 fn log_status_report(

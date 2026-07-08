@@ -22,12 +22,12 @@
 
 | 项目 | 内容 |
 |------|------|
-| 版本 | v1.22.0 |
-| 范围 | 多机器管理与通讯效率优化 |
+| 版本 | v1.23.0 |
+| 范围 | Client 分页过滤与审计持久化 |
 | 状态 | 本地包已生成，GitHub Release 未创建 |
 | 本地路径 | `target/release-package/` |
-| 编译包 | `WoW_Framework_v1.22.0_windows.zip`、`WoW_Server_v1.22.0_windows.zip`、`WoW_Client_v1.22.0_windows.zip` |
-| 编译包 SHA-256 | 总包 `0c5aa5df8f17fb2b99f23c37be6b489b5f22fa3b68351acd5fb41587c46c2795`；Server `cbbbffc9e925312eb27a15884f1817da9effd06bd56dc3b41ca0dba713a3c7c6`；Client `59d576f3be4fb98adcec91976366a0bda65dbae0f016abe7bd814bcac563824f` |
+| 编译包 | `WoW_Framework_v1.23.0_windows.zip`、`WoW_Server_v1.23.0_windows.zip`、`WoW_Client_v1.23.0_windows.zip` |
+| 编译包 SHA-256 | 总包 `d450d43db072c35c983689208e098c42959590aebf2175f4e10eac23dd1bf9ab`；Server `f80de951b25743b28d435a8581e93d4267341259e50afa60f7d8e9be83537e02`；Client `76b34c27c67ceb5298f0dddd33c5ed8949337218bf30d7ec4f61823dbe45fc12` |
 
 ## 安全边界
 - 未上传 `dm.dll`。
@@ -69,4 +69,4 @@
 | v1.2.0 | https://github.com/cowmaxs66/Wow_Web/releases/tag/v1.2.0 | `41ca63e6b29658fd572d83c4378b6980dbf0bd36` | 已完成 |
 
 ## 下一步建议
-优先决定是否上传 v1.22.0 GitHub Release；下一阶段建议补 Server 状态列表分页、按分组过滤和长期审计持久化。
+优先测试 v1.23.0 本地包；确认通过后再决定是否上传 GitHub Release。下一阶段建议补多机器容量测试、sync 请求耗时统计和审计操作者身份。

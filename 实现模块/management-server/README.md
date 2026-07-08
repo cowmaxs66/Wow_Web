@@ -7,7 +7,7 @@
 - WebSocket 实时推送、命令下发与结果接收。
 
 ## 当前状态
-P30 阶段已支持 `config.apply` 远程配置命令校验和 `/api/client/sync` 合并同步。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列和命令执行回执能力。
+P31 阶段已支持 `config.apply` 远程配置命令校验、`/api/client/sync` 合并同步、Client 状态分页过滤和 Server 操作审计。Server 保留 JSONL 历史持久化、Web Admin 内嵌、Client 消息队列、远程命令队列、命令执行回执和可选审计 JSONL 能力。
 
 ## 当前 API
 | 方法 | 路径 | 说明 |
@@ -16,6 +16,7 @@ P30 阶段已支持 `config.apply` 远程配置命令校验和 `/api/client/sync
 | `POST` | `/api/client/status` | 接收 `WsEnvelope<ClientStatus>` 状态上报 |
 | `POST` | `/api/client/sync` | 接收状态上报，并返回消息列表和待执行命令 |
 | `GET` | `/api/client/status` | 查询所有 Client 最新状态 |
+| `GET` | `/api/client/status-page` | 分页查询 Client 最新状态，可按分组、标签、在线状态和关键字过滤 |
 | `GET` | `/api/client/status/{client_id}` | 查询指定 Client 最新状态 |
 | `GET` | `/api/client/history/{client_id}` | 查询指定 Client 最近历史状态 |
 | `POST` | `/api/client/messages/{client_id}` | 给指定 Client 写入一条 Server 消息 |
@@ -24,14 +25,15 @@ P30 阶段已支持 `config.apply` 远程配置命令校验和 `/api/client/sync
 | `GET` | `/api/client/commands/{client_id}` | 取出并消费指定 Client 当前内存命令队列 |
 | `POST` | `/api/client/command-receipts/{client_id}` | 接收指定 Client 的命令执行回执 |
 | `GET` | `/api/client/command-receipts/{client_id}` | 查询指定 Client 最近命令执行回执 |
+| `GET` | `/api/server/audit` | 查询最近 Server 审计事件 |
 
 ## 当前目录
 | 路径 | 职责 |
 |------|------|
 | `src/main.rs` | Server 启动入口 |
-| `src/config.rs` | 监听地址配置 |
-| `src/state.rs` | Client 最新状态、短期历史和启动回放 |
-| `src/persistence.rs` | JSONL 历史持久化读写 |
+| `src/config.rs` | 监听地址、历史文件和审计文件配置 |
+| `src/state.rs` | Client 最新状态、短期历史、分页过滤、命令队列和审计事件 |
+| `src/persistence.rs` | JSONL 历史和审计持久化读写 |
 | `src/error.rs` | API 错误响应 |
 | `src/embedded_web.rs` | 编译期内嵌 Web Admin 资源响应 |
 | `src/app.rs` | Axum Router、handler、上线日志和 Web Admin 静态文件 fallback |
@@ -78,6 +80,13 @@ P30 阶段已支持 `config.apply` 远程配置命令校验和 `/api/client/sync
 - `/api/client/sync` 保存 Client 状态后，返回同一 Client 的消息列表和取出的命令列表。
 - 命令在 sync 中仍保持取出即清空语义，避免重复执行。
 
+## P31 分页过滤与审计说明
+- `/api/client/status-page` 只查询最新状态快照，不替代 `/api/client/history/{client_id}`。
+- 分页大小限制为 1 到 100，避免 Web 在多机器场景一次拉取过多数据。
+- `MANAGEMENT_SERVER_AUDIT_PATH` 未配置时只保留进程内最近审计事件。
+- `MANAGEMENT_SERVER_AUDIT_PATH` 配置后，消息、命令和命令回执会追加写入 JSONL，Server 启动时会回放最近审计事件。
+- 审计事件只保存摘要，不保存完整 payload；JSONL 仍可能包含 Client ID 和命令摘要，不得提交到 GitHub。
+
 ## 验证命令
 ```powershell
 cargo run -p management-server
@@ -93,6 +102,13 @@ cargo run -p management-server
 
 ```powershell
 $env:MANAGEMENT_SERVER_HISTORY_PATH='data/status-history.jsonl'
+cargo run -p management-server
+```
+
+启用 Server 审计 JSONL：
+
+```powershell
+$env:MANAGEMENT_SERVER_AUDIT_PATH='data/server-audit.jsonl'
 cargo run -p management-server
 ```
 

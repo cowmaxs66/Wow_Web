@@ -1,4 +1,4 @@
-use shared_types::{ClientStatus, WsEnvelope};
+use shared_types::{ClientStatus, ServerAuditEvent, WsEnvelope};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::{self, OpenOptions};
@@ -72,6 +72,50 @@ impl HistoryPersistence {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct AuditPersistence {
+    path: Arc<PathBuf>,
+    write_lock: Arc<Mutex<()>>,
+}
+
+impl AuditPersistence {
+    pub fn open(path: PathBuf) -> Result<Self, PersistenceError> {
+        ensure_jsonl_file(&path)?;
+
+        Ok(Self {
+            path: Arc::new(path),
+            write_lock: Arc::new(Mutex::new(())),
+        })
+    }
+
+    pub fn load(path: &Path) -> Result<Vec<ServerAuditEvent>, PersistenceError> {
+        ensure_jsonl_file(path)?;
+        load_jsonl(path)
+    }
+
+    pub fn append(&self, event: &ServerAuditEvent) -> Result<(), PersistenceError> {
+        let _guard = self
+            .write_lock
+            .lock()
+            .map_err(|_| PersistenceError::LockPoisoned)?;
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.path.as_ref())?;
+
+        // 审计 JSONL 只追加，不在写入时改写历史行。
+        // 输入：Server 操作或 Client 回执摘要。
+        // 输出：一行审计 JSON，便于后续备份、导出和追查。
+        // 边界：当前不做轮转；生产保留策略后续单独设计。
+        serde_json::to_writer(&mut file, event)?;
+        file.write_all(b"\n")?;
+        file.flush()?;
+
+        Ok(())
+    }
+}
+
 #[derive(Debug)]
 pub enum PersistenceError {
     Io(std::io::Error),
@@ -120,6 +164,10 @@ impl From<serde_json::Error> for PersistenceError {
 }
 
 fn ensure_history_file(path: &Path) -> Result<(), PersistenceError> {
+    ensure_jsonl_file(path)
+}
+
+fn ensure_jsonl_file(path: &Path) -> Result<(), PersistenceError> {
     if let Some(parent) = path
         .parent()
         .filter(|parent| !parent.as_os_str().is_empty())
@@ -129,6 +177,33 @@ fn ensure_history_file(path: &Path) -> Result<(), PersistenceError> {
 
     OpenOptions::new().create(true).append(true).open(path)?;
     Ok(())
+}
+
+fn load_jsonl<T>(path: &Path) -> Result<Vec<T>, PersistenceError>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let file = OpenOptions::new().read(true).open(path)?;
+    let reader = BufReader::new(file);
+    let mut items = Vec::new();
+
+    for (index, line_result) in reader.lines().enumerate() {
+        let line = line_result?;
+        let trimmed = line.trim();
+
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        let item =
+            serde_json::from_str(trimmed).map_err(|source| PersistenceError::InvalidLine {
+                line: index + 1,
+                source,
+            })?;
+        items.push(item);
+    }
+
+    Ok(items)
 }
 
 #[cfg(test)]
@@ -148,6 +223,27 @@ mod tests {
 
         let loaded = HistoryPersistence::load(&path).expect("history must reload");
         assert_eq!(loaded, vec![envelope]);
+
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn audit_persistence_appends_and_loads_jsonl_events() {
+        let dir = unique_temp_dir("jsonl-audit");
+        let path = dir.join("audit").join("server-audit.jsonl");
+        let store = AuditPersistence::open(path.clone()).expect("audit store must open");
+        let event = ServerAuditEvent::new(
+            "command.created",
+            "client-a",
+            Some("startup.status".to_string()),
+            None,
+            "queued startup.status",
+        );
+
+        store.append(&event).expect("audit event must append");
+
+        let loaded = AuditPersistence::load(&path).expect("audit must reload");
+        assert_eq!(loaded, vec![event]);
 
         let _ = fs::remove_dir_all(dir);
     }

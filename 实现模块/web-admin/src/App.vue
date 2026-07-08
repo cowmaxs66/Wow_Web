@@ -11,6 +11,7 @@ import {
 } from "@lucide/vue";
 import { computed, ref } from "vue";
 import AppShell from "./components/AppShell.vue";
+import AuditPanel from "./components/AuditPanel.vue";
 import ClientConfigApplyPanel from "./components/ClientConfigApplyPanel.vue";
 import ClientDetail from "./components/ClientDetail.vue";
 import ClientRemoteActions from "./components/ClientRemoteActions.vue";
@@ -30,6 +31,14 @@ const {
   clientId,
   health,
   clients,
+  clientPage,
+  clientPageSize,
+  clientTotal,
+  clientTotalPages,
+  clientSearch,
+  clientGroupFilter,
+  clientTagFilter,
+  clientOnlineFilter,
   selectedHistory,
   historyLimit,
   selectedClientId,
@@ -88,10 +97,51 @@ const viewMeta = computed(() => {
   }
 });
 
+const clientTableProps = computed(() => ({
+  page: clientPage.value,
+  pageSize: clientPageSize.value,
+  total: clientTotal.value,
+  totalPages: clientTotalPages.value,
+  searchText: clientSearch.value,
+  groupFilter: clientGroupFilter.value,
+  tagFilter: clientTagFilter.value,
+  onlineFilter: clientOnlineFilter.value,
+}));
+
 function changeView(view: string): void {
   if (allowedViews.has(view as AdminView)) {
     activeView.value = view as AdminView;
   }
+}
+
+function updateClientSearch(value: string): void {
+  clientSearch.value = value;
+}
+
+function updateClientGroupFilter(value: string): void {
+  clientGroupFilter.value = value;
+}
+
+function updateClientTagFilter(value: string): void {
+  clientTagFilter.value = value;
+}
+
+function updateClientOnlineFilter(value: "all" | "online" | "offline"): void {
+  clientOnlineFilter.value = value;
+}
+
+function updateClientPageSize(value: number): void {
+  clientPageSize.value = value;
+}
+
+function applyClientFilters(): void {
+  clientPage.value = 1;
+  void refreshDashboard();
+}
+
+function changeClientPage(page: number): void {
+  clientPage.value = page;
+  void refreshDashboard();
 }
 </script>
 
@@ -165,9 +215,17 @@ function changeView(view: string): void {
             :limit="historyLimit"
           />
           <ClientTable
+            v-bind="clientTableProps"
             :clients="clients"
             :selected-client-id="selectedStatus?.client_id ?? ''"
             :loading="loading"
+            @update:search-text="updateClientSearch"
+            @update:group-filter="updateClientGroupFilter"
+            @update:tag-filter="updateClientTagFilter"
+            @update:online-filter="updateClientOnlineFilter"
+            @update:page-size="updateClientPageSize"
+            @apply-filters="applyClientFilters"
+            @page-change="changeClientPage"
             @select="selectedClientId = $event"
           />
         </div>
@@ -180,9 +238,17 @@ function changeView(view: string): void {
     <section v-else-if="activeView === 'clients'" class="content-grid">
       <div class="main-stack">
         <ClientTable
+          v-bind="clientTableProps"
           :clients="clients"
           :selected-client-id="selectedStatus?.client_id ?? ''"
           :loading="loading"
+          @update:search-text="updateClientSearch"
+          @update:group-filter="updateClientGroupFilter"
+          @update:tag-filter="updateClientTagFilter"
+          @update:online-filter="updateClientOnlineFilter"
+          @update:page-size="updateClientPageSize"
+          @apply-filters="applyClientFilters"
+          @page-change="changeClientPage"
           @select="selectedClientId = $event"
         />
         <HistoryTrendPanel
@@ -200,9 +266,17 @@ function changeView(view: string): void {
         <DmLuaGuidePanel :status="selectedStatus" />
         <ScriptPanel :status="selectedStatus" />
         <ClientTable
+          v-bind="clientTableProps"
           :clients="clients"
           :selected-client-id="selectedStatus?.client_id ?? ''"
           :loading="loading"
+          @update:search-text="updateClientSearch"
+          @update:group-filter="updateClientGroupFilter"
+          @update:tag-filter="updateClientTagFilter"
+          @update:online-filter="updateClientOnlineFilter"
+          @update:page-size="updateClientPageSize"
+          @apply-filters="applyClientFilters"
+          @page-change="changeClientPage"
           @select="selectedClientId = $event"
         />
       </div>
@@ -230,10 +304,19 @@ function changeView(view: string): void {
           :clients="clients"
           :server-url="serverUrl"
         />
+        <AuditPanel :server-url="serverUrl" />
         <ClientTable
+          v-bind="clientTableProps"
           :clients="clients"
           :selected-client-id="selectedStatus?.client_id ?? ''"
           :loading="loading"
+          @update:search-text="updateClientSearch"
+          @update:group-filter="updateClientGroupFilter"
+          @update:tag-filter="updateClientTagFilter"
+          @update:online-filter="updateClientOnlineFilter"
+          @update:page-size="updateClientPageSize"
+          @apply-filters="applyClientFilters"
+          @page-change="changeClientPage"
           @select="selectedClientId = $event"
         />
       </div>

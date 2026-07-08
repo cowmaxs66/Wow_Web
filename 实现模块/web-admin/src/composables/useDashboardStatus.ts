@@ -3,6 +3,7 @@ import {
   ManagementServerError,
   fetchClientHistory,
   fetchClientStatus,
+  fetchClientStatusPage,
   fetchClientStatuses,
   fetchHealth,
 } from "../api/managementServer";
@@ -18,6 +19,14 @@ export function useDashboardStatus() {
   );
   const health = ref<"unknown" | "online" | "offline">("unknown");
   const clients = ref<ClientStatusEnvelope[]>([]);
+  const clientPage = ref(1);
+  const clientPageSize = ref(25);
+  const clientTotal = ref(0);
+  const clientTotalPages = ref(0);
+  const clientSearch = ref("");
+  const clientGroupFilter = ref("");
+  const clientTagFilter = ref("");
+  const clientOnlineFilter = ref<"all" | "online" | "offline">("all");
   const selectedHistory = ref<ClientStatusEnvelope[]>([]);
   const historyLimit = ref(0);
   const selectedClientId = ref("");
@@ -95,8 +104,11 @@ export function useDashboardStatus() {
       // 输入：Server URL 与 Client ID 表单值。
       // 输出：clients 列表、选中 Client、最近刷新时间。
       // 边界：404 表示该 Client 尚未上报，不制造假数据。
-      const statusList = await fetchClientStatuses(serverUrl.value);
-      clients.value = await resolveVisibleClients(statusList);
+      const statusPage = await fetchStatusPageOrLegacy();
+      clients.value = await resolveVisibleClients(statusPage.items);
+      clientTotal.value = statusPage.total;
+      clientTotalPages.value = statusPage.total_pages;
+      clientPage.value = statusPage.page;
       selectedClientId.value =
         clients.value.find((client) => client.client_id === selectedClientId.value)
           ?.client_id ??
@@ -107,6 +119,8 @@ export function useDashboardStatus() {
     } catch (error) {
       health.value = "offline";
       clients.value = [];
+      clientTotal.value = 0;
+      clientTotalPages.value = 0;
       selectedHistory.value = [];
       historyLimit.value = 0;
       selectedClientId.value = "";
@@ -117,10 +131,46 @@ export function useDashboardStatus() {
     }
   }
 
+  async function fetchStatusPageOrLegacy() {
+    try {
+      return await fetchClientStatusPage(serverUrl.value, {
+        page: clientPage.value,
+        pageSize: clientPageSize.value,
+        group: clientGroupFilter.value,
+        tag: clientTagFilter.value,
+        online: onlineFilterValue(),
+        search: clientSearch.value,
+      });
+    } catch (error) {
+      if (error instanceof ManagementServerError && error.status === 404) {
+        const items = await fetchClientStatuses(serverUrl.value);
+        return {
+          page: 1,
+          page_size: items.length || clientPageSize.value,
+          total: items.length,
+          total_pages: items.length > 0 ? 1 : 0,
+          items,
+        };
+      }
+
+      throw error;
+    }
+  }
+
+  function onlineFilterValue(): boolean | null {
+    if (clientOnlineFilter.value === "online") {
+      return true;
+    }
+    if (clientOnlineFilter.value === "offline") {
+      return false;
+    }
+    return null;
+  }
+
   async function resolveVisibleClients(
     statusList: ClientStatusEnvelope[],
   ): Promise<ClientStatusEnvelope[]> {
-    if (statusList.length > 0 || !clientId.value.trim()) {
+    if (statusList.length > 0 || !clientId.value.trim() || hasActiveClientQuery()) {
       return statusList;
     }
 
@@ -133,6 +183,15 @@ export function useDashboardStatus() {
 
       throw error;
     }
+  }
+
+  function hasActiveClientQuery(): boolean {
+    return (
+      !!clientSearch.value.trim() ||
+      !!clientGroupFilter.value.trim() ||
+      !!clientTagFilter.value.trim() ||
+      clientOnlineFilter.value !== "all"
+    );
   }
 
   async function refreshSelectedHistory(): Promise<void> {
@@ -166,6 +225,14 @@ export function useDashboardStatus() {
     clientId,
     health,
     clients,
+    clientPage,
+    clientPageSize,
+    clientTotal,
+    clientTotalPages,
+    clientSearch,
+    clientGroupFilter,
+    clientTagFilter,
+    clientOnlineFilter,
     selectedHistory,
     historyLimit,
     selectedClientId,
